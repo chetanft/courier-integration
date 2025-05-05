@@ -33,7 +33,7 @@ A full-stack internal platform to automate the onboarding and integration of cou
 
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/chetanft/courier-integration.git
    cd courier-integration
    ```
 
