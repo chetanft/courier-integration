@@ -1,14 +1,47 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
 import { addCourier, addFieldMapping } from '../lib/supabase';
-import { isValidUrl } from '../lib/utils';
+import { isValidUrl, cn } from '../lib/utils';
+import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../components/ui/select';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+} from '../components/ui/form';
 
 const AddCourier = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const form = useForm({
+    defaultValues: {
+      courier_name: '',
+      username: '',
+      password: '',
+      api_key: '',
+      auth_endpoint: '',
+      auth_method: 'POST',
+      api_endpoint: '',
+      api_intent: 'track_shipment', // Default to track_shipment
+      test_docket: ''
+    },
+    mode: 'onChange' // Enable validation on change
+  });
+  const { register, handleSubmit, watch, formState: { errors }, control } = form;
   const [apiResponse, setApiResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fieldMappings, setFieldMappings] = useState([]);
@@ -24,11 +57,40 @@ const AddCourier = () => {
     'destination'
   ]);
 
+  // Watch the api_intent field to conditionally render the test docket field
+  const apiIntent = watch('api_intent');
+
+  // Update validation rules when API intent changes
+  React.useEffect(() => {
+    // Reset test_docket validation errors when switching away from track_shipment
+    if (apiIntent !== 'track_shipment') {
+      form.clearErrors('test_docket');
+    } else {
+      // Validate test_docket when switching to track_shipment
+      const testDocket = form.getValues('test_docket');
+      if (!testDocket) {
+        form.setError('test_docket', {
+          type: 'required',
+          message: 'Test docket number is required for shipment tracking'
+        });
+      }
+    }
+  }, [apiIntent, form]);
+
   // Handle form submission
   const onSubmit = async (data) => {
     try {
+      // Validate test_docket is provided when API intent is track_shipment
+      if (data.api_intent === 'track_shipment' && !data.test_docket) {
+        form.setError('test_docket', {
+          type: 'required',
+          message: 'Test docket number is required for shipment tracking'
+        });
+        return;
+      }
+
       setLoading(true);
-      console.log('Testing API connection...');
+      console.log('Testing API connection...', data.api_intent);
 
       // Create auth config object
       const authConfig = {
@@ -43,14 +105,35 @@ const AddCourier = () => {
       const courierData = {
         name: data.courier_name,
         auth_config: authConfig,
+        api_intent: data.api_intent,
         created_at: new Date()
       };
+
+      // Create payload based on API intent
+      let payload = {};
+
+      switch (data.api_intent) {
+        case 'track_shipment':
+          payload = { docNo: data.test_docket };
+          break;
+        case 'generate_auth_token':
+          payload = { grant_type: 'client_credentials' };
+          break;
+        case 'fetch_static_config':
+          payload = { client_id: data.username };
+          break;
+        case 'fetch_api_schema':
+          payload = { format: 'json' };
+          break;
+        default:
+          payload = {};
+      }
 
       // Test API connection
       const response = await testCourierApi(
         authConfig,
         data.api_endpoint,
-        { docNo: data.test_docket }
+        payload
       );
 
       // Save courier
@@ -64,7 +147,7 @@ const AddCourier = () => {
         api_field: path,
         tms_field: '',
         courier_id: savedCourier.id,
-        api_type: apiType
+        api_type: data.api_intent
       })));
 
       console.log('Courier added successfully!');
@@ -142,177 +225,252 @@ const AddCourier = () => {
 
       {/* Courier Form */}
       {!apiResponse && (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h2 className="text-lg font-semibold mb-4">Courier Information</h2>
-            <div className="mb-4">
-              <label htmlFor="courier_name" className="block text-sm font-medium mb-1">Courier Name</label>
-              <input
-                id="courier_name"
-                {...register('courier_name', { required: true })}
-                placeholder="Enter courier name"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.courier_name && <p className="text-sm text-red-500 mt-1">Courier name is required</p>}
-            </div>
-          </div>
+        <Form {...form}>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Courier Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={control}
+                  name="courier_name"
+                  rules={{ required: "Courier name is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Courier Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter courier name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h2 className="text-lg font-semibold mb-4">Authentication Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium mb-1">Username</label>
-                <input
-                  id="username"
-                  {...register('username')}
-                  placeholder="Enter username"
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  {...register('password')}
-                  placeholder="Enter password"
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
-              <div>
-                <label htmlFor="api_key" className="block text-sm font-medium mb-1">API Key</label>
-                <input
-                  id="api_key"
-                  {...register('api_key')}
-                  placeholder="Enter API key"
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
-            </div>
-          </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Authentication Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter username" {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Enter password" {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={control}
+                    name="api_key"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API Key</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter API key" {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <h2 className="text-lg font-semibold mb-4">API Testing</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label htmlFor="api_endpoint" className="block text-sm font-medium mb-1">API Endpoint</label>
-                <input
-                  id="api_endpoint"
-                  {...register('api_endpoint', { required: true })}
-                  placeholder="https://api.example.com/tracking"
-                  className="w-full px-3 py-2 border rounded"
+            <Card>
+              <CardHeader>
+                <CardTitle>API Testing</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={control}
+                  name="api_endpoint"
+                  rules={{ required: "API endpoint is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>API Endpoint</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://api.example.com/tracking" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        The URL endpoint to test the API connection
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                {errors.api_endpoint && <p className="text-sm text-red-500 mt-1">API endpoint is required</p>}
-              </div>
-              <div>
-                <label htmlFor="api_type" className="block text-sm font-medium mb-1">API Type</label>
-                <select
-                  id="api_type"
-                  value={apiType}
-                  onChange={(e) => setApiType(e.target.value)}
-                  className="w-full px-3 py-2 border rounded"
-                >
-                  <option value="track_docket">Track Docket</option>
-                  <option value="epod">EPOD</option>
-                  <option value="track_multiple_dockets">Track Multiple Dockets</option>
-                </select>
-              </div>
-              <div>
-                <label htmlFor="test_docket" className="block text-sm font-medium mb-1">Test Docket Number</label>
-                <input
-                  id="test_docket"
-                  {...register('test_docket', { required: true })}
-                  placeholder="ABC123456"
-                  className="w-full px-3 py-2 border rounded"
-                />
-                {errors.test_docket && <p className="text-sm text-red-500 mt-1">Test docket is required</p>}
-              </div>
-            </div>
-          </div>
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? 'Testing API...' : 'Test API & Continue'}
-            </button>
-          </div>
-        </form>
+                <FormField
+                  control={control}
+                  name="api_intent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        <span className="flex items-center gap-2">
+                          API Intent
+                          <span className="text-xs text-muted-foreground" title="What are you trying to test with this API?">
+                            (What are you trying to test with this API?)
+                          </span>
+                        </span>
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select API intent" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="generate_auth_token">Generate Auth Token</SelectItem>
+                          <SelectItem value="fetch_static_config">Fetch Static Config</SelectItem>
+                          <SelectItem value="fetch_api_schema">Fetch API Schema</SelectItem>
+                          <SelectItem value="track_shipment">Track Shipment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+
+                {/* Always render the field but conditionally show/hide it with CSS */}
+                <div className={apiIntent === 'track_shipment' ? 'block' : 'hidden'}>
+                  <FormField
+                    control={control}
+                    name="test_docket"
+                    rules={{
+                      required: apiIntent === 'track_shipment'
+                        ? "Test docket number is required for shipment tracking"
+                        : false
+                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          <span className="flex items-center gap-2">
+                            Test Docket Number
+                            <span className="text-xs text-muted-foreground" title="Used only when tracking a specific shipment (AWB/Waybill)">
+                              (Used only when tracking a specific shipment)
+                            </span>
+                          </span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="ABC123456" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Enter a valid tracking/docket number to test the shipment tracking API
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Testing API...' : 'Test API & Continue'}
+              </Button>
+            </div>
+          </form>
+        </Form>
       )}
 
       {/* Field Mapping */}
       {apiResponse && (
-        <div className="bg-white p-6 rounded-lg shadow-sm border mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Field Mapping</h2>
-            <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded">
-              {fieldMappings.filter(m => m.tms_field).length} of {fieldMappings.length} fields mapped
-            </span>
-          </div>
-
-          <div className="mb-6">
-            <h3 className="text-md font-medium mb-2">API Response</h3>
-            <div className="bg-gray-50 p-4 rounded border overflow-auto max-h-40">
-              <pre className="text-xs text-gray-600 font-mono">
-                {JSON.stringify(apiResponse, null, 2)}
-              </pre>
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Field Mapping</CardTitle>
+              <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded">
+                {fieldMappings.filter(m => m.tms_field).length} of {fieldMappings.length} fields mapped
+              </span>
             </div>
-          </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <h3 className="text-md font-medium mb-2">API Response</h3>
+              <div className="bg-gray-50 p-4 rounded border overflow-auto max-h-40">
+                <pre className="text-xs text-gray-600 font-mono">
+                  {JSON.stringify(apiResponse, null, 2)}
+                </pre>
+              </div>
+            </div>
 
-          <div className="mb-6">
-            <h3 className="text-md font-medium mb-2">Map Fields</h3>
-            <div className="border rounded overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">API Field Path</th>
-                    <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">TMS Field</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {fieldMappings.map((mapping, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="py-2 px-4 text-sm font-mono text-gray-500">
-                        {formatFieldPath(mapping.api_field)}
-                      </td>
-                      <td className="py-2 px-4">
-                        <select
-                          value={mapping.tms_field}
-                          onChange={(e) => handleMappingChange(mapping.api_field, e.target.value)}
-                          className="w-full px-3 py-1 border rounded text-sm"
-                        >
-                          <option value="">-- Select TMS Field --</option>
-                          {tmsFields.map(field => (
-                            <option key={field} value={field}>{field}</option>
-                          ))}
-                        </select>
-                      </td>
+            <div>
+              <h3 className="text-md font-medium mb-2">Map Fields</h3>
+              <div className="border rounded overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">API Field Path</th>
+                      <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">TMS Field</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {fieldMappings.map((mapping, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="py-2 px-4 text-sm font-mono text-gray-500">
+                          {formatFieldPath(mapping.api_field)}
+                        </td>
+                        <td className="py-2 px-4">
+                          <Select
+                            value={mapping.tms_field}
+                            onValueChange={(value) => handleMappingChange(mapping.api_field, value)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="-- Select TMS Field --" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">-- Select TMS Field --</SelectItem>
+                              {tmsFields.map(field => (
+                                <SelectItem key={field} value={field}>{field}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-4">
-            <button
-              onClick={saveMappings}
-              disabled={loading}
-              className="px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50"
-            >
-              Save Mappings
-            </button>
-            <button
-              onClick={generateJsFile}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              Generate JS File
-            </button>
-          </div>
-        </div>
+            <div className="flex justify-end space-x-4">
+              <Button
+                variant="outline"
+                onClick={saveMappings}
+                disabled={loading}
+              >
+                Save Mappings
+              </Button>
+              <Button
+                onClick={generateJsFile}
+                disabled={loading}
+              >
+                Generate JS File
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
