@@ -27,7 +27,6 @@ A full-stack internal platform to automate the onboarding and integration of cou
 
 - Node.js (v14 or higher)
 - npm or yarn
-- Supabase account
 
 ### Installation
 
@@ -42,22 +41,20 @@ A full-stack internal platform to automate the onboarding and integration of cou
    npm install
    ```
 
-3. Create a Supabase project and set up the database schema:
-   - Create a new project in Supabase
-   - Run the SQL migration in `supabase/migrations/20230501000000_initial_schema.sql`
-
-4. Configure environment variables:
-   - Copy `.env.example` to `.env`
-   - Update with your Supabase URL and anon key:
-     ```
-     VITE_SUPABASE_URL=your_supabase_url
-     VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-     ```
-
-5. Start the development server:
+3. Start the development server:
    ```
    npm run dev
    ```
+
+### Note on Data Storage
+
+The current version uses mock data instead of Supabase for demonstration purposes. All data is stored in memory and will be reset when the page is refreshed.
+
+In a future version, Supabase integration will be added for persistent data storage. When that happens, you'll need to:
+
+1. Create a Supabase project and set up the database schema
+2. Configure environment variables with your Supabase credentials
+3. Uncomment the Supabase code in the project
 
 ## Usage
 

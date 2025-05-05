@@ -1,3 +1,32 @@
+// Import mock data functions
+import {
+  getCouriers,
+  addCourier,
+  getClients,
+  addClient,
+  addFieldMapping,
+  getFieldMappings,
+  linkClientToCourier,
+  getCourierClients,
+  testCourierApi
+} from './mock-data';
+
+// Export all the mock functions
+export {
+  getCouriers,
+  addCourier,
+  getClients,
+  addClient,
+  addFieldMapping,
+  getFieldMappings,
+  linkClientToCourier,
+  getCourierClients
+};
+
+// Note: This file now uses mock data instead of Supabase
+// To switch back to Supabase, uncomment the code below and comment out the imports above
+
+/*
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize the Supabase client
@@ -12,7 +41,7 @@ export const getCouriers = async () => {
   const { data, error } = await supabase
     .from('couriers')
     .select('*');
-  
+
   if (error) throw error;
   return data;
 };
@@ -22,7 +51,7 @@ export const addCourier = async (courierData) => {
     .from('couriers')
     .insert([courierData])
     .select();
-  
+
   if (error) throw error;
   return data[0];
 };
@@ -32,7 +61,7 @@ export const getClients = async () => {
   const { data, error } = await supabase
     .from('clients')
     .select('*');
-  
+
   if (error) throw error;
   return data;
 };
@@ -42,7 +71,7 @@ export const addClient = async (clientData) => {
     .from('clients')
     .insert([clientData])
     .select();
-  
+
   if (error) throw error;
   return data[0];
 };
@@ -53,7 +82,7 @@ export const addFieldMapping = async (mappingData) => {
     .from('field_mappings')
     .insert([mappingData])
     .select();
-  
+
   if (error) throw error;
   return data[0];
 };
@@ -64,7 +93,7 @@ export const getFieldMappings = async (courierId, apiType) => {
     .select('*')
     .eq('courier_id', courierId)
     .eq('api_type', apiType);
-  
+
   if (error) throw error;
   return data;
 };
@@ -75,7 +104,7 @@ export const linkClientToCourier = async (linkData) => {
     .from('courier_client_links')
     .insert([linkData])
     .select();
-  
+
   if (error) throw error;
   return data[0];
 };
@@ -85,7 +114,8 @@ export const getCourierClients = async (courierId) => {
     .from('courier_client_links')
     .select('client_id')
     .eq('courier_id', courierId);
-  
+
   if (error) throw error;
   return data.map(link => link.client_id);
 };
+*/
