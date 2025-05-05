@@ -1,70 +1,24 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { getCouriers, getClients, linkClientsTocourier } from '../lib/supabase';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { addClient } from '../lib/supabase';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 
 const AddClient = () => {
-  const [couriers, setCouriers] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [selectedCourier, setSelectedCourier] = useState('');
-  const [selectedClients, setSelectedClients] = useState([]);
+  const [clientName, setClientName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Fetch couriers and clients on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch couriers and clients in parallel
-        const [couriersData, clientsData] = await Promise.all([
-          getCouriers(),
-          getClients()
-        ]);
-
-        setCouriers(couriersData);
-        setClients(clientsData);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError({
-          message: 'Failed to load couriers and clients',
-          details: err
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Handle courier selection
-  const handleCourierChange = (courierId) => {
-    setSelectedCourier(courierId);
-    setSelectedClients([]);
-  };
-
-  // Handle client selection
-  const handleClientChange = (clientId) => {
-    setSelectedClients(prev => {
-      if (prev.includes(clientId)) {
-        return prev.filter(id => id !== clientId);
-      } else {
-        return [...prev, clientId];
-      }
-    });
-  };
+  const navigate = useNavigate();
 
   // Handle form submission
   const onSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedCourier || selectedClients.length === 0) {
+    if (!clientName.trim()) {
       setError({
-        message: 'Please select a courier and at least one client'
+        message: 'Please enter a client name'
       });
       return;
     }
@@ -73,19 +27,18 @@ const AddClient = () => {
     setError(null);
 
     try {
-      // Make real API call to link clients to courier
-      await linkClientsTocourier(selectedCourier, selectedClients);
-      console.log('Linked clients:', selectedClients, 'to courier:', selectedCourier);
+      // Make real API call to add client
+      await addClient({ name: clientName.trim() });
 
-      // Reset selection after successful linking
-      setSelectedClients([]);
+      // Show success message
+      alert('Client added successfully!');
 
-      // Show success message (in a real app, you might use a toast notification)
-      alert('Clients linked to courier successfully!');
+      // Navigate back to home
+      navigate('/');
     } catch (err) {
-      console.error('Error linking clients to courier:', err);
+      console.error('Error adding client:', err);
       setError({
-        message: 'Failed to link clients to courier',
+        message: 'Failed to add client',
         details: err
       });
     } finally {
@@ -96,7 +49,7 @@ const AddClient = () => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Add Client to Courier</h1>
+        <h1 className="text-2xl font-bold">Add New Client</h1>
         <Link to="/" className="px-4 py-2 border rounded hover:bg-gray-50">
           Back to Dashboard
         </Link>
@@ -104,7 +57,7 @@ const AddClient = () => {
 
       {loading && !error && (
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4 text-center">
-          <div className="animate-pulse text-blue-600">Loading data...</div>
+          <div className="animate-pulse text-blue-600">Saving client...</div>
         </div>
       )}
 
@@ -122,68 +75,32 @@ const AddClient = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Link Clients to Courier</CardTitle>
+          <CardTitle>Client Information</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit}>
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Select Courier</label>
-              <select
-                className="w-full px-3 py-2 border rounded"
-                onChange={(e) => handleCourierChange(e.target.value)}
-                value={selectedCourier}
-                disabled={loading || couriers.length === 0}
-              >
-                <option value="">-- Select Courier --</option>
-                {couriers.map(courier => (
-                  <option key={courier.id} value={courier.id}>{courier.name}</option>
-                ))}
-              </select>
-              {couriers.length === 0 && !loading && !error && (
-                <p className="text-sm text-amber-600 mt-1">No couriers available. Please add a courier first.</p>
-              )}
+              <Label htmlFor="clientName" className="mb-2 block">Client Name</Label>
+              <Input
+                id="clientName"
+                type="text"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Enter client name"
+                disabled={loading}
+                className="w-full"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Enter the name of the client to add to the system.
+              </p>
             </div>
-
-            {selectedCourier && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium">Select Clients</label>
-                  <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
-                    {selectedClients.length} selected
-                  </span>
-                </div>
-                <div className="border rounded p-4">
-                  {clients.length === 0 ? (
-                    <p className="text-sm text-amber-600">No clients available. Please add clients first.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {clients.map(client => (
-                        <div key={client.id} className="flex items-center p-2 hover:bg-gray-50 rounded">
-                          <input
-                            type="checkbox"
-                            id={`client-${client.id}`}
-                            checked={selectedClients.includes(client.id)}
-                            onChange={() => handleClientChange(client.id)}
-                            className="mr-3"
-                            disabled={loading}
-                          />
-                          <label htmlFor={`client-${client.id}`} className="cursor-pointer">
-                            {client.name}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-end">
               <Button
                 type="submit"
-                disabled={loading || !selectedCourier || selectedClients.length === 0}
+                disabled={loading || !clientName.trim()}
               >
-                {loading ? 'Saving...' : 'Link Clients to Courier'}
+                {loading ? 'Saving...' : 'Add Client'}
               </Button>
             </div>
           </form>
