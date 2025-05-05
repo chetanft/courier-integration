@@ -10,9 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('VITE_SUPABASE_URL:', supabaseUrl);
   console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Exists but not showing for security' : 'Missing');
 
-  // Provide fallback values for development only
-  // In production, this should throw an error
-  if (import.meta.env.DEV) {
+  // In production, throw an error if environment variables are missing
+  if (import.meta.env.PROD) {
+    throw new Error('Missing Supabase environment variables in production. Check your Netlify environment variables.');
+  } else {
+    // In development, just warn
     console.warn('Using fallback values for development. DO NOT use in production!');
   }
 }
@@ -20,16 +22,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Log the Supabase URL (but not the key for security reasons)
 console.log('Connecting to Supabase at URL:', supabaseUrl);
 
-// Create the Supabase client with debug enabled in development
+// Create the Supabase client with appropriate configuration for the environment
 const supabase = createClient(
-  supabaseUrl || 'https://placeholder-url.supabase.co',
-  supabaseAnonKey || 'placeholder-key',
+  // In production, don't use fallback values
+  import.meta.env.PROD ? supabaseUrl : (supabaseUrl || 'https://placeholder-url.supabase.co'),
+  import.meta.env.PROD ? supabaseAnonKey : (supabaseAnonKey || 'placeholder-key'),
   {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
     },
-    // Enable debug mode in development
+    // Enable debug mode in development only
     debug: import.meta.env.DEV
   }
 );

@@ -65,6 +65,34 @@ This application uses Supabase as its backend. To run the application:
    npm run dev
    ```
 
+### Deployment to Netlify
+
+1. Create a Netlify account at [netlify.com](https://netlify.com)
+
+2. Deploy using the Netlify UI:
+   - Go to [app.netlify.com](https://app.netlify.com)
+   - Click "Add new site" > "Import an existing project"
+   - Connect to your Git provider (GitHub, GitLab, etc.)
+   - Select your repository
+   - Configure build settings:
+     - Build command: `npm run build`
+     - Publish directory: `dist`
+   - Click "Deploy site"
+
+3. Configure environment variables:
+   - Go to Site settings > Environment variables
+   - Add the following variables:
+     - `SUPABASE_URL`: Your Supabase project URL
+     - `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+
+4. Alternatively, deploy using Netlify CLI:
+   ```
+   npm install -g netlify-cli
+   netlify login
+   netlify init
+   netlify deploy --prod
+   ```
+
 ## Usage
 
 ### Adding a New Courier
