@@ -111,16 +111,7 @@ export const testCourierApi = async (credentials, endpoint, payload, apiIntent, 
       timestamp: new Date().toISOString()
     };
 
-    // For development, you might want to fall back to mock data
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Falling back to mock data in development mode');
-      return {
-        ...mockTestCourierApi(credentials, endpoint, payload, apiIntent),
-        _warning: 'Using mock data due to API error',
-        _error: errorResponse
-      };
-    }
-
+    // Return the error response without falling back to mock data
     return errorResponse;
   }
 };

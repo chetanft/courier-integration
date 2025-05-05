@@ -57,8 +57,8 @@ const AddCourier = () => {
     'destination'
   ]);
 
-  // State to toggle between real API calls and mock data
-  const [useMockData, setUseMockData] = useState(false);
+  // State to track API errors
+  const [apiError, setApiError] = useState(null);
 
   // Watch the api_intent field to conditionally render the test docket field
   const apiIntent = watch('api_intent');
@@ -132,15 +132,24 @@ const AddCourier = () => {
           payload = {};
       }
 
-      // Test API connection - use real API calls or mock data based on toggle
-      console.log(`Using ${useMockData ? 'mock data' : 'real API calls'} for testing`);
+      // Reset any previous API errors
+      setApiError(null);
+
+      // Test API connection with real API calls
+      console.log('Making real API call for testing');
       const response = await testCourierApi(
         authConfig,
         data.api_endpoint,
         payload,
         data.api_intent,
-        useMockData // Toggle between real API calls and mock data
+        false // Always use real API calls
       );
+
+      // Check if the response contains an error
+      if (response.error) {
+        setApiError(response);
+        throw new Error(`API call failed: ${response.message}`);
+      }
 
       // Save courier
       const savedCourier = await addCourier(courierData);
@@ -159,6 +168,15 @@ const AddCourier = () => {
       console.log('Courier added successfully!');
     } catch (error) {
       console.error('Error adding courier:', error);
+
+      // If we don't already have API error details, set them from the caught error
+      if (!apiError) {
+        setApiError({
+          error: true,
+          message: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -303,23 +321,28 @@ const AddCourier = () => {
 
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>API Testing</CardTitle>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-muted-foreground">
-                      {useMockData ? 'Using Mock Data' : 'Using Real API'}
-                    </span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useMockData}
-                        onChange={() => setUseMockData(!useMockData)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
+                <CardTitle>API Testing</CardTitle>
+                {apiError && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+                    <div className="font-semibold">API Error:</div>
+                    <div>{apiError.message}</div>
+                    {apiError.status && (
+                      <div className="mt-1">
+                        Status: {apiError.status} {apiError.statusText}
+                      </div>
+                    )}
+                    {apiError.details && Object.keys(apiError.details).length > 0 && (
+                      <div className="mt-1">
+                        <details>
+                          <summary className="cursor-pointer">Error Details</summary>
+                          <pre className="mt-2 text-xs overflow-auto max-h-32 p-2 bg-red-100 rounded">
+                            {JSON.stringify(apiError.details, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -369,6 +392,12 @@ const AddCourier = () => {
                           <SelectItem value="track_shipment">Track Shipment</SelectItem>
                         </SelectContent>
                       </Select>
+                      <FormDescription>
+                        {apiIntent === 'generate_auth_token' && 'Tests authentication by requesting an access token from the API.'}
+                        {apiIntent === 'fetch_static_config' && 'Retrieves configuration settings from the API.'}
+                        {apiIntent === 'fetch_api_schema' && 'Fetches the API schema or metadata information.'}
+                        {apiIntent === 'track_shipment' && 'Tests shipment tracking using the provided docket number.'}
+                      </FormDescription>
                     </FormItem>
                   )}
                 />
