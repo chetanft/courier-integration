@@ -1,6 +1,17 @@
 /**
  * Utility functions for the courier integration platform
  */
+import { clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+/**
+ * Merge class names with tailwind-merge
+ * @param  {...any} inputs - Class names to merge
+ * @returns {string} Merged class names
+ */
+export function cn(...inputs) {
+  return twMerge(clsx(inputs))
+}
 
 /**
  * Format a date string to a readable format
@@ -9,7 +20,7 @@
  */
 export const formatDate = (date) => {
   if (!date) return '';
-  
+
   const dateObj = new Date(date);
   return dateObj.toLocaleString();
 };
@@ -23,7 +34,7 @@ export const formatDate = (date) => {
 export const truncateString = (str, length = 50) => {
   if (!str) return '';
   if (str.length <= length) return str;
-  
+
   return `${str.substring(0, length)}...`;
 };
 
