@@ -57,6 +57,9 @@ const AddCourier = () => {
     'destination'
   ]);
 
+  // State to toggle between real API calls and mock data
+  const [useMockData, setUseMockData] = useState(false);
+
   // Watch the api_intent field to conditionally render the test docket field
   const apiIntent = watch('api_intent');
 
@@ -129,11 +132,14 @@ const AddCourier = () => {
           payload = {};
       }
 
-      // Test API connection
+      // Test API connection - use real API calls or mock data based on toggle
+      console.log(`Using ${useMockData ? 'mock data' : 'real API calls'} for testing`);
       const response = await testCourierApi(
         authConfig,
         data.api_endpoint,
-        payload
+        payload,
+        data.api_intent,
+        useMockData // Toggle between real API calls and mock data
       );
 
       // Save courier
@@ -297,7 +303,23 @@ const AddCourier = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>API Testing</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>API Testing</CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-muted-foreground">
+                      {useMockData ? 'Using Mock Data' : 'Using Real API'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={useMockData}
+                        onChange={() => setUseMockData(!useMockData)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
