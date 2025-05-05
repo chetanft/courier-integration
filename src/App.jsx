@@ -14,7 +14,7 @@ import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
 
 // Import API functions
-import { getCouriers, getClients } from './lib/supabase';
+import { getCouriers, getClients } from './lib/supabase-service';
 
 // Home component wrapper to provide navigation context
 const HomeWithNavigation = () => {

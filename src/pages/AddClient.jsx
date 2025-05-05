@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { addClient } from '../lib/supabase';
+import { addClient } from '../lib/supabase-service';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -27,8 +27,12 @@ const AddClient = () => {
     setError(null);
 
     try {
+      console.log('Submitting client with name:', clientName.trim());
+
       // Make real API call to add client
-      await addClient({ name: clientName.trim() });
+      const result = await addClient({ name: clientName.trim() });
+
+      console.log('Client add result:', result);
 
       // Show success message
       alert('Client added successfully!');
@@ -37,9 +41,19 @@ const AddClient = () => {
       navigate('/');
     } catch (err) {
       console.error('Error adding client:', err);
+
+      // Create a more detailed error object
       setError({
-        message: 'Failed to add client',
-        details: err
+        message: err.message || 'Failed to add client',
+        details: {
+          status: err.status,
+          statusText: err.statusText,
+          code: err.code,
+          hint: err.hint,
+          details: err.details
+        },
+        operation: err.operation,
+        timestamp: err.timestamp || new Date().toISOString()
       });
     } finally {
       setLoading(false);
@@ -65,10 +79,42 @@ const AddClient = () => {
         <div className="bg-red-50 p-4 rounded-lg border border-red-200 mb-4">
           <h3 className="text-red-700 font-medium">Error</h3>
           <p className="text-red-600">{error.message}</p>
-          {error.details && error.details.status && (
-            <p className="text-sm text-red-500 mt-1">
-              Status: {error.details.status} {error.details.statusText}
-            </p>
+
+          {error.details && (
+            <div className="mt-2">
+              {error.details.status && (
+                <p className="text-sm text-red-500">
+                  Status: {error.details.status} {error.details.statusText}
+                </p>
+              )}
+
+              {error.details.code && (
+                <p className="text-sm text-red-500">
+                  Code: {error.details.code}
+                </p>
+              )}
+
+              {error.details.hint && (
+                <p className="text-sm text-red-500">
+                  Hint: {error.details.hint}
+                </p>
+              )}
+
+              {error.operation && (
+                <p className="text-sm text-red-500">
+                  Operation: {error.operation}
+                </p>
+              )}
+
+              {error.details.details && (
+                <details className="mt-2">
+                  <summary className="text-sm text-red-600 cursor-pointer">Show more details</summary>
+                  <pre className="mt-2 p-2 bg-red-100 rounded text-xs overflow-auto">
+                    {JSON.stringify(error.details.details, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
           )}
         </div>
       )}

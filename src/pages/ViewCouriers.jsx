@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { generateJsConfig } from '../lib/js-generator';
-import { getCouriers, getCourierMappings, getCourierClients } from '../lib/supabase';
+import { getCouriers, getCourierMappings, getCourierClients } from '../lib/supabase-service';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 

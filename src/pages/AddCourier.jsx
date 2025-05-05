@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
-import { addCourier, addFieldMapping } from '../lib/supabase';
+import { addCourier, addFieldMapping, saveApiTestResult } from '../lib/supabase-service';
 import { isValidUrl, cn } from '../lib/utils';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -107,9 +107,14 @@ const AddCourier = () => {
       // Create courier object
       const courierData = {
         name: data.courier_name,
-        auth_config: authConfig,
-        api_intent: data.api_intent,
-        created_at: new Date()
+        api_base_url: data.api_endpoint.split('/').slice(0, 3).join('/'),
+        auth_type: data.api_key ? 'API Key' : (data.username && data.password ? 'Basic Auth' : 'None'),
+        api_key: data.api_key,
+        username: data.username,
+        password: data.password,
+        auth_endpoint: data.auth_endpoint,
+        auth_method: data.auth_method || 'POST',
+        api_intent: data.api_intent
       };
 
       // Create payload based on API intent
@@ -141,8 +146,7 @@ const AddCourier = () => {
         authConfig,
         data.api_endpoint,
         payload,
-        data.api_intent,
-        false // Always use real API calls
+        data.api_intent
       );
 
       // Check if the response contains an error
@@ -155,6 +159,17 @@ const AddCourier = () => {
       const savedCourier = await addCourier(courierData);
       setCourier(savedCourier);
       setApiResponse(response);
+
+      // Save API test result
+      await saveApiTestResult({
+        courier_id: savedCourier.id,
+        api_endpoint: data.api_endpoint,
+        api_intent: data.api_intent,
+        request_payload: payload,
+        response_data: response,
+        success: true,
+        error_message: null
+      });
 
       // Extract field paths from response
       const paths = extractFieldPaths(response);

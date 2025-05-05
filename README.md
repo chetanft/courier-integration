@@ -9,15 +9,15 @@ A full-stack internal platform to automate the onboarding and integration of cou
 - Map courier API fields to internal TMS fields
 - Generate JavaScript configuration files
 - Manage client-courier relationships
-- Store all configurations in Supabase
+- Make real API calls to courier services
 
 ## Tech Stack
 
 - **Frontend**: React with Vite
-- **UI Components**: Tailwind CSS
-- **Database**: Supabase (PostgreSQL)
+- **UI Components**: Tailwind CSS + ShadCN/UI
+- **Backend**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
-- **API Calls**: Axios
+- **API Calls**: Axios for external APIs, Supabase JS client for database
 - **Form Handling**: React Hook Form
 - **Notifications**: Sonner
 
@@ -46,15 +46,24 @@ A full-stack internal platform to automate the onboarding and integration of cou
    npm run dev
    ```
 
-### Note on Data Storage
+### Supabase Configuration
 
-The current version uses mock data instead of Supabase for demonstration purposes. All data is stored in memory and will be reset when the page is refreshed.
+This application uses Supabase as its backend. To run the application:
 
-In a future version, Supabase integration will be added for persistent data storage. When that happens, you'll need to:
+1. Create a Supabase project at [supabase.com](https://supabase.com)
 
-1. Create a Supabase project and set up the database schema
-2. Configure environment variables with your Supabase credentials
-3. Uncomment the Supabase code in the project
+2. Set up the database schema using the SQL in `supabase-schema.sql`
+
+3. Create a `.env` file with your Supabase credentials:
+   ```
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. Start the development server:
+   ```
+   npm run dev
+   ```
 
 ## Usage
 
@@ -95,8 +104,9 @@ In a future version, Supabase integration will be added for persistent data stor
 │   │   ├── layout/           # Layout components
 │   │   └── courier/          # Courier-specific components
 │   ├── lib/
-│   │   ├── supabase.js       # Supabase client
-│   │   ├── api-utils.js      # API utilities
+│   │   ├── supabase-client.js # Supabase client initialization
+│   │   ├── supabase-service.js # Supabase service for data operations
+│   │   ├── api-utils.js      # API utilities for external courier APIs
 │   │   ├── field-extractor.js # Field path extraction
 │   │   └── js-generator.js   # JS file generator
 │   ├── pages/
@@ -105,8 +115,9 @@ In a future version, Supabase integration will be added for persistent data stor
 │   │   └── ViewCouriers.jsx  # View existing couriers
 │   ├── App.jsx               # Main app component with routing
 │   └── main.jsx              # Entry point
-├── supabase/
-│   └── migrations/           # Supabase migrations
+├── supabase-schema.sql        # Supabase database schema
+├── fix-rls-policies.sql      # SQL to fix RLS policies
+├── setup-supabase.md         # Supabase setup instructions
 ├── package.json
 └── README.md
 ```

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getCouriers, getCourierMappings, getCourierClients, linkClientsTocourier, getClients } from '../lib/supabase';
+import { getCouriers, getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById } from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -29,18 +29,16 @@ const CourierDetail = () => {
 
       try {
         // Fetch courier, mappings, and clients in parallel
-        const couriersData = await getCouriers();
-        const courierData = couriersData.find(c => c.id === id);
-
-        if (!courierData) {
-          throw new Error('Courier not found');
-        }
-
-        const [mappingsData, clientsData, allClientsData] = await Promise.all([
+        const [courierData, mappingsData, clientsData, allClientsData] = await Promise.all([
+          getCourierById(id),
           getCourierMappings(id),
           getCourierClients(id),
           getClients()
         ]);
+
+        if (!courierData) {
+          throw new Error('Courier not found');
+        }
 
         setCourier(courierData);
         setMappings(mappingsData || []);
@@ -89,7 +87,7 @@ const CourierDetail = () => {
     setError(null);
 
     try {
-      await linkClientsTocourier(id, selectedClients);
+      await linkClientsToCourier(id, selectedClients);
 
       // Refresh clients list
       const clientsData = await getCourierClients(id);

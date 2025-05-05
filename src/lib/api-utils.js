@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { mockTestCourierApi } from './mock-data';
 
 /**
  * Makes an API call to test courier credentials and endpoints
@@ -7,15 +6,9 @@ import { mockTestCourierApi } from './mock-data';
  * @param {string} endpoint - The API endpoint to test
  * @param {Object} payload - The payload to send
  * @param {string} apiIntent - The type of API call to make
- * @param {boolean} useMock - Whether to use mock data (fallback)
  * @returns {Promise<Object>} The API response
  */
-export const testCourierApi = async (credentials, endpoint, payload, apiIntent, useMock = false) => {
-  // Use mock data if requested or for development/testing
-  if (useMock) {
-    console.log('Using mock data for API testing');
-    return mockTestCourierApi(credentials, endpoint, payload, apiIntent);
-  }
+export const testCourierApi = async (credentials, endpoint, payload, apiIntent) => {
 
   try {
     console.log(`Making real API call to ${endpoint} with intent: ${apiIntent}`);
