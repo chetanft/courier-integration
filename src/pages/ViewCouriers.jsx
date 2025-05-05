@@ -1,57 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { generateJsConfig } from '../lib/js-generator';
+import { getCouriers, getCourierMappings, getCourierClients } from '../lib/supabase';
+import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 
 const ViewCouriers = () => {
-  const [couriers] = useState([
-    {
-      id: 1,
-      name: 'FedEx',
-      auth_config: {
-        username: 'fedexuser',
-        api_key: 'fedex-api-key'
-      },
-      api_endpoint: 'https://api.fedex.com/tracking',
-      created_at: '2023-05-01'
-    },
-    {
-      id: 2,
-      name: 'DHL',
-      auth_config: {
-        username: 'dhluser',
-        api_key: 'dhl-api-key'
-      },
-      api_endpoint: 'https://api.dhl.com/tracking',
-      created_at: '2023-05-15'
-    },
-    {
-      id: 3,
-      name: 'UPS',
-      auth_config: {
-        username: 'upsuser',
-        api_key: 'ups-api-key'
-      },
-      api_endpoint: 'https://api.ups.com/tracking',
-      created_at: '2023-06-10'
-    }
-  ]);
-
+  const [couriers, setCouriers] = useState([]);
   const [selectedCourier, setSelectedCourier] = useState(null);
   const [activeTab, setActiveTab] = useState('details');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [mappings, setMappings] = useState([]);
+  const [clients, setClients] = useState([]);
 
-  // Sample mappings for the selected courier
-  const mappings = [
-    { api_field: 'shipment.waybill', tms_field: 'docket_number', api_type: 'track_docket' },
-    { api_field: 'shipment.status', tms_field: 'status', api_type: 'track_docket' },
-    { api_field: 'shipment.tracking', tms_field: 'tracking_details', api_type: 'track_docket' }
-  ];
+  // Fetch couriers on component mount
+  useEffect(() => {
+    const fetchCouriers = async () => {
+      setLoading(true);
+      setError(null);
 
-  // Sample clients for the selected courier
-  const clients = [
-    { id: 1, name: 'ABC Electronics' },
-    { id: 2, name: 'XYZ Retail' }
-  ];
+      try {
+        const couriersData = await getCouriers();
+        setCouriers(couriersData);
+      } catch (err) {
+        console.error('Error fetching couriers:', err);
+        setError({
+          message: 'Failed to load couriers',
+          details: err
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCouriers();
+  }, []);
+
+  // Fetch courier details when a courier is selected
+  useEffect(() => {
+    if (!selectedCourier) return;
+
+    const fetchCourierDetails = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Fetch mappings and clients in parallel
+        const [mappingsData, clientsData] = await Promise.all([
+          getCourierMappings(selectedCourier.id),
+          getCourierClients(selectedCourier.id)
+        ]);
+
+        setMappings(mappingsData);
+        setClients(clientsData);
+      } catch (err) {
+        console.error('Error fetching courier details:', err);
+        setError({
+          message: 'Failed to load courier details',
+          details: err
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourierDetails();
+  }, [selectedCourier]);
 
   // Handle courier selection
   const handleCourierSelect = (courier) => {
@@ -91,69 +106,109 @@ const ViewCouriers = () => {
         </Link>
       </div>
 
+      {error && (
+        <div className="bg-red-50 p-4 rounded-lg border border-red-200 mb-4">
+          <h3 className="text-red-700 font-medium">Error</h3>
+          <p className="text-red-600">{error.message}</p>
+          {error.details && error.details.status && (
+            <p className="text-sm text-red-500 mt-1">
+              Status: {error.details.status} {error.details.statusText}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Courier List */}
         <div className="md:col-span-1">
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
-            <h2 className="text-lg font-semibold mb-4">Couriers</h2>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Couriers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading && couriers.length === 0 && (
+                <div className="py-4 text-center">
+                  <div className="animate-pulse text-blue-600">Loading couriers...</div>
+                </div>
+              )}
 
-            <ul className="space-y-2">
-              {couriers.map(courier => (
-                <li
-                  key={courier.id}
-                  className={`p-2 rounded cursor-pointer ${
-                    selectedCourier?.id === courier.id
-                      ? 'bg-blue-50 border-l-4 border-blue-500'
-                      : 'hover:bg-gray-50 border-l-4 border-transparent'
-                  }`}
-                  onClick={() => handleCourierSelect(courier)}
-                >
-                  {courier.name}
-                </li>
-              ))}
-            </ul>
-          </div>
+              {!loading && couriers.length === 0 && (
+                <div className="py-4 text-center">
+                  <p className="text-gray-500">No couriers found</p>
+                  <Link to="/add-courier" className="text-blue-600 hover:underline mt-2 inline-block">
+                    Add a courier
+                  </Link>
+                </div>
+              )}
+
+              {couriers.length > 0 && (
+                <ul className="space-y-2">
+                  {couriers.map(courier => (
+                    <li
+                      key={courier.id}
+                      className={`p-2 rounded cursor-pointer ${
+                        selectedCourier?.id === courier.id
+                          ? 'bg-blue-50 border-l-4 border-blue-500'
+                          : 'hover:bg-gray-50 border-l-4 border-transparent'
+                      }`}
+                      onClick={() => handleCourierSelect(courier)}
+                    >
+                      {courier.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Courier Details */}
         {selectedCourier ? (
           <div className="md:col-span-3">
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              <div className="flex border-b">
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === 'details'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setActiveTab('details')}
-                >
-                  Details
-                </button>
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === 'mappings'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setActiveTab('mappings')}
-                >
-                  Field Mappings
-                </button>
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === 'clients'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                  onClick={() => setActiveTab('clients')}
-                >
-                  Clients
-                </button>
-              </div>
+            <Card>
+              <CardHeader className="border-b p-0">
+                <nav className="flex">
+                  <button
+                    className={`px-4 py-3 text-sm font-medium ${
+                      activeTab === 'details'
+                        ? 'border-b-2 border-blue-500 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    onClick={() => setActiveTab('details')}
+                  >
+                    Details
+                  </button>
+                  <button
+                    className={`px-4 py-3 text-sm font-medium ${
+                      activeTab === 'mappings'
+                        ? 'border-b-2 border-blue-500 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    onClick={() => setActiveTab('mappings')}
+                  >
+                    Field Mappings
+                  </button>
+                  <button
+                    className={`px-4 py-3 text-sm font-medium ${
+                      activeTab === 'clients'
+                        ? 'border-b-2 border-blue-500 text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    onClick={() => setActiveTab('clients')}
+                  >
+                    Linked Clients
+                  </button>
+                </nav>
+              </CardHeader>
 
-              <div className="p-4">
-                {activeTab === 'details' && (
+              <CardContent className="p-4">
+                {loading && (
+                  <div className="py-4 text-center">
+                    <div className="animate-pulse text-blue-600">Loading data...</div>
+                  </div>
+                )}
+
+                {!loading && activeTab === 'details' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">{selectedCourier.name}</h2>
 
@@ -166,74 +221,113 @@ const ViewCouriers = () => {
                       </div>
                     </div>
 
+                    <div className="mb-4">
+                      <h3 className="text-md font-medium mb-2">API Endpoint</h3>
+                      <div className="bg-gray-50 p-4 rounded border">
+                        <code className="text-sm text-gray-700">
+                          {selectedCourier.api_endpoint}
+                        </code>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <h3 className="text-md font-medium mb-2">API Intent</h3>
+                      <div className="bg-gray-50 p-4 rounded border">
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
+                          {selectedCourier.api_intent || 'track_shipment'}
+                        </span>
+                      </div>
+                    </div>
+
                     <div className="flex justify-end">
-                      <button
+                      <Button
                         onClick={generateJsFile}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        disabled={loading}
                       >
                         Generate JS File
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
 
-                {activeTab === 'mappings' && (
+                {!loading && activeTab === 'mappings' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Field Mappings</h2>
 
-                    <div className="border rounded overflow-hidden">
-                      <table className="w-full">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">API Field</th>
-                            <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">TMS Field</th>
-                            <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">API Type</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {mappings.map((mapping, index) => (
-                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="py-2 px-4 text-sm font-mono">{mapping.api_field}</td>
-                              <td className="py-2 px-4 text-sm">{mapping.tms_field}</td>
-                              <td className="py-2 px-4 text-sm">
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                  {mapping.api_type}
-                                </span>
-                              </td>
+                    {mappings.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded border">
+                        <p className="text-gray-500">No field mappings found for this courier</p>
+                        <Link to="/add-courier" className="text-blue-600 hover:underline mt-2 inline-block">
+                          Add mappings
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="border rounded overflow-hidden">
+                        <table className="w-full">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">API Field</th>
+                              <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">TMS Field</th>
+                              <th className="py-2 px-4 text-left text-xs font-medium text-gray-500 uppercase">API Type</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {mappings.map((mapping, index) => (
+                              <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="py-2 px-4 text-sm font-mono">{mapping.api_field}</td>
+                                <td className="py-2 px-4 text-sm">{mapping.tms_field}</td>
+                                <td className="py-2 px-4 text-sm">
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                    {mapping.api_type}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {activeTab === 'clients' && (
+                {!loading && activeTab === 'clients' && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Linked Clients</h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {clients.map(client => (
-                        <div key={client.id} className="p-4 bg-white rounded border">
-                          <h3 className="font-medium">{client.name}</h3>
-                          <p className="text-sm text-gray-500">Client ID: {client.id}</p>
-                        </div>
-                      ))}
-                    </div>
+                    {clients.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded border">
+                        <p className="text-gray-500">No clients linked to this courier</p>
+                        <Link to="/add-client" className="text-blue-600 hover:underline mt-2 inline-block">
+                          Link clients
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {clients.map(client => (
+                          <div key={client.id} className="p-4 bg-white rounded border">
+                            <h3 className="font-medium">{client.name}</h3>
+                            <p className="text-sm text-gray-500">Client ID: {client.id}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <div className="md:col-span-3">
-            <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
-              <h2 className="text-xl font-semibold mb-2">No Courier Selected</h2>
-              <p className="text-gray-500 mb-4">Select a courier from the list to view its details.</p>
-              <Link to="/add-courier" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block">
-                Add New Courier
-              </Link>
-            </div>
+            <Card className="h-full">
+              <CardContent className="flex items-center justify-center h-full p-8">
+                <div className="text-center">
+                  <p className="text-gray-500 mb-2">Select a courier to view details</p>
+                  <Link to="/add-courier" className="text-blue-600 hover:underline">
+                    Or add a new courier
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
