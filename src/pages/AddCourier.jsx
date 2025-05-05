@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
-import { addCourier, addFieldMapping, saveApiTestResult } from '../lib/supabase-service';
+import { addCourier, addFieldMapping, saveApiTestResult, uploadJsFile } from '../lib/supabase-service';
 import { isValidUrl, cn } from '../lib/utils';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -226,30 +226,39 @@ const AddCourier = () => {
     }
   };
 
-  // Generate and download JS file
-  const generateJsFile = () => {
+  // Generate, download, and store JS file
+  const generateJsFile = async () => {
     try {
       if (!courier) return;
 
       const validMappings = fieldMappings.filter(mapping => mapping.tms_field);
       if (validMappings.length === 0) return;
 
+      setLoading(true);
       const jsCode = generateJsConfig(courier, validMappings);
+      const fileName = `${courier.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_mapping.js`;
 
       // Create download link
       const blob = new Blob([jsCode], { type: 'text/javascript' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${courier.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_mapping.js`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      console.log('JS file generated and downloaded successfully!');
+      // Upload to Supabase
+      await uploadJsFile(courier.id, fileName, jsCode);
+
+      console.log('JS file generated, downloaded, and stored successfully!');
+      alert('JS file generated, downloaded, and stored successfully!');
     } catch (error) {
       console.error('Error generating JS file:', error);
+      alert(`Error generating JS file: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -529,10 +538,10 @@ const AddCourier = () => {
                 Save Mappings
               </Button>
               <Button
-                onClick={generateJsFile}
+                onClick={() => generateJsFile()}
                 disabled={loading}
               >
-                Generate JS File
+                {loading ? 'Generating...' : 'Generate JS File'}
               </Button>
             </div>
           </CardContent>

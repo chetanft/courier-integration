@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getCouriers, getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById } from '../lib/supabase-service';
+import { getCouriers, getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById, getJsFilesForCourier, getJsFileDownloadUrl } from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -20,6 +20,8 @@ const CourierDetail = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedClients, setSelectedClients] = useState([]);
   const [mappingLoading, setMappingLoading] = useState(false);
+  const [jsFiles, setJsFiles] = useState([]);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   // Fetch courier details on component mount
   useEffect(() => {
@@ -28,12 +30,13 @@ const CourierDetail = () => {
       setError(null);
 
       try {
-        // Fetch courier, mappings, and clients in parallel
-        const [courierData, mappingsData, clientsData, allClientsData] = await Promise.all([
+        // Fetch courier, mappings, clients, and JS files in parallel
+        const [courierData, mappingsData, clientsData, allClientsData, jsFilesData] = await Promise.all([
           getCourierById(id),
           getCourierMappings(id),
           getCourierClients(id),
-          getClients()
+          getClients(),
+          getJsFilesForCourier(id)
         ]);
 
         if (!courierData) {
@@ -44,6 +47,7 @@ const CourierDetail = () => {
         setMappings(mappingsData || []);
         setClients(clientsData || []);
         setAllClients(allClientsData || []);
+        setJsFiles(jsFilesData || []);
 
         // Generate JS config
         if (courierData && mappingsData) {
@@ -104,6 +108,29 @@ const CourierDetail = () => {
       });
     } finally {
       setMappingLoading(false);
+    }
+  };
+
+  // Handle downloading a JS file
+  const handleDownloadJsFile = async (filePath, fileName) => {
+    try {
+      setDownloadLoading(true);
+      const downloadUrl = await getJsFileDownloadUrl(filePath);
+
+      // Create and click a download link
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      console.log('JS file downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading JS file:', error);
+      alert(`Error downloading JS file: ${error.message}`);
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -311,6 +338,63 @@ const CourierDetail = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {mapping.dataType || 'string'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Generated JS Files */}
+        <Card className="md:col-span-3">
+          <CardHeader>
+            <CardTitle className="text-lg">Generated JS Files</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {jsFiles.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded border">
+                <p className="text-gray-500">No JS files generated yet</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Generate a JS file by mapping fields and clicking "Generate JS File" button
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        File Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created At
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {jsFiles.map((file) => (
+                      <tr key={file.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {file.file_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(file.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadJsFile(file.file_path, file.file_name)}
+                            disabled={downloadLoading}
+                          >
+                            {downloadLoading ? 'Downloading...' : 'Download'}
+                          </Button>
                         </td>
                       </tr>
                     ))}

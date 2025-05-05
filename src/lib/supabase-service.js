@@ -228,3 +228,80 @@ export const saveApiTestResult = async (testData) => {
     handleApiError(error, 'saveApiTestResult');
   }
 };
+
+// Upload a generated JS file to Supabase storage
+export const uploadJsFile = async (courierId, fileName, fileContent) => {
+  try {
+    // Create a bucket if it doesn't exist (this is idempotent)
+    const { error: bucketError } = await supabase.storage.createBucket('js-configs', {
+      public: false,
+      fileSizeLimit: 1024 * 1024, // 1MB
+    });
+
+    if (bucketError && bucketError.code !== 'duplicate_bucket') {
+      throw bucketError;
+    }
+
+    // Upload the file
+    const filePath = `${courierId}/${fileName}`;
+    const { data, error } = await supabase.storage
+      .from('js-configs')
+      .upload(filePath, fileContent, {
+        contentType: 'application/javascript',
+        upsert: true // Overwrite if exists
+      });
+
+    if (error) throw error;
+
+    // Save metadata in the database
+    const { data: metaData, error: metaError } = await supabase
+      .from('js_files')
+      .insert({
+        courier_id: courierId,
+        file_name: fileName,
+        file_path: filePath,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (metaError) throw metaError;
+
+    return {
+      file: data,
+      metadata: metaData
+    };
+  } catch (error) {
+    handleApiError(error, 'uploadJsFile');
+  }
+};
+
+// Get all JS files for a courier
+export const getJsFilesForCourier = async (courierId) => {
+  try {
+    const { data, error } = await supabase
+      .from('js_files')
+      .select('*')
+      .eq('courier_id', courierId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getJsFilesForCourier');
+  }
+};
+
+// Get a download URL for a JS file
+export const getJsFileDownloadUrl = async (filePath) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('js-configs')
+      .createSignedUrl(filePath, 60); // URL valid for 60 seconds
+
+    if (error) throw error;
+    return data.signedUrl;
+  } catch (error) {
+    handleApiError(error, 'getJsFileDownloadUrl');
+  }
+};

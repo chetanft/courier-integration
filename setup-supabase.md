@@ -148,9 +148,22 @@ VALUES
   ((SELECT id FROM couriers WHERE name = 'UPS'), 'status', 'data.tracking.current_status', 'tracking', NOW());
 ```
 
+### 5. Set Up Storage for JS Files
+
+1. Go to the "Storage" section in your Supabase dashboard
+2. Click "Create a new bucket"
+3. Enter "js-configs" as the bucket name
+4. Uncheck "Public bucket" to make it private
+5. Click "Create bucket"
+
 ## Verification
 
-After running these SQL commands, you should be able to see the tables in the "Table Editor" section of your Supabase dashboard. You can verify that the tables were created correctly by checking the structure and data.
+After running these SQL commands and setting up storage, you should be able to see:
+
+1. The tables in the "Table Editor" section of your Supabase dashboard
+2. The "js-configs" bucket in the "Storage" section
+
+You can verify that everything was created correctly by checking the structure and data.
 
 ## Troubleshooting
 
@@ -159,4 +172,5 @@ If you encounter any issues:
 1. Check the SQL Editor for error messages
 2. Verify that all tables were created correctly
 3. Make sure Row Level Security is enabled and policies are in place
-4. Check that your application's `.env` file has the correct Supabase URL and API key
+4. Check that the storage bucket was created correctly
+5. Check that your application's `.env` file has the correct Supabase URL and API key

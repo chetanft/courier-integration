@@ -53,12 +53,22 @@ CREATE TABLE api_test_results (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create js_files table for storing generated JS file metadata
+CREATE TABLE js_files (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  courier_id UUID NOT NULL REFERENCES couriers(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX courier_clients_courier_id_idx ON courier_clients(courier_id);
 CREATE INDEX courier_clients_client_id_idx ON courier_clients(client_id);
 CREATE INDEX field_mappings_courier_id_idx ON field_mappings(courier_id);
 CREATE INDEX field_mappings_api_type_idx ON field_mappings(api_type);
 CREATE INDEX api_test_results_courier_id_idx ON api_test_results(courier_id);
+CREATE INDEX js_files_courier_id_idx ON js_files(courier_id);
 
 -- Create RLS policies
 ALTER TABLE couriers ENABLE ROW LEVEL SECURITY;
@@ -66,6 +76,7 @@ ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courier_clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE field_mappings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_test_results ENABLE ROW LEVEL SECURITY;
+ALTER TABLE js_files ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for authenticated users
 CREATE POLICY "Allow full access to authenticated users" ON couriers FOR ALL TO authenticated USING (true);
@@ -73,9 +84,11 @@ CREATE POLICY "Allow full access to authenticated users" ON clients FOR ALL TO a
 CREATE POLICY "Allow full access to authenticated users" ON courier_clients FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow full access to authenticated users" ON field_mappings FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow full access to authenticated users" ON api_test_results FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow full access to authenticated users" ON js_files FOR ALL TO authenticated USING (true);
 
 -- Create policies for anonymous users (read-only)
 CREATE POLICY "Allow read access to anonymous users" ON couriers FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow read access to anonymous users" ON clients FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow read access to anonymous users" ON courier_clients FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow read access to anonymous users" ON field_mappings FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow read access to anonymous users" ON js_files FOR SELECT TO anon USING (true);
