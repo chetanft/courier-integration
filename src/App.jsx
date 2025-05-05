@@ -16,8 +16,13 @@ import { Card, CardContent } from './components/ui/card';
 // Import API functions
 import { getCouriers, getClients } from './lib/supabase';
 
-// Home component
-const Home = () => {
+// Home component wrapper to provide navigation context
+const HomeWithNavigation = () => {
+  return <HomeContent />;
+};
+
+// Actual Home component content
+const HomeContent = () => {
   const [couriers, setCouriers] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -163,7 +168,7 @@ function App() {
 
         <main className="container mx-auto p-4">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<HomeWithNavigation />} />
             <Route path="/add-courier" element={<AddCourier />} />
             <Route path="/add-client" element={<AddClient />} />
             <Route path="/view-couriers" element={<ViewCouriers />} />

@@ -31,7 +31,7 @@ const CourierDetail = () => {
         // Fetch courier, mappings, and clients in parallel
         const couriersData = await getCouriers();
         const courierData = couriersData.find(c => c.id === id);
-        
+
         if (!courierData) {
           throw new Error('Courier not found');
         }
@@ -90,11 +90,11 @@ const CourierDetail = () => {
 
     try {
       await linkClientsTocourier(id, selectedClients);
-      
+
       // Refresh clients list
       const clientsData = await getCourierClients(id);
       setClients(clientsData || []);
-      
+
       // Reset selection and close dialog
       setSelectedClients([]);
       setDialogOpen(false);
@@ -130,8 +130,8 @@ const CourierDetail = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
           <h3 className="text-lg font-medium mb-2">Error</h3>
           <p>{error.message}</p>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="mt-4"
             onClick={() => navigate('/view-couriers')}
           >
@@ -148,8 +148,8 @@ const CourierDetail = () => {
         <div className="bg-amber-50 border border-amber-200 text-amber-700 p-4 rounded-md mb-6">
           <h3 className="text-lg font-medium mb-2">Courier Not Found</h3>
           <p>The courier you're looking for doesn't exist or has been removed.</p>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="mt-4"
             onClick={() => navigate('/')}
           >
@@ -165,13 +165,13 @@ const CourierDetail = () => {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{courier.name}</h1>
         <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => navigate('/')}
           >
             Back to Home
           </Button>
-          
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>Map Client</Button>
@@ -243,19 +243,19 @@ const CourierDetail = () => {
                 <h3 className="text-sm font-medium text-gray-500">API Base URL</h3>
                 <p className="mt-1">{courier.apiBaseUrl}</p>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Authentication Type</h3>
                 <p className="mt-1">{courier.authType || 'None'}</p>
               </div>
-              
+
               {courier.apiKey && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">API Key</h3>
                   <p className="mt-1">••••••••{courier.apiKey.slice(-4)}</p>
                 </div>
               )}
-              
+
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Created</h3>
                 <p className="mt-1">{new Date(courier.created_at).toLocaleDateString()}</p>
@@ -337,8 +337,8 @@ const CourierDetail = () => {
             {clients.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded border">
                 <p className="text-gray-500">No clients linked to this courier</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="mt-4"
                   onClick={() => setDialogOpen(true)}
                 >

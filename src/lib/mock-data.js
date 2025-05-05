@@ -192,6 +192,50 @@ export const getCouriers = async () => {
   });
 };
 
+// Link clients to a courier
+export const linkClientsTocourier = async (courierId, clientIds) => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      // Add the relationship to the courierClients array
+      clientIds.forEach(clientId => {
+        courierClients.push({
+          courierId,
+          clientId,
+          created_at: new Date().toISOString()
+        });
+      });
+      resolve({ success: true });
+    }, 300);
+  });
+};
+
+// Get clients linked to a courier
+export const getCourierClients = async (courierId) => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      // Find all client IDs linked to this courier
+      const clientIds = courierClients
+        .filter(relation => relation.courierId === courierId)
+        .map(relation => relation.clientId);
+
+      // Get the full client objects
+      const linkedClients = clients.filter(client => clientIds.includes(client.id));
+
+      resolve(linkedClients);
+    }, 300);
+  });
+};
+
+// Get field mappings for a courier
+export const getCourierMappings = async (courierId) => {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const mappings = fieldMappings.filter(mapping => mapping.courierId === courierId);
+      resolve(mappings);
+    }, 300);
+  });
+};
+
 // Mock API testing function
 export const mockTestCourierApi = async (credentials, endpoint, payload, apiIntent = 'track_shipment') => {
   return new Promise((resolve) => {
