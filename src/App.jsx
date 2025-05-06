@@ -14,6 +14,8 @@ import UpdateCourierMappings from './pages/UpdateCourierMappings';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
+import { Input } from './components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
 
 // Import API functions
 import { getCouriers, getClients } from './lib/supabase-service';
@@ -29,6 +31,8 @@ const HomeContent = () => {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState('newest');
   const navigate = useNavigate();
 
   // Fetch couriers and clients on component mount
@@ -74,6 +78,33 @@ const HomeContent = () => {
             <Button variant="default" onClick={() => navigate('/add-courier')}>Add Courier</Button>
           </div>
 
+          {/* Search and Sort Controls */}
+          {!loading && couriers.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-4 mb-2">
+              <div className="relative flex-grow">
+                <Input
+                  type="text"
+                  placeholder="Search couriers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="w-full sm:w-48">
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                    <SelectItem value="name">Name (A-Z)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <Card>
               <CardContent className="p-6 text-center">
@@ -90,17 +121,34 @@ const HomeContent = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {couriers.map(courier => (
-                <Card key={courier.id} className="cursor-pointer hover:shadow-md transition-shadow"
-                      onClick={() => navigate(`/courier/${courier.id}`)}>
-                  <CardContent className="p-6">
-                    <h3 className="font-medium text-lg mb-2">{courier.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      {courier.description || `API Base URL: ${courier.apiBaseUrl}`}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+              {couriers
+                .filter(courier =>
+                  courier.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .sort((a, b) => {
+                  if (sortOrder === 'newest') {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                  } else if (sortOrder === 'oldest') {
+                    return new Date(a.created_at) - new Date(b.created_at);
+                  } else if (sortOrder === 'name') {
+                    return a.name.localeCompare(b.name);
+                  }
+                  return 0;
+                })
+                .map(courier => (
+                  <Card key={courier.id} className="cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => navigate(`/courier/${courier.id}`)}>
+                    <CardContent className="p-6">
+                      <h3 className="font-medium text-lg mb-2">{courier.name}</h3>
+                      <p className="text-sm text-gray-500 mb-2">
+                        {courier.description || `API Base URL: ${courier.api_base_url}`}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Added: {new Date(courier.created_at).toLocaleDateString()} {new Date(courier.created_at).toLocaleTimeString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
             </div>
           )}
         </TabsContent>
