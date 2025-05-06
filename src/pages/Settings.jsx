@@ -9,7 +9,14 @@ import {
   getCouriersMissingFields,
   checkRlsConfiguration
 } from '../lib/edge-functions-service';
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../components/ui/card';
+// Import Supabase services
+import {
+  getCouriers,
+  getCourierById,
+  getCourierMappings,
+  addFieldMapping
+} from '../lib/supabase-service';
+import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -18,10 +25,13 @@ import { Switch } from '../components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { InfoIcon, PlusIcon, Trash2Icon, AlertTriangleIcon } from 'lucide-react';
+import { Badge } from '../components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
+import { InfoIcon, PlusIcon, Trash2Icon, AlertTriangleIcon, SaveIcon, FilterIcon } from 'lucide-react';
 
 const Settings = () => {
   const navigate = useNavigate();
+  // TMS Fields state
   const [tmsFields, setTmsFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -39,6 +49,16 @@ const Settings = () => {
   const [couriersMissingFields, setCouriersMissingFields] = useState([]);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [rlsError, setRlsError] = useState(false);
+
+  // Courier Mapping Fields state
+  const [couriers, setCouriers] = useState([]);
+  const [selectedCourierId, setSelectedCourierId] = useState('');
+  const [selectedCourier, setSelectedCourier] = useState(null);
+  const [mappingFields, setMappingFields] = useState([]);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [mappingError, setMappingError] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [editedMappings, setEditedMappings] = useState({});
 
   // Check RLS configuration first
   useEffect(() => {
@@ -221,6 +241,181 @@ const Settings = () => {
     navigate('/update-courier-mappings');
   };
 
+  // Fetch all couriers
+  useEffect(() => {
+    const fetchCouriers = async () => {
+      try {
+        const couriersData = await getCouriers();
+        setCouriers(couriersData || []);
+      } catch (err) {
+        console.error('Error fetching couriers:', err);
+        setMappingError({
+          message: 'Failed to load couriers',
+          details: err
+        });
+      }
+    };
+
+    fetchCouriers();
+  }, []);
+
+  // Fetch courier mapping fields when a courier is selected
+  useEffect(() => {
+    if (!selectedCourierId) {
+      setSelectedCourier(null);
+      setMappingFields([]);
+      return;
+    }
+
+    const fetchCourierMappings = async () => {
+      setMappingLoading(true);
+      setMappingError(null);
+
+      try {
+        // Fetch courier details
+        const courierData = await getCourierById(selectedCourierId);
+        setSelectedCourier(courierData);
+
+        // Fetch courier mappings
+        const mappingsData = await getCourierMappings(selectedCourierId);
+
+        // Process and categorize the mappings
+        const processedMappings = mappingsData.map(mapping => {
+          let category = 'Normal / Config';
+
+          // Determine category based on field name and path
+          const fieldName = mapping.tms_field.toLowerCase();
+          const apiField = mapping.api_field.toLowerCase();
+
+          // API-Related fields
+          if (
+            fieldName.includes('url') ||
+            fieldName.includes('method') ||
+            fieldName.includes('header') ||
+            fieldName.includes('auth') ||
+            fieldName.includes('token') ||
+            fieldName.includes('body') ||
+            apiField.includes('request')
+          ) {
+            category = 'API-Related';
+          }
+          // Status-Related fields
+          else if (
+            fieldName.includes('status') ||
+            fieldName.includes('tracking') ||
+            fieldName.includes('event') ||
+            fieldName.includes('date') ||
+            fieldName.includes('docket') ||
+            fieldName.includes('delivery') ||
+            fieldName.includes('shipment')
+          ) {
+            category = 'Status-Related';
+          }
+
+          return {
+            ...mapping,
+            category
+          };
+        });
+
+        setMappingFields(processedMappings);
+
+      } catch (err) {
+        console.error('Error fetching courier mappings:', err);
+        setMappingError({
+          message: 'Failed to load courier mappings',
+          details: err
+        });
+      } finally {
+        setMappingLoading(false);
+      }
+    };
+
+    fetchCourierMappings();
+  }, [selectedCourierId]);
+
+  // Handle courier selection change
+  const handleCourierChange = (courierId) => {
+    setSelectedCourierId(courierId);
+    setEditedMappings({});
+  };
+
+  // Handle TMS field mapping change
+  const handleMappingFieldChange = (mappingId, tmsField) => {
+    setEditedMappings(prev => ({
+      ...prev,
+      [mappingId]: tmsField
+    }));
+  };
+
+  // Save mapping changes
+  const handleSaveMappings = async () => {
+    setMappingLoading(true);
+
+    try {
+      // Process each edited mapping
+      for (const [mappingId, tmsField] of Object.entries(editedMappings)) {
+        const mapping = mappingFields.find(m => m.id === mappingId);
+        if (mapping) {
+          await addFieldMapping({
+            ...mapping,
+            tms_field: tmsField
+          });
+        }
+      }
+
+      // Refresh mappings
+      const mappingsData = await getCourierMappings(selectedCourierId);
+      setMappingFields(mappingsData.map(mapping => {
+        let category = 'Normal / Config';
+        const fieldName = mapping.tms_field.toLowerCase();
+        const apiField = mapping.api_field.toLowerCase();
+
+        if (
+          fieldName.includes('url') ||
+          fieldName.includes('method') ||
+          fieldName.includes('header') ||
+          fieldName.includes('auth') ||
+          fieldName.includes('token') ||
+          fieldName.includes('body') ||
+          apiField.includes('request')
+        ) {
+          category = 'API-Related';
+        } else if (
+          fieldName.includes('status') ||
+          fieldName.includes('tracking') ||
+          fieldName.includes('event') ||
+          fieldName.includes('date') ||
+          fieldName.includes('docket') ||
+          fieldName.includes('delivery') ||
+          fieldName.includes('shipment')
+        ) {
+          category = 'Status-Related';
+        }
+
+        return {
+          ...mapping,
+          category
+        };
+      }));
+
+      // Clear edited mappings
+      setEditedMappings({});
+
+      alert('Mappings saved successfully!');
+    } catch (err) {
+      console.error('Error saving mappings:', err);
+      alert(`Error saving mappings: ${err.message}`);
+    } finally {
+      setMappingLoading(false);
+    }
+  };
+
+  // Filter mappings by category
+  const filteredMappings = categoryFilter === 'all'
+    ? mappingFields
+    : mappingFields.filter(mapping => mapping.category === categoryFilter);
+
   if (loading && tmsFields.length === 0) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -324,17 +519,24 @@ const Settings = () => {
         </Alert>
       )}
 
-      <Card className="mb-6">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>TMS Field Mappings</CardTitle>
-            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  Add Field
-                </Button>
-              </DialogTrigger>
+      <Tabs defaultValue="tms-fields" className="mb-6">
+        <TabsList className="mb-4">
+          <TabsTrigger value="tms-fields">TMS Fields</TabsTrigger>
+          <TabsTrigger value="courier-mappings">Courier Mappings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tms-fields">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>TMS Field Mappings</CardTitle>
+                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Add Field
+                    </Button>
+                  </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New TMS Field</DialogTitle>
@@ -515,6 +717,157 @@ const Settings = () => {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="courier-mappings">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Courier Field Mappings</CardTitle>
+                <div className="flex items-center space-x-2">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="API-Related">API-Related</SelectItem>
+                      <SelectItem value="Status-Related">Status-Related</SelectItem>
+                      <SelectItem value="Normal / Config">Normal / Config</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <CardDescription>
+                View and edit field mappings for each courier
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Label htmlFor="courier-select" className="mb-2 block">
+                  Select Courier
+                </Label>
+                <Select value={selectedCourierId} onValueChange={handleCourierChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="-- Select a Courier --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">-- Select a Courier --</SelectItem>
+                    {couriers.map(courier => (
+                      <SelectItem key={courier.id} value={courier.id}>
+                        {courier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCourier && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    Viewing mappings for: <span className="font-medium">{selectedCourier.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {mappingLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-pulse text-blue-600">Loading mapping fields...</div>
+                </div>
+              ) : mappingError ? (
+                <div className="p-4 border border-red-200 bg-red-50 rounded-md">
+                  <h3 className="text-lg font-medium text-red-800 mb-2">Error</h3>
+                  <p className="text-red-600">{mappingError.message}</p>
+                  {mappingError.details && (
+                    <pre className="mt-2 text-sm bg-white p-2 rounded border overflow-auto">
+                      {JSON.stringify(mappingError.details, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ) : !selectedCourierId ? (
+                <div className="text-center py-8 bg-gray-50 rounded border">
+                  <p className="text-gray-500">Please select a courier to view its field mappings</p>
+                </div>
+              ) : filteredMappings.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded border">
+                  <p className="text-gray-500">No mapping fields found for this courier</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Field Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Mapping Function / JSON Path
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          TMS Field
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredMappings.map((mapping) => (
+                        <tr key={mapping.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {mapping.tms_field}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-mono text-gray-500 max-w-xs truncate">
+                            {mapping.api_field}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <Badge
+                              variant={
+                                mapping.category === 'API-Related'
+                                  ? 'success'
+                                  : mapping.category === 'Status-Related'
+                                    ? 'warning'
+                                    : 'neutral'
+                              }
+                            >
+                              {mapping.category}
+                            </Badge>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <Select
+                              value={editedMappings[mapping.id] || mapping.tms_field}
+                              onValueChange={(value) => handleMappingFieldChange(mapping.id, value)}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {tmsFields.map(field => (
+                                  <SelectItem key={field.id} value={field.name}>
+                                    {field.display_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+            {selectedCourierId && filteredMappings.length > 0 && Object.keys(editedMappings).length > 0 && (
+              <CardFooter className="flex justify-end">
+                <Button
+                  onClick={handleSaveMappings}
+                  disabled={mappingLoading}
+                >
+                  <SaveIcon className="h-4 w-4 mr-2" />
+                  {mappingLoading ? 'Saving...' : 'Save Mapping Changes'}
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Field Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
