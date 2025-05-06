@@ -1,12 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getTmsFields } from '../lib/edge-functions-service';
-import { getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById, getJsFilesForCourier, getJsFileDownloadUrl } from '../lib/supabase-service';
+import {
+  getCourierMappings,
+  getCourierClients,
+  linkClientsToCourier,
+  getClients,
+  getCourierById,
+  getJsFilesForCourier,
+  getJsFileDownloadUrl,
+  deleteCourier,
+  deleteClient
+} from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription
+} from '../components/ui/dialog';
 import { JsonViewer } from '../components/ui/json-viewer';
+import { Copy, Clipboard } from 'lucide-react';
 
 const CourierDetail = () => {
   const { id } = useParams();
@@ -24,6 +43,11 @@ const CourierDetail = () => {
   const [jsFiles, setJsFiles] = useState([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [tmsFieldsMap, setTmsFieldsMap] = useState({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteClientDialogOpen, setDeleteClientDialogOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Fetch courier details on component mount
   useEffect(() => {
@@ -259,6 +283,63 @@ const CourierDetail = () => {
     }
   };
 
+  // Handle deleting a courier
+  const handleDeleteCourier = async () => {
+    try {
+      setDeleteLoading(true);
+      await deleteCourier(id);
+      setDeleteDialogOpen(false);
+      navigate('/');
+    } catch (error) {
+      console.error('Error deleting courier:', error);
+      setError({
+        message: `Failed to delete courier: ${error.message || 'Unknown error'}`,
+        details: error
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Handle deleting a client
+  const handleDeleteClient = async () => {
+    if (!clientToDelete) return;
+
+    try {
+      setDeleteLoading(true);
+      await deleteClient(clientToDelete.id);
+
+      // Refresh clients list
+      const updatedClients = clients.filter(c => c.id !== clientToDelete.id);
+      setClients(updatedClients);
+
+      setDeleteClientDialogOpen(false);
+      setClientToDelete(null);
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      setError({
+        message: `Failed to delete client: ${error.message || 'Unknown error'}`,
+        details: error
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Handle copying JS code to clipboard
+  const handleCopyJsCode = () => {
+    if (!jsConfig) return;
+
+    navigator.clipboard.writeText(jsConfig)
+      .then(() => {
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+  };
+
   // Filter out already mapped clients
   const availableClients = allClients.filter(
     client => !clients.some(c => c.id === client.id)
@@ -333,13 +414,22 @@ const CourierDetail = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex items-center justify-end mb-6">
+      {/* Page Header with Courier Name */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold">{courier.name}</h1>
         <div className="flex space-x-2">
           <Button
             variant="outline"
             onClick={() => navigate('/')}
           >
             Back to Home
+          </Button>
+
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            Delete Courier
           </Button>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -402,6 +492,33 @@ const CourierDetail = () => {
         </div>
       </div>
 
+      {/* Delete Courier Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Courier</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {courier.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex space-x-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteCourier}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete Courier'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Courier Details */}
         <Card className="md:col-span-1">
@@ -437,11 +554,31 @@ const CourierDetail = () => {
 
         {/* JS Config */}
         <Card className="md:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Generated JS Configuration</CardTitle>
+            {jsConfig && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleCopyJsCode}
+              >
+                {copySuccess ? (
+                  <>
+                    <Clipboard className="h-4 w-4" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy Code
+                  </>
+                )}
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-sm">
+            <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-sm max-h-[400px]">
               {jsConfig || 'No configuration generated yet'}
             </pre>
           </CardContent>
@@ -627,11 +764,56 @@ const CourierDetail = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {clients.map(client => (
                   <div key={client.id} className="p-4 bg-white rounded border">
-                    <h3 className="font-medium">{client.name}</h3>
-                    <p className="text-sm text-gray-500">Client ID: {client.id}</p>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium">{client.name}</h3>
+                        <p className="text-sm text-gray-500">Client ID: {client.id}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          setClientToDelete(client);
+                          setDeleteClientDialogOpen(true);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
+
+              {/* Delete Client Confirmation Dialog */}
+              <Dialog open={deleteClientDialogOpen} onOpenChange={setDeleteClientDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Delete Client</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to delete {clientToDelete ? clientToDelete.name : ''}? This action cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="flex space-x-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setDeleteClientDialogOpen(false);
+                        setClientToDelete(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteClient}
+                      disabled={deleteLoading}
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Delete Client'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             )}
           </CardContent>
         </Card>

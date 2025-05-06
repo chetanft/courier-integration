@@ -47,7 +47,7 @@ const ResponseViewer = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>API Response</CardTitle>
+        <CardTitle>Response Data</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs
@@ -59,7 +59,7 @@ const ResponseViewer = ({
           }}
           className="w-full"
         >
-          <TabsList className="mb-4">
+          <TabsList className="hidden">
             <TabsTrigger value="response" onClick={() => setActiveTab('response')}>
               Response Data
             </TabsTrigger>

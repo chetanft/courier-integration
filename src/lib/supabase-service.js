@@ -473,6 +473,36 @@ export const deleteTmsField = async (id) => {
   }
 };
 
+// Delete a courier
+export const deleteCourier = async (id) => {
+  try {
+    const { error } = await supabase
+      .from('couriers')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    handleApiError(error, 'deleteCourier');
+  }
+};
+
+// Delete a client
+export const deleteClient = async (id) => {
+  try {
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    handleApiError(error, 'deleteClient');
+  }
+};
+
 // Get couriers missing specific TMS field mappings
 export const getCouriersMissingFields = async () => {
   try {
