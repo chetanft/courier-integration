@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
-import { addCourier, addFieldMapping, saveApiTestResult, uploadJsFile } from '../lib/supabase-service';
+import { addCourier, addFieldMapping, saveApiTestResult, uploadJsFile, getTmsFields } from '../lib/supabase-service';
 // import { cn } from '../lib/utils';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -46,16 +46,7 @@ const AddCourier = () => {
   const [loading, setLoading] = useState(false);
   const [fieldMappings, setFieldMappings] = useState([]);
   const [courier, setCourier] = useState(null);
-  // const [apiType, setApiType] = useState('track_docket');
-  const [tmsFields] = useState([
-    'docket_number',
-    'status',
-    'tracking_details',
-    'event_date',
-    'event_status',
-    'origin',
-    'destination'
-  ]);
+  const [tmsFields, setTmsFields] = useState([]);
 
   // State to track API errors
   const [apiError, setApiError] = useState(null);
@@ -63,8 +54,22 @@ const AddCourier = () => {
   // Watch the api_intent field to conditionally render the test docket field
   const apiIntent = watch('api_intent');
 
+  // Fetch TMS fields on component mount
+  useEffect(() => {
+    const fetchTmsFields = async () => {
+      try {
+        const fieldsData = await getTmsFields();
+        setTmsFields(fieldsData || []);
+      } catch (err) {
+        console.error('Error fetching TMS fields:', err);
+      }
+    };
+
+    fetchTmsFields();
+  }, []);
+
   // Update validation rules when API intent changes
-  React.useEffect(() => {
+  useEffect(() => {
     // Reset test_docket validation errors when switching away from track_shipment
     if (apiIntent !== 'track_shipment') {
       form.clearErrors('test_docket');
@@ -516,7 +521,14 @@ const AddCourier = () => {
                             <SelectContent>
                               <SelectItem value="">-- Select TMS Field --</SelectItem>
                               {tmsFields.map(field => (
-                                <SelectItem key={field} value={field}>{field}</SelectItem>
+                                <SelectItem key={field.id} value={field.name}>
+                                  {field.display_name}
+                                  {field.description && (
+                                    <span className="text-xs text-gray-500 block">
+                                      {field.description}
+                                    </span>
+                                  )}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>

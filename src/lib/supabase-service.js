@@ -305,3 +305,127 @@ export const getJsFileDownloadUrl = async (filePath) => {
     handleApiError(error, 'getJsFileDownloadUrl');
   }
 };
+
+// Get all TMS fields
+export const getTmsFields = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('tms_fields')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getTmsFields');
+  }
+};
+
+// Add a new TMS field
+export const addTmsField = async (fieldData) => {
+  try {
+    const { data, error } = await supabase
+      .from('tms_fields')
+      .insert({
+        name: fieldData.name,
+        display_name: fieldData.displayName,
+        description: fieldData.description,
+        data_type: fieldData.dataType || 'string',
+        is_required: fieldData.isRequired || false,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'addTmsField');
+  }
+};
+
+// Update an existing TMS field
+export const updateTmsField = async (id, fieldData) => {
+  try {
+    const { data, error } = await supabase
+      .from('tms_fields')
+      .update({
+        name: fieldData.name,
+        display_name: fieldData.displayName,
+        description: fieldData.description,
+        data_type: fieldData.dataType,
+        is_required: fieldData.isRequired,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'updateTmsField');
+  }
+};
+
+// Delete a TMS field
+export const deleteTmsField = async (id) => {
+  try {
+    const { error } = await supabase
+      .from('tms_fields')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    handleApiError(error, 'deleteTmsField');
+  }
+};
+
+// Get couriers missing specific TMS field mappings
+export const getCouriersMissingFields = async () => {
+  try {
+    // Get all TMS fields
+    const { data: tmsFields, error: tmsFieldsError } = await supabase
+      .from('tms_fields')
+      .select('name');
+
+    if (tmsFieldsError) throw tmsFieldsError;
+
+    const tmsFieldNames = tmsFields.map(field => field.name);
+
+    // Get all couriers
+    const { data: couriers, error: couriersError } = await supabase
+      .from('couriers')
+      .select('id, name');
+
+    if (couriersError) throw couriersError;
+
+    // For each courier, check if they have mappings for all the specified fields
+    const results = [];
+
+    for (const courier of couriers) {
+      const { data: mappings, error: mappingsError } = await supabase
+        .from('field_mappings')
+        .select('tms_field')
+        .eq('courier_id', courier.id);
+
+      if (mappingsError) throw mappingsError;
+
+      const existingFields = mappings.map(m => m.tms_field);
+      const missingFields = tmsFieldNames.filter(field => !existingFields.includes(field));
+
+      if (missingFields.length > 0) {
+        results.push({
+          courier,
+          missingFields
+        });
+      }
+    }
+
+    return results;
+  } catch (error) {
+    handleApiError(error, 'getCouriersMissingFields');
+  }
+};

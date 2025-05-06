@@ -6,6 +6,8 @@ import './App.css';
 import AddCourier from './pages/AddCourier';
 import AddClient from './pages/AddClient';
 import CourierDetail from './pages/CourierDetail';
+import Settings from './pages/Settings';
+import UpdateCourierMappings from './pages/UpdateCourierMappings';
 
 // Import components
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
@@ -152,6 +154,11 @@ function App() {
               <Link to="/" className="font-bold text-lg no-underline text-gray-800">
                 Courier Integration
               </Link>
+              <div>
+                <Link to="/settings" className="text-gray-600 hover:text-gray-900">
+                  Settings
+                </Link>
+              </div>
             </div>
           </div>
         </nav>
@@ -162,6 +169,8 @@ function App() {
             <Route path="/add-courier" element={<AddCourier />} />
             <Route path="/add-client" element={<AddClient />} />
             <Route path="/courier/:id" element={<CourierDetail />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/update-courier-mappings" element={<UpdateCourierMappings />} />
           </Routes>
         </main>
 

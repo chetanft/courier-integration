@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById, getJsFilesForCourier, getJsFileDownloadUrl } from '../lib/supabase-service';
+import { getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById, getJsFilesForCourier, getJsFileDownloadUrl, getTmsFields } from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -22,6 +22,7 @@ const CourierDetail = () => {
   const [mappingLoading, setMappingLoading] = useState(false);
   const [jsFiles, setJsFiles] = useState([]);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [tmsFieldsMap, setTmsFieldsMap] = useState({});
 
   // Fetch courier details on component mount
   useEffect(() => {
@@ -44,12 +45,20 @@ const CourierDetail = () => {
         setCourier(courierData);
 
         // Now fetch the rest of the data in parallel
-        const [mappingsData, clientsData, allClientsData, jsFilesData] = await Promise.all([
+        const [mappingsData, clientsData, allClientsData, jsFilesData, tmsFieldsData] = await Promise.all([
           getCourierMappings(id),
           getCourierClients(id),
           getClients(),
-          getJsFilesForCourier(id)
+          getJsFilesForCourier(id),
+          getTmsFields()
         ]);
+
+        // Create a map of TMS fields for easy lookup
+        const fieldsMap = {};
+        tmsFieldsData.forEach(field => {
+          fieldsMap[field.name] = field;
+        });
+        setTmsFieldsMap(fieldsMap);
 
         console.log('Mappings data:', mappingsData);
         console.log('Clients data:', clientsData);
@@ -361,13 +370,16 @@ const CourierDetail = () => {
                     {mappings.map((mapping, index) => (
                       <tr key={index}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {mapping.tmsField}
+                          {tmsFieldsMap[mapping.tmsField]?.display_name || mapping.tmsField}
+                          {tmsFieldsMap[mapping.tmsField]?.description && (
+                            <p className="text-xs text-gray-500 mt-1">{tmsFieldsMap[mapping.tmsField].description}</p>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {mapping.courierFieldPath}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {mapping.dataType || 'string'}
+                          {mapping.dataType || tmsFieldsMap[mapping.tmsField]?.data_type || 'string'}
                         </td>
                       </tr>
                     ))}
