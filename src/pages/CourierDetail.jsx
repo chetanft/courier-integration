@@ -45,24 +45,67 @@ const CourierDetail = () => {
         console.log('Courier data retrieved:', courierData);
         setCourier(courierData);
 
-        // Now fetch the rest of the data in parallel
-        const [mappingsData, clientsData, allClientsData, jsFilesData, tmsFieldsData] = await Promise.all([
-          getCourierMappings(id),
-          getCourierClients(id),
-          getClients(),
-          getJsFilesForCourier(id),
-          getTmsFields()
-        ]);
+        // Fetch each data type separately with better error handling
+        let mappingsData = [], clientsData = [], allClientsData = [], jsFilesData = [], tmsFieldsData = [];
 
-        // Create a map of TMS fields for easy lookup
-        const fieldsMap = {};
-        tmsFieldsData.forEach(field => {
-          fieldsMap[field.name] = field;
-        });
-        setTmsFieldsMap(fieldsMap);
+        try {
+          mappingsData = await getCourierMappings(id);
+          console.log('Field mappings retrieved:', mappingsData);
+        } catch (mappingsErr) {
+          console.error('Error fetching field mappings:', mappingsErr);
+          // Continue with empty mappings rather than failing completely
+        }
 
-        console.log('Mappings data:', mappingsData);
-        console.log('Clients data:', clientsData);
+        try {
+          clientsData = await getCourierClients(id);
+          console.log('Linked clients retrieved:', clientsData);
+        } catch (clientsErr) {
+          console.error('Error fetching linked clients:', clientsErr);
+          // Continue with empty clients rather than failing completely
+        }
+
+        try {
+          allClientsData = await getClients();
+          console.log('All clients retrieved:', allClientsData?.length || 0);
+        } catch (allClientsErr) {
+          console.error('Error fetching all clients:', allClientsErr);
+          // Continue with empty all clients rather than failing completely
+        }
+
+        try {
+          jsFilesData = await getJsFilesForCourier(id);
+          console.log('JS files retrieved:', jsFilesData);
+        } catch (jsFilesErr) {
+          console.error('Error fetching JS files:', jsFilesErr);
+          if (jsFilesErr.message && jsFilesErr.message.includes('relation "public.js_files" does not exist')) {
+            console.error('The js_files table does not exist in the database. Please run the create-js-files-table.sql script.');
+            setError({
+              message: 'JS Files table not found in database',
+              details: {
+                message: 'The js_files table does not exist in the database. Please run the create-js-files-table.sql script in your Supabase SQL Editor.',
+                original: jsFilesErr
+              }
+            });
+          }
+          // Continue with empty JS files rather than failing completely
+        }
+
+        try {
+          tmsFieldsData = await getTmsFields();
+          console.log('TMS fields retrieved:', tmsFieldsData?.length || 0);
+
+          // Create a map of TMS fields for easy lookup
+          const fieldsMap = {};
+          if (tmsFieldsData && tmsFieldsData.length > 0) {
+            tmsFieldsData.forEach(field => {
+              fieldsMap[field.name] = field;
+            });
+          }
+          setTmsFieldsMap(fieldsMap);
+        } catch (tmsFieldsErr) {
+          console.error('Error fetching TMS fields:', tmsFieldsErr);
+          // Continue with empty TMS fields rather than failing completely
+        }
 
         setMappings(mappingsData || []);
         setClients(clientsData || []);
@@ -70,9 +113,17 @@ const CourierDetail = () => {
         setJsFiles(jsFilesData || []);
 
         // Generate JS config
-        if (courierData && mappingsData) {
-          const config = generateJsConfig(courierData, mappingsData);
-          setJsConfig(config);
+        if (courierData && mappingsData && mappingsData.length > 0) {
+          try {
+            const config = generateJsConfig(courierData, mappingsData);
+            setJsConfig(config);
+            console.log('JS config generated successfully');
+          } catch (configErr) {
+            console.error('Error generating JS config:', configErr);
+            // Continue without JS config rather than failing completely
+          }
+        } else {
+          console.log('Not generating JS config - no mappings available');
         }
       } catch (err) {
         console.error('Error fetching courier details:', err);
@@ -172,7 +223,9 @@ const CourierDetail = () => {
     );
   }
 
-  if (error) {
+  // Only show full-page error if it's a critical error that prevents displaying the courier
+  // For non-critical errors like missing js_files table, we'll show inline error messages
+  if (error && error.message !== 'JS Files table not found in database') {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
@@ -183,7 +236,9 @@ const CourierDetail = () => {
             <div className="mt-4 p-4 bg-red-100 rounded text-sm">
               <h4 className="font-medium mb-2">Error Details:</h4>
               <pre className="whitespace-pre-wrap">
-                {JSON.stringify(error.details, null, 2)}
+                {typeof error.details === 'object'
+                  ? JSON.stringify(error.details, null, 2)
+                  : error.details}
               </pre>
             </div>
           )}
@@ -368,22 +423,29 @@ const CourierDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {mappings.map((mapping, index) => (
-                      <tr key={index}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {tmsFieldsMap[mapping.tmsField]?.display_name || mapping.tmsField}
-                          {tmsFieldsMap[mapping.tmsField]?.description && (
-                            <p className="text-xs text-gray-500 mt-1">{tmsFieldsMap[mapping.tmsField].description}</p>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {mapping.courierFieldPath}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {mapping.dataType || tmsFieldsMap[mapping.tmsField]?.data_type || 'string'}
-                        </td>
-                      </tr>
-                    ))}
+                    {mappings.map((mapping, index) => {
+                      // Determine the field name based on database schema
+                      const tmsField = mapping.tms_field || mapping.tmsField;
+                      const apiField = mapping.api_field || mapping.apiField || mapping.courierFieldPath;
+                      const dataType = mapping.data_type || mapping.dataType || 'string';
+
+                      return (
+                        <tr key={index}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {tmsFieldsMap[tmsField]?.display_name || tmsField}
+                            {tmsFieldsMap[tmsField]?.description && (
+                              <p className="text-xs text-gray-500 mt-1">{tmsFieldsMap[tmsField].description}</p>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {apiField}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {dataType || tmsFieldsMap[tmsField]?.data_type || 'string'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -397,7 +459,24 @@ const CourierDetail = () => {
             <CardTitle className="text-lg">Generated JS Files</CardTitle>
           </CardHeader>
           <CardContent>
-            {jsFiles.length === 0 ? (
+            {error && error.message === 'JS Files table not found in database' ? (
+              <div className="text-center py-8 bg-red-50 rounded border border-red-200">
+                <p className="text-red-600 font-medium">JS Files table not found in database</p>
+                <p className="text-sm text-red-500 mt-2">
+                  The js_files table does not exist in your Supabase database. You need to run the create-js-files-table.sql script.
+                </p>
+                <div className="mt-4 p-4 bg-gray-50 rounded text-sm text-left max-w-2xl mx-auto">
+                  <p className="font-medium mb-2">Steps to fix:</p>
+                  <ol className="list-decimal pl-5 space-y-2">
+                    <li>Go to your Supabase dashboard</li>
+                    <li>Navigate to the SQL Editor</li>
+                    <li>Copy and paste the contents of the create-js-files-table.sql file</li>
+                    <li>Run the SQL script</li>
+                    <li>Refresh this page</li>
+                  </ol>
+                </div>
+              </div>
+            ) : jsFiles.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded border">
                 <p className="text-gray-500">No JS files generated yet</p>
                 <p className="text-sm text-gray-500 mt-2">
