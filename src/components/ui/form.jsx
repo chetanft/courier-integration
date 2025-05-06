@@ -53,9 +53,22 @@ const FormDescription = React.forwardRef(({ className, ...props }, ref) => {
 FormDescription.displayName = "FormDescription"
 
 const FormMessage = React.forwardRef(({ className, children, ...props }, ref) => {
-  const { formState: { errors } } = useFormContext()
+  // Check if we're in a form context
+  const [inFormContext, setInFormContext] = React.useState(true)
+  let formState = { errors: {} }
+
+  try {
+    // This will throw if not in a form context
+    const context = useFormContext()
+    formState = context.formState
+   
+  } catch {
+    // Not in a form context
+    if (inFormContext) setInFormContext(false)
+  }
+
   const name = props.name || ""
-  const error = name ? errors[name] : null
+  const error = inFormContext && name ? formState.errors[name] : null
   const body = error ? String(error?.message) : children
 
   if (!body) {
