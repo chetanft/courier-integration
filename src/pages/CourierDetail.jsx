@@ -49,11 +49,31 @@ const CourierDetail = () => {
         let mappingsData = [], clientsData = [], allClientsData = [], jsFilesData = [], tmsFieldsData = [];
 
         try {
+          console.log('Fetching field mappings for courier ID:', id);
           mappingsData = await getCourierMappings(id);
           console.log('Field mappings retrieved:', mappingsData);
+
+          // Check if mappingsData is an array
+          if (!Array.isArray(mappingsData)) {
+            console.error('Field mappings data is not an array:', mappingsData);
+            mappingsData = [];
+          } else if (mappingsData.length === 0) {
+            console.log('No field mappings found for this courier');
+          } else {
+            console.log(`Found ${mappingsData.length} field mappings`);
+            // Log each mapping
+            mappingsData.forEach((mapping, index) => {
+              console.log(`Field Mapping ${index + 1}:`, mapping);
+              // Check for expected properties
+              if (!mapping.tms_field && !mapping.api_field) {
+                console.warn(`Mapping ${index + 1} is missing expected properties:`, mapping);
+              }
+            });
+          }
         } catch (mappingsErr) {
           console.error('Error fetching field mappings:', mappingsErr);
           // Continue with empty mappings rather than failing completely
+          mappingsData = [];
         }
 
         try {
@@ -73,8 +93,23 @@ const CourierDetail = () => {
         }
 
         try {
+          console.log('Fetching JS files for courier ID:', id);
           jsFilesData = await getJsFilesForCourier(id);
           console.log('JS files retrieved:', jsFilesData);
+
+          // Check if jsFilesData is an array
+          if (!Array.isArray(jsFilesData)) {
+            console.error('JS files data is not an array:', jsFilesData);
+            jsFilesData = [];
+          } else if (jsFilesData.length === 0) {
+            console.log('No JS files found for this courier');
+          } else {
+            console.log(`Found ${jsFilesData.length} JS files`);
+            // Log each JS file
+            jsFilesData.forEach((file, index) => {
+              console.log(`JS File ${index + 1}:`, file);
+            });
+          }
         } catch (jsFilesErr) {
           console.error('Error fetching JS files:', jsFilesErr);
           if (jsFilesErr.message && jsFilesErr.message.includes('relation "public.js_files" does not exist')) {
@@ -86,8 +121,11 @@ const CourierDetail = () => {
                 original: jsFilesErr
               }
             });
+          } else {
+            console.error('Other error fetching JS files:', jsFilesErr);
           }
           // Continue with empty JS files rather than failing completely
+          jsFilesData = [];
         }
 
         try {
@@ -425,9 +463,19 @@ const CourierDetail = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {mappings.map((mapping, index) => {
                       // Determine the field name based on database schema
+                      // Log the mapping object to help with debugging
+                      console.log(`Mapping ${index}:`, mapping);
+
+                      // Handle different property naming conventions
                       const tmsField = mapping.tms_field || mapping.tmsField;
                       const apiField = mapping.api_field || mapping.apiField || mapping.courierFieldPath;
                       const dataType = mapping.data_type || mapping.dataType || 'string';
+
+                      // Skip mappings without a TMS field
+                      if (!tmsField) {
+                        console.log(`Skipping mapping ${index} - no TMS field`);
+                        return null;
+                      }
 
                       return (
                         <tr key={index}>
@@ -445,7 +493,7 @@ const CourierDetail = () => {
                           </td>
                         </tr>
                       );
-                    })}
+                    }).filter(Boolean)}
                   </tbody>
                 </table>
               </div>
@@ -500,26 +548,39 @@ const CourierDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {jsFiles.map((file) => (
-                      <tr key={file.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {file.file_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(file.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownloadJsFile(file.file_path, file.file_name)}
-                            disabled={downloadLoading}
-                          >
-                            {downloadLoading ? 'Downloading...' : 'Download'}
-                          </Button>
+                    {jsFiles.length > 0 ? (
+                      jsFiles.map((file) => {
+                        // Log the file object to help with debugging
+                        console.log('JS File:', file);
+
+                        return (
+                          <tr key={file.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {file.file_name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(file.created_at).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadJsFile(file.file_path, file.file_name)}
+                                disabled={downloadLoading}
+                              >
+                                {downloadLoading ? 'Downloading...' : 'Download'}
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No JS files found. JS files array is empty.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
