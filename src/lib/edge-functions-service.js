@@ -1,5 +1,5 @@
 // Service for interacting with Supabase Edge Functions
-import { supabase } from './supabase-client';
+import supabase from './supabase-client';
 
 // Base URL for Edge Functions
 const EDGE_FUNCTION_URL = import.meta.env.PROD 
@@ -111,15 +111,15 @@ export const addTmsField = async (fieldData) => {
 };
 
 // Update a TMS field
-export const updateTmsField = async (fieldData) => {
+export const updateTmsField = async (id, fieldData) => {
   try {
     const data = await callEdgeFunction('tms-fields', 'PUT', {
-      id: fieldData.id,
+      id,
       name: fieldData.name,
-      display_name: fieldData.display_name,
+      display_name: fieldData.displayName,
       description: fieldData.description,
-      data_type: fieldData.data_type || 'string',
-      is_required: fieldData.is_required || false
+      data_type: fieldData.dataType,
+      is_required: fieldData.isRequired
     });
     
     return data;
