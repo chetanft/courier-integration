@@ -166,9 +166,9 @@ The platform generates JavaScript configuration files for each courier integrati
 Example:
 
 ```javascript
-const safeExpressMapping = {
+const courierXYZMapping = {
   generate_token_request: {
-    url: ConfigAccessor.getConfig("third_party_url", "safexpress_auth"),
+    url: ConfigAccessor.getConfig("third_party_url", "courier_xyz_auth"),
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -178,16 +178,16 @@ const safeExpressMapping = {
         return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
       },
     },
-    body: "scope=server/waybillapps&grant_type=client_credentials",
+    body: "scope=server/tracking&grant_type=client_credentials",
   },
-  track_docket_response: {
+  track_shipment_response: {
     is_success: (payload) => {
-      return payload?.shipment?.result === "success";
+      return payload?.tracking?.status === "success";
     },
     error_message: (payload) => {
-      return payload?.shipment?.error || null;
+      return payload?.tracking?.error || null;
     },
-    tracking_provider: "safexpress",
+    tracking_provider: "courier_xyz",
     // ... more mappings
   },
 };
