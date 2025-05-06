@@ -351,16 +351,28 @@ const AddCourierRevamped = () => {
       URL.revokeObjectURL(url);
 
       // Upload to Supabase
+      console.log('Uploading JS file to Supabase...');
       const result = await uploadJsFile(courier.id, fileName, jsCode);
+      console.log('Upload result:', result);
 
       // Set JS file generated flag to true
       setJsFileGenerated(true);
 
-      if (result && result.warning) {
+      if (result && result.success) {
+        // Success with possible message
+        if (result.message) {
+          console.log('Success message:', result.message);
+          alert(`JS file generated and downloaded successfully! ${result.message}`);
+        } else {
+          alert('JS file generated and downloaded successfully!');
+        }
+      } else if (result && result.warning) {
         // Show warning but still consider it a success since the file was generated
+        console.log('Warning:', result.warning);
         alert(`JS file generated successfully! Note: ${result.warning}`);
       } else {
-        alert('JS file generated and saved successfully!');
+        // Generic success message
+        alert('JS file generated and downloaded successfully!');
       }
     } catch (error) {
       console.error('Error generating JS file:', error);

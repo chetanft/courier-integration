@@ -224,7 +224,16 @@ const CourierDetail = () => {
   const handleDownloadJsFile = async (filePath, fileName) => {
     try {
       setDownloadLoading(true);
+      console.log('Downloading JS file with path:', filePath);
+
       const downloadUrl = await getJsFileDownloadUrl(filePath);
+
+      if (!downloadUrl) {
+        console.error('Failed to get download URL - null or undefined returned');
+        throw new Error('Failed to generate download URL. The file might not exist or there might be permission issues.');
+      }
+
+      console.log('Got download URL:', downloadUrl);
 
       // Create and click a download link
       const a = document.createElement('a');
@@ -234,11 +243,15 @@ const CourierDetail = () => {
       a.click();
       document.body.removeChild(a);
 
-      console.log('JS file downloaded successfully!');
+      console.log('JS file download initiated successfully!');
     } catch (error) {
       console.error('Error downloading JS file:', error);
+
+      // Show a more user-friendly error message
+      alert(`Error downloading file: ${error.message || 'Unknown error'}`);
+
       setError({
-        message: `Failed to download JS file: ${error.message}`,
+        message: `Failed to download JS file: ${error.message || 'Unknown error'}`,
         details: error
       });
     } finally {
