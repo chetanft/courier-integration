@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { JsonViewer } from './ui/json-viewer';
@@ -16,6 +16,7 @@ const ResponseViewer = ({
   onMappingChange,
   onSaveMappings,
   onGenerateJs,
+  onTabChange,
   loading = false
 }) => {
   // Track the active tab
@@ -23,6 +24,13 @@ const ResponseViewer = ({
 
   console.log('ResponseViewer rendering with activeTab:', activeTab);
   console.log('Field mappings:', fieldMappings);
+
+  // Call the onTabChange callback when the active tab changes
+  useEffect(() => {
+    if (onTabChange) {
+      onTabChange(activeTab);
+    }
+  }, [activeTab, onTabChange]);
 
   // Handle field mapping change
   const handleMappingChange = (index, tmsField) => {
@@ -76,7 +84,13 @@ const ResponseViewer = ({
                 <div className="mt-2">
                   <JsonViewer data={apiResponse} className="bg-white p-2 rounded border" />
                 </div>
-                <div className="mt-4 flex justify-end">
+                <div className="mt-4 flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                  >
+                    Back to API Details
+                  </Button>
                   <Button
                     variant="default"
                     onClick={() => setActiveTab('mapping')}
@@ -140,21 +154,29 @@ const ResponseViewer = ({
                   </table>
                 </div>
 
-                <div className="flex justify-end space-x-4 mt-6">
+                <div className="flex justify-between mt-6">
                   <Button
                     variant="outline"
-                    onClick={onSaveMappings}
-                    disabled={loading}
+                    onClick={() => setActiveTab('response')}
                   >
-                    Save Mappings
+                    Back to Response
                   </Button>
-                  <Button
-                    variant="default"
-                    onClick={onGenerateJs}
-                    disabled={loading}
-                  >
-                    {loading ? 'Generating...' : 'Generate JS File'}
-                  </Button>
+                  <div className="flex space-x-4">
+                    <Button
+                      variant="outline"
+                      onClick={onSaveMappings}
+                      disabled={loading}
+                    >
+                      Save Mappings
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={onGenerateJs}
+                      disabled={loading}
+                    >
+                      {loading ? 'Generating...' : 'Generate JS File'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (

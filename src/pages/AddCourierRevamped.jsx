@@ -17,6 +17,7 @@ import {
   FormControl,
   FormMessage,
 } from '../components/ui/form';
+import { Stepper } from '../components/ui/stepper';
 import RequestBuilder from '../components/request-builder';
 import ResponseViewer from '../components/response-viewer';
 
@@ -29,6 +30,15 @@ const AddCourierRevamped = () => {
   const [courier, setCourier] = useState(null);
   const [fieldMappings, setFieldMappings] = useState([]);
   const [tmsFields, setTmsFields] = useState([]);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [jsFileGenerated, setJsFileGenerated] = useState(false);
+
+  // Define the steps for the stepper
+  const steps = [
+    { label: "API Details", description: "Configure API request" },
+    { label: "Response", description: "View API response" },
+    { label: "Mapping", description: "Map fields & generate JS" }
+  ];
 
   // Initialize form
   const formMethods = useForm({
@@ -266,6 +276,9 @@ const AddCourierRevamped = () => {
 
       console.log('Setting field mappings:', newMappings);
       setFieldMappings(newMappings);
+
+      // Move to step 2 (Response)
+      setCurrentStep(2);
     } catch (error) {
       console.error('Error testing API:', error);
       setApiError(error);
@@ -340,6 +353,9 @@ const AddCourierRevamped = () => {
       // Upload to Supabase
       await uploadJsFile(courier.id, fileName, jsCode);
 
+      // Set JS file generated flag to true
+      setJsFileGenerated(true);
+
       alert('JS file generated and saved successfully!');
     } catch (error) {
       console.error('Error generating JS file:', error);
@@ -349,18 +365,48 @@ const AddCourierRevamped = () => {
     }
   };
 
+  // Handle tab change in ResponseViewer
+  const handleTabChange = (tab) => {
+    // If switching to mapping tab, update step to 3
+    if (tab === 'mapping') {
+      setCurrentStep(3);
+    } else if (tab === 'response') {
+      setCurrentStep(2);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Add New Courier</h1>
         <Link to="/">
           <Button variant="outline">Back to Dashboard</Button>
         </Link>
       </div>
 
-      {/* Courier Name section removed and moved to RequestBuilder */}
+      {/* Stepper */}
+      <Stepper
+        currentStep={currentStep}
+        steps={steps}
+        className="mb-6"
+      />
 
-      {/* Request Builder */}
+      {/* Success Message after JS file generation */}
+      {jsFileGenerated && (
+        <div className="mb-6 p-4 border border-green-200 bg-green-50 rounded-md">
+          <h3 className="text-lg font-medium text-green-800 mb-2">JS File Generated Successfully!</h3>
+          <p className="text-green-700 mb-4">
+            The JS file has been generated and saved. You can view it in the courier details page.
+          </p>
+          <div className="flex justify-end">
+            <Link to="/">
+              <Button variant="default">Return to Dashboard</Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Request Builder - Step 1 */}
       {!apiResponse && (
         <RequestBuilder
           formMethods={formMethods}
@@ -369,8 +415,8 @@ const AddCourierRevamped = () => {
         />
       )}
 
-      {/* Response Viewer */}
-      {apiResponse && (
+      {/* Response Viewer - Steps 2 & 3 */}
+      {apiResponse && !jsFileGenerated && (
         <ResponseViewer
           apiResponse={apiResponse}
           fieldMappings={fieldMappings}
@@ -378,6 +424,7 @@ const AddCourierRevamped = () => {
           onMappingChange={handleMappingChange}
           onSaveMappings={saveMappings}
           onGenerateJs={generateJsFile}
+          onTabChange={handleTabChange}
           loading={loading}
         />
       )}
