@@ -51,8 +51,33 @@ export const parseCurl = (curlString) => {
     // Headers
     if (part === '-H' || part === '--header') {
       if (i + 1 < parts.length) {
-        const headerStr = parts[i + 1].replace(/['"]/g, '');
-        const colonIndex = headerStr.indexOf(':');
+        // Remove surrounding quotes but keep internal quotes
+        const headerStr = parts[i + 1].replace(/^['"]|['"]$/g, '');
+        console.log('Processing header:', headerStr);
+
+        // Find the first colon that's not inside quotes
+        let colonIndex = -1;
+        let inQuote = false;
+        let quoteChar = null;
+
+        for (let j = 0; j < headerStr.length; j++) {
+          const char = headerStr[j];
+
+          if ((char === '"' || char === "'") && (j === 0 || headerStr[j-1] !== '\\')) {
+            if (!inQuote) {
+              inQuote = true;
+              quoteChar = char;
+            } else if (char === quoteChar) {
+              inQuote = false;
+              quoteChar = null;
+            }
+          }
+
+          if (char === ':' && !inQuote) {
+            colonIndex = j;
+            break;
+          }
+        }
 
         if (colonIndex > 0) {
           const key = headerStr.substring(0, colonIndex).trim();
@@ -96,13 +121,49 @@ export const parseCurl = (curlString) => {
       if (i + 1 < parts.length) {
         let bodyStr = parts[i + 1].replace(/^['"]|['"]$/g, '');
 
-        try {
-          // Try to parse as JSON
-          request.body = JSON.parse(bodyStr);
-        } catch (error) {
-          // If not valid JSON, store as string
-          console.error('Error parsing JSON body:', error);
-          request.body = bodyStr;
+        // Check if this is form-urlencoded data (contains key=value&key2=value2)
+        if (bodyStr.includes('=') && (bodyStr.includes('&') || !bodyStr.includes('{'))) {
+          try {
+            // Parse as form-urlencoded
+            const formData = {};
+            const pairs = bodyStr.split('&');
+
+            for (const pair of pairs) {
+              const [key, value] = pair.split('=');
+              if (key) {
+                formData[decodeURIComponent(key)] = value ? decodeURIComponent(value) : '';
+              }
+            }
+
+            request.body = formData;
+
+            // Add a special flag to indicate this is form-urlencoded data
+            request.isFormUrlEncoded = true;
+
+            // Add Content-Type header if not already present
+            const hasContentType = request.headers.some(
+              h => h.key.toLowerCase() === 'content-type'
+            );
+
+            if (!hasContentType) {
+              request.headers.push({
+                key: 'Content-Type',
+                value: 'application/x-www-form-urlencoded'
+              });
+            }
+          } catch (error) {
+            console.error('Error parsing form data:', error);
+            request.body = bodyStr;
+          }
+        } else {
+          try {
+            // Try to parse as JSON
+            request.body = JSON.parse(bodyStr);
+          } catch (error) {
+            // If not valid JSON, store as string
+            console.error('Error parsing JSON body:', error);
+            request.body = bodyStr;
+          }
         }
 
         // If method is still GET, change to POST when data is present
@@ -148,11 +209,21 @@ export const parseCurl = (curlString) => {
  * @returns {string[]} Array of command parts
  */
 function splitCurlCommand(command) {
+  console.log('Splitting cURL command:', command);
   const parts = [];
   let current = '';
   let inSingleQuote = false;
   let inDoubleQuote = false;
   let escaped = false;
+  let inFlag = false;
+
+  // Pre-process: normalize spaces around quotes and flags
+  command = command.replace(/\s+/g, ' ')
+                   .replace(/(['"]) -/g, '$1 -')
+                   .replace(/ (['"]) /g, ' $1')
+                   .replace(/-([a-zA-Z]) /g, '-$1 ');
+
+  console.log('Normalized command:', command);
 
   for (let i = 0; i < command.length; i++) {
     const char = command[i];
@@ -180,11 +251,43 @@ function splitCurlCommand(command) {
       continue;
     }
 
-    if (char === ' ' && !inSingleQuote && !inDoubleQuote) {
+    // Handle flags (-H, --header, etc.)
+    if (char === '-' && !inSingleQuote && !inDoubleQuote && !inFlag) {
+      // If we have content, push it before starting a new flag
       if (current) {
         parts.push(current);
         current = '';
       }
+      inFlag = true;
+      current += char;
+      continue;
+    }
+
+    // End of flag when we hit a space
+    if (char === ' ' && inFlag && !inSingleQuote && !inDoubleQuote) {
+      parts.push(current);
+      current = '';
+      inFlag = false;
+      continue;
+    }
+
+    // Handle spaces outside of quotes and flags
+    if (char === ' ' && !inSingleQuote && !inDoubleQuote && !inFlag) {
+      if (current) {
+        parts.push(current);
+        current = '';
+      }
+      continue;
+    }
+
+    // Special handling for flag values
+    if (char === ' ' && !inSingleQuote && !inDoubleQuote &&
+        (current === '-H' || current === '--header' ||
+         current === '-d' || current === '--data' ||
+         current === '-u' || current === '--user')) {
+      parts.push(current);
+      current = '';
+      inFlag = false;
       continue;
     }
 
@@ -195,6 +298,7 @@ function splitCurlCommand(command) {
     parts.push(current);
   }
 
+  console.log('Split parts:', parts);
   return parts;
 }
 

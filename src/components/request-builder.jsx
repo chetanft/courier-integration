@@ -121,7 +121,17 @@ const RequestBuilder = ({
       }
 
       const parsed = parseCurl(curlCommand);
-      console.log('Successfully parsed cURL command, updating form values');
+      console.log('Successfully parsed cURL command:', parsed);
+
+      // Log headers specifically for debugging
+      if (parsed.headers && parsed.headers.length > 0) {
+        console.log('Parsed headers:');
+        parsed.headers.forEach((header, index) => {
+          console.log(`  ${index + 1}. ${header.key}: ${header.value}`);
+        });
+      } else {
+        console.log('No headers found in cURL command');
+      }
 
       // Update form values with parsed data
       setValue('method', parsed.method);
@@ -130,10 +140,37 @@ const RequestBuilder = ({
       setValue('auth.username', parsed.auth.username);
       setValue('auth.password', parsed.auth.password);
       setValue('auth.token', parsed.auth.token);
-      setValue('headers', parsed.headers);
+
+      // Make sure headers are properly set
+      if (parsed.headers && parsed.headers.length > 0) {
+        setValue('headers', parsed.headers);
+      } else {
+        setValue('headers', []);
+      }
 
       if (parsed.body) {
         setValue('body', parsed.body);
+
+        // If this is form-urlencoded data, pass that information along
+        if (parsed.isFormUrlEncoded) {
+          // Store this information in a hidden field
+          setValue('isFormUrlEncoded', true);
+
+          // Check if we need to add the Content-Type header
+          const hasContentType = parsed.headers.some(
+            h => h.key.toLowerCase() === 'content-type' &&
+                 h.value.toLowerCase().includes('form-urlencoded')
+          );
+
+          if (!hasContentType) {
+            const updatedHeaders = [...parsed.headers];
+            updatedHeaders.push({
+              key: 'Content-Type',
+              value: 'application/x-www-form-urlencoded'
+            });
+            setValue('headers', updatedHeaders);
+          }
+        }
       }
 
       // Log the current form values after update

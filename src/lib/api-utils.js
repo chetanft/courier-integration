@@ -106,11 +106,16 @@ export const testCourierApi = async (requestConfig) => {
 
     // Add custom headers from the request config
     if (requestConfig.headers && Array.isArray(requestConfig.headers)) {
+      console.log('Processing headers from request config:', requestConfig.headers);
+
       requestConfig.headers.forEach(header => {
-        if (header.key && header.value) {
+        if (header.key && header.value !== undefined) {
+          console.log(`Adding header: ${header.key} = ${header.value}`);
           headers[header.key] = header.value;
         }
       });
+    } else {
+      console.log('No headers found in request config');
     }
 
     // Add authentication headers if not already set
@@ -213,16 +218,33 @@ export const testCourierApi = async (requestConfig) => {
       switch (requestConfig.apiIntent) {
         case 'generate_auth_token':
           // For auth token requests, we might need to add standard OAuth fields
-          if (axiosConfig.method.toUpperCase() === 'POST' && typeof axiosConfig.data === 'object') {
-            axiosConfig.data = {
-              grant_type: 'client_credentials',
-              ...axiosConfig.data
-            };
+          if (axiosConfig.method.toUpperCase() === 'POST') {
+            // Check if we need to create the data object
+            if (!axiosConfig.data || typeof axiosConfig.data !== 'object') {
+              axiosConfig.data = {};
+            }
+
+            // Add standard OAuth fields
+            axiosConfig.data.grant_type = 'client_credentials';
+
+            // Add any existing data
+            if (requestConfig.body && typeof requestConfig.body === 'object') {
+              axiosConfig.data = {
+                ...axiosConfig.data,
+                ...requestConfig.body
+              };
+            }
 
             // Add client credentials based on auth type
             if (requestConfig.auth?.type === 'basic') {
               axiosConfig.data.client_id = requestConfig.auth.username;
               axiosConfig.data.client_secret = requestConfig.auth.password;
+
+              // For Cognito/OAuth endpoints, also set up Basic Auth in the headers
+              // This is what Postman might be doing
+              // Use browser-compatible base64 encoding (btoa) instead of Buffer
+              const basicAuthValue = btoa(`${requestConfig.auth.username}:${requestConfig.auth.password}`);
+              axiosConfig.headers['Authorization'] = `Basic ${basicAuthValue}`;
             } else if (requestConfig.auth?.type === 'oauth') {
               axiosConfig.data.client_id = requestConfig.auth.clientId;
               axiosConfig.data.client_secret = requestConfig.auth.clientSecret;
@@ -230,6 +252,51 @@ export const testCourierApi = async (requestConfig) => {
               // Add scope if provided
               if (requestConfig.auth.scope) {
                 axiosConfig.data.scope = requestConfig.auth.scope;
+              }
+
+              // Override URL if token endpoint is provided
+              if (requestConfig.auth.tokenEndpoint) {
+                axiosConfig.url = requestConfig.auth.tokenEndpoint;
+              }
+            }
+
+            // Check if we need to use form-urlencoded format instead of JSON
+            // This is common for OAuth token endpoints and might be what Postman is doing
+            const contentType = axiosConfig.headers['Content-Type'] || axiosConfig.headers['content-type'];
+
+            // Check if the request is marked as form-urlencoded or has the appropriate content type
+            if ((requestConfig.isFormUrlEncoded || (contentType && contentType.includes('x-www-form-urlencoded')))) {
+              // For Axios, we can use URLSearchParams for form data
+              const params = new URLSearchParams();
+              for (const key in axiosConfig.data) {
+                if (axiosConfig.data[key] !== undefined && axiosConfig.data[key] !== null) {
+                  params.append(key, axiosConfig.data[key]);
+                }
+              }
+              axiosConfig.data = params;
+
+              // Ensure the content type header is set
+              axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            }
+          } else if (axiosConfig.method.toUpperCase() === 'GET') {
+            // For GET requests, add the parameters to the query string
+            if (!axiosConfig.params) {
+              axiosConfig.params = {};
+            }
+
+            axiosConfig.params.grant_type = 'client_credentials';
+
+            // Add client credentials based on auth type
+            if (requestConfig.auth?.type === 'basic') {
+              axiosConfig.params.client_id = requestConfig.auth.username;
+              axiosConfig.params.client_secret = requestConfig.auth.password;
+            } else if (requestConfig.auth?.type === 'oauth') {
+              axiosConfig.params.client_id = requestConfig.auth.clientId;
+              axiosConfig.params.client_secret = requestConfig.auth.clientSecret;
+
+              // Add scope if provided
+              if (requestConfig.auth.scope) {
+                axiosConfig.params.scope = requestConfig.auth.scope;
               }
 
               // Override URL if token endpoint is provided
@@ -268,9 +335,22 @@ export const testCourierApi = async (requestConfig) => {
 
     // Make the request
     console.log('Making request with config:', axiosConfig);
-    const response = await axios(axiosConfig);
+    console.log('Headers being sent:', axiosConfig.headers);
 
-    return response.data;
+    try {
+      const response = await axios(axiosConfig);
+      console.log('API response:', response);
+      return response.data;
+    } catch (axiosError) {
+      console.error('Axios error details:', {
+        message: axiosError.message,
+        code: axiosError.code,
+        response: axiosError.response,
+        request: axiosError.request,
+        config: axiosError.config
+      });
+      throw axiosError;
+    }
   } catch (error) {
     console.error('API call failed:', error);
 

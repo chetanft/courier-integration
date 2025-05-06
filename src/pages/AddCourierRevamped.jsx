@@ -109,7 +109,8 @@ const AddCourierRevamped = () => {
         headers: data.headers,
         queryParams: data.queryParams,
         body: data.body,
-        testDocket: data.testDocket
+        testDocket: data.testDocket,
+        isFormUrlEncoded: data.isFormUrlEncoded
       };
 
       // If using JWT Token Auth, update the UI to show loading state
