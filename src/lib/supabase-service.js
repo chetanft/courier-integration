@@ -253,24 +253,42 @@ export const uploadJsFile = async (courierId, fileName, fileContent) => {
 
     if (error) throw error;
 
-    // Save metadata in the database
-    const { data: metaData, error: metaError } = await supabase
-      .from('js_files')
-      .insert({
-        courier_id: courierId,
-        file_name: fileName,
-        file_path: filePath,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    try {
+      // Try to save metadata in the database
+      const { data: metaData, error: metaError } = await supabase
+        .from('js_files')
+        .insert({
+          courier_id: courierId,
+          file_name: fileName,
+          file_path: filePath,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-    if (metaError) throw metaError;
+      if (metaError) {
+        console.warn('Error saving JS file metadata, but file was uploaded successfully:', metaError);
+        // Return partial success even if metadata saving fails
+        return {
+          file: data,
+          metadata: null,
+          warning: 'File was uploaded but metadata could not be saved due to database permissions. Please run the fix-js-files-rls-policy.sql script in Supabase.'
+        };
+      }
 
-    return {
-      file: data,
-      metadata: metaData
-    };
+      return {
+        file: data,
+        metadata: metaData
+      };
+    } catch (metaError) {
+      console.warn('Exception saving JS file metadata, but file was uploaded successfully:', metaError);
+      // Return partial success even if metadata saving fails
+      return {
+        file: data,
+        metadata: null,
+        warning: 'File was uploaded but metadata could not be saved due to database permissions. Please run the fix-js-files-rls-policy.sql script in Supabase.'
+      };
+    }
   } catch (error) {
     handleApiError(error, 'uploadJsFile');
   }
