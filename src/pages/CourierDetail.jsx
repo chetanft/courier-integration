@@ -519,6 +519,36 @@ const CourierDetail = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Client Confirmation Dialog */}
+      <Dialog open={deleteClientDialogOpen} onOpenChange={setDeleteClientDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Client</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {clientToDelete ? clientToDelete.name : ''}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex space-x-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteClientDialogOpen(false);
+                setClientToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteClient}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? 'Deleting...' : 'Delete Client'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Courier Details */}
         <Card className="md:col-span-1">
@@ -784,36 +814,6 @@ const CourierDetail = () => {
                   </div>
                 ))}
               </div>
-
-              {/* Delete Client Confirmation Dialog */}
-              <Dialog open={deleteClientDialogOpen} onOpenChange={setDeleteClientDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Delete Client</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to delete {clientToDelete ? clientToDelete.name : ''}? This action cannot be undone.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter className="flex space-x-2 justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setDeleteClientDialogOpen(false);
-                        setClientToDelete(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      onClick={handleDeleteClient}
-                      disabled={deleteLoading}
-                    >
-                      {deleteLoading ? 'Deleting...' : 'Delete Client'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
             )}
           </CardContent>
         </Card>
