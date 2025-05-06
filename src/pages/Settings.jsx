@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getTmsFields, addTmsField, updateTmsField, deleteTmsField, getCouriersMissingFields } from '../lib/supabase-service';
+// Import from the proxy service instead of the direct service
+import { getTmsFields, addTmsField, updateTmsField, deleteTmsField, getCouriersMissingFields } from '../lib/supabase-service-proxy';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -64,18 +65,18 @@ const Settings = () => {
   const handleAddField = async () => {
     try {
       setLoading(true);
-      
+
       // Validate input
       if (!newField.name || !newField.displayName) {
         throw new Error('Name and Display Name are required');
       }
-      
+
       // Add the field
       const addedField = await addTmsField(newField);
-      
+
       // Update the local state
       setTmsFields(prev => [...prev, addedField]);
-      
+
       // Reset the form
       setNewField({
         name: '',
@@ -84,10 +85,10 @@ const Settings = () => {
         dataType: 'string',
         isRequired: false
       });
-      
+
       // Close the dialog
       setAddDialogOpen(false);
-      
+
       // Check for couriers missing this field
       const missingFieldsData = await getCouriersMissingFields();
       setCouriersMissingFields(missingFieldsData || []);
@@ -106,12 +107,12 @@ const Settings = () => {
   const handleEditField = async () => {
     try {
       setLoading(true);
-      
+
       // Validate input
       if (!currentField.name || !currentField.display_name) {
         throw new Error('Name and Display Name are required');
       }
-      
+
       // Update the field
       const updatedField = await updateTmsField(currentField.id, {
         name: currentField.name,
@@ -120,12 +121,12 @@ const Settings = () => {
         dataType: currentField.data_type,
         isRequired: currentField.is_required
       });
-      
+
       // Update the local state
-      setTmsFields(prev => prev.map(field => 
+      setTmsFields(prev => prev.map(field =>
         field.id === updatedField.id ? updatedField : field
       ));
-      
+
       // Close the dialog
       setEditDialogOpen(false);
     } catch (err) {
@@ -143,13 +144,13 @@ const Settings = () => {
   const handleDeleteField = async () => {
     try {
       setLoading(true);
-      
+
       // Delete the field
       await deleteTmsField(currentField.id);
-      
+
       // Update the local state
       setTmsFields(prev => prev.filter(field => field.id !== currentField.id));
-      
+
       // Close the dialog
       setDeleteDialogOpen(false);
     } catch (err) {
