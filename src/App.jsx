@@ -4,6 +4,7 @@ import './App.css';
 
 // Import pages
 import AddCourier from './pages/AddCourier';
+import AddCourierRevamped from './pages/AddCourierRevamped';
 import AddClient from './pages/AddClient';
 import CourierDetail from './pages/CourierDetail';
 import Settings from './pages/Settings';
@@ -144,7 +145,9 @@ const HomeContent = () => {
   );
 };
 
+// This is a test change to trigger a new Netlify deployment
 function App() {
+  // Main application component
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-gray-50">
@@ -166,7 +169,8 @@ function App() {
         <main className="container mx-auto p-4">
           <Routes>
             <Route path="/" element={<HomeWithNavigation />} />
-            <Route path="/add-courier" element={<AddCourier />} />
+            <Route path="/add-courier" element={<AddCourierRevamped />} />
+            <Route path="/add-courier-legacy" element={<AddCourier />} />
             <Route path="/add-client" element={<AddClient />} />
             <Route path="/courier/:id" element={<CourierDetail />} />
             <Route path="/settings" element={<Settings />} />
