@@ -18,8 +18,11 @@ const ResponseViewer = ({
   onGenerateJs,
   loading = false
 }) => {
-  // We only need setActiveTab since the Tabs component manages the active tab internally
-  const [, setActiveTab] = useState('response');
+  // Track the active tab
+  const [activeTab, setActiveTab] = useState('response');
+
+  console.log('ResponseViewer rendering with activeTab:', activeTab);
+  console.log('Field mappings:', fieldMappings);
 
   // Handle field mapping change
   const handleMappingChange = (index, tmsField) => {
@@ -34,10 +37,22 @@ const ResponseViewer = ({
         <CardTitle>API Response</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="response" onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          defaultValue="response"
+          value={activeTab}
+          onValueChange={(value) => {
+            console.log('Tab changed to:', value);
+            setActiveTab(value);
+          }}
+          className="w-full"
+        >
           <TabsList className="mb-4">
-            <TabsTrigger value="response">Response Data</TabsTrigger>
-            <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
+            <TabsTrigger value="response" onClick={() => setActiveTab('response')}>
+              Response Data
+            </TabsTrigger>
+            <TabsTrigger value="mapping" onClick={() => setActiveTab('mapping')}>
+              Field Mapping
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="response">
@@ -56,13 +71,28 @@ const ResponseViewer = ({
                 <div className="mt-2">
                   <JsonViewer data={apiResponse} className="bg-white p-2 rounded border" />
                 </div>
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    variant="default"
+                    onClick={() => setActiveTab('mapping')}
+                  >
+                    Continue to Field Mapping
+                  </Button>
+                </div>
               </div>
             )}
           </TabsContent>
 
           <TabsContent value="mapping">
-            {fieldMappings.length > 0 ? (
+            {fieldMappings && fieldMappings.length > 0 ? (
               <div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium mb-2">Field Mapping</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Map API response fields to your TMS fields. Select a TMS field for each API field you want to use.
+                  </p>
+                </div>
+
                 <div className="border rounded overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-gray-50">
@@ -79,7 +109,7 @@ const ResponseViewer = ({
                           </td>
                           <td className="py-2 px-4">
                             <Select
-                              value={mapping.tms_field}
+                              value={mapping.tms_field || ""}
                               onValueChange={(value) => handleMappingChange(index, value)}
                             >
                               <SelectTrigger className="w-full">
@@ -87,11 +117,15 @@ const ResponseViewer = ({
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="">-- None --</SelectItem>
-                                {tmsFields.map((field) => (
-                                  <SelectItem key={field.id} value={field.name}>
-                                    {field.display_name || field.name}
-                                  </SelectItem>
-                                ))}
+                                {tmsFields && tmsFields.length > 0 ? (
+                                  tmsFields.map((field) => (
+                                    <SelectItem key={field.id} value={field.name}>
+                                      {field.display_name || field.name}
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="" disabled>No TMS fields available</SelectItem>
+                                )}
                               </SelectContent>
                             </Select>
                           </td>
@@ -119,8 +153,19 @@ const ResponseViewer = ({
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                No fields available for mapping. Please check the API response.
+              <div className="p-6 border rounded-md bg-gray-50">
+                <h3 className="text-lg font-medium mb-2">No Fields Available</h3>
+                <p className="text-gray-500 mb-4">
+                  No fields could be extracted from the API response. This might happen if:
+                </p>
+                <ul className="list-disc pl-5 text-gray-500 mb-4">
+                  <li>The API response is empty or has an unexpected format</li>
+                  <li>The response contains only primitive values (strings, numbers)</li>
+                  <li>There was an error in the API response</li>
+                </ul>
+                <p className="text-gray-500">
+                  Try modifying your API request or check the console for more details.
+                </p>
               </div>
             )}
           </TabsContent>

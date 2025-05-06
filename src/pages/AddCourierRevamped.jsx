@@ -222,13 +222,50 @@ const AddCourierRevamped = () => {
       });
 
       // Extract field paths from response
-      const paths = extractFieldPaths(response);
-      setFieldMappings(paths.map(path => ({
+      console.log('Extracting field paths from API response');
+      let paths = [];
+
+      try {
+        // If this is an error response, try to extract fields from the details
+        if (response.error === true) {
+          console.log('API response contains an error, extracting fields from error details');
+          if (response.details && typeof response.details === 'object') {
+            paths = extractFieldPaths(response.details);
+          } else {
+            paths = extractFieldPaths(response);
+          }
+        } else {
+          paths = extractFieldPaths(response);
+        }
+
+        console.log('Extracted paths:', paths);
+
+        if (paths.length === 0) {
+          console.log('No paths extracted, using fallback approach');
+          // Fallback: If no paths were extracted, create some basic ones
+          paths = Object.keys(response).filter(key =>
+            typeof response[key] !== 'function' &&
+            key !== 'error' &&
+            key !== 'status' &&
+            key !== 'statusText'
+          );
+          console.log('Fallback paths:', paths);
+        }
+      } catch (error) {
+        console.error('Error extracting field paths:', error);
+        paths = [];
+      }
+
+      // Create field mappings
+      const newMappings = paths.map(path => ({
         api_field: path,
         tms_field: '',
         courier_id: savedCourier.id,
         api_type: data.apiIntent
-      })));
+      }));
+
+      console.log('Setting field mappings:', newMappings);
+      setFieldMappings(newMappings);
     } catch (error) {
       console.error('Error testing API:', error);
       setApiError(error);
