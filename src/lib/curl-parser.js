@@ -117,52 +117,103 @@ export const parseCurl = (curlString) => {
     }
 
     // Data (body)
-    if (part === '-d' || part === '--data' || part === '--data-raw' || part === '--data-binary') {
+    if (part === '-d' || part === '--data' || part === '--data-raw' || part === '--data-binary' || part === '--data-urlencode') {
       if (i + 1 < parts.length) {
         let bodyStr = parts[i + 1].replace(/^['"]|['"]$/g, '');
+        const isUrlEncoded = part === '--data-urlencode';
 
-        // Check if this is form-urlencoded data (contains key=value&key2=value2)
-        if (bodyStr.includes('=') && (bodyStr.includes('&') || !bodyStr.includes('{'))) {
-          try {
-            // Parse as form-urlencoded
-            const formData = {};
-            const pairs = bodyStr.split('&');
+        console.log(`Processing data parameter: ${part} with value: ${bodyStr}`);
 
-            for (const pair of pairs) {
-              const [key, value] = pair.split('=');
-              if (key) {
-                formData[decodeURIComponent(key)] = value ? decodeURIComponent(value) : '';
+        // Initialize body object if it doesn't exist
+        if (!request.body || typeof request.body !== 'object') {
+          request.body = {};
+          request.isFormUrlEncoded = true;
+        }
+
+        // Handle --data-urlencode parameter (key=value format)
+        if (isUrlEncoded) {
+          const equalIndex = bodyStr.indexOf('=');
+          if (equalIndex > 0) {
+            const key = bodyStr.substring(0, equalIndex);
+            const value = bodyStr.substring(equalIndex + 1);
+            console.log(`Adding URL-encoded parameter: ${key}=${value}`);
+            request.body[key] = value;
+          } else {
+            // Handle case where the parameter is just a value without a key
+            console.log(`Adding URL-encoded parameter without key: ${bodyStr}`);
+            request.body[bodyStr] = '';
+          }
+
+          // Set form-urlencoded flag
+          request.isFormUrlEncoded = true;
+
+          // Add Content-Type header if not already present
+          const hasContentType = request.headers.some(
+            h => h.key.toLowerCase() === 'content-type'
+          );
+
+          if (!hasContentType) {
+            request.headers.push({
+              key: 'Content-Type',
+              value: 'application/x-www-form-urlencoded'
+            });
+          }
+        }
+        // Handle regular data parameters
+        else {
+          // Check if this is form-urlencoded data (contains key=value&key2=value2)
+          if (bodyStr.includes('=') && (bodyStr.includes('&') || !bodyStr.includes('{'))) {
+            try {
+              // Parse as form-urlencoded
+              const pairs = bodyStr.split('&');
+
+              for (const pair of pairs) {
+                const [key, value] = pair.split('=');
+                if (key) {
+                  request.body[decodeURIComponent(key)] = value ? decodeURIComponent(value) : '';
+                }
+              }
+
+              // Add a special flag to indicate this is form-urlencoded data
+              request.isFormUrlEncoded = true;
+
+              // Add Content-Type header if not already present
+              const hasContentType = request.headers.some(
+                h => h.key.toLowerCase() === 'content-type'
+              );
+
+              if (!hasContentType) {
+                request.headers.push({
+                  key: 'Content-Type',
+                  value: 'application/x-www-form-urlencoded'
+                });
+              }
+            } catch (error) {
+              console.error('Error parsing form data:', error);
+              // If we already have a body object, don't overwrite it
+              if (!request.body || typeof request.body !== 'object') {
+                request.body = bodyStr;
               }
             }
+          } else {
+            try {
+              // Try to parse as JSON
+              const jsonBody = JSON.parse(bodyStr);
 
-            request.body = formData;
-
-            // Add a special flag to indicate this is form-urlencoded data
-            request.isFormUrlEncoded = true;
-
-            // Add Content-Type header if not already present
-            const hasContentType = request.headers.some(
-              h => h.key.toLowerCase() === 'content-type'
-            );
-
-            if (!hasContentType) {
-              request.headers.push({
-                key: 'Content-Type',
-                value: 'application/x-www-form-urlencoded'
-              });
+              // If we already have a body object, merge with it
+              if (request.body && typeof request.body === 'object' && typeof jsonBody === 'object') {
+                request.body = { ...request.body, ...jsonBody };
+              } else {
+                request.body = jsonBody;
+              }
+            } catch (error) {
+              // If not valid JSON, store as string
+              console.error('Error parsing JSON body:', error);
+              // If we already have a body object, don't overwrite it
+              if (!request.body || typeof request.body !== 'object') {
+                request.body = bodyStr;
+              }
             }
-          } catch (error) {
-            console.error('Error parsing form data:', error);
-            request.body = bodyStr;
-          }
-        } else {
-          try {
-            // Try to parse as JSON
-            request.body = JSON.parse(bodyStr);
-          } catch (error) {
-            // If not valid JSON, store as string
-            console.error('Error parsing JSON body:', error);
-            request.body = bodyStr;
           }
         }
 
@@ -284,6 +335,8 @@ function splitCurlCommand(command) {
     if (char === ' ' && !inSingleQuote && !inDoubleQuote &&
         (current === '-H' || current === '--header' ||
          current === '-d' || current === '--data' ||
+         current === '--data-urlencode' || current === '--data-raw' ||
+         current === '--data-binary' ||
          current === '-u' || current === '--user')) {
       parts.push(current);
       current = '';
