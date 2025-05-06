@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Import from the proxy service instead of the direct service
-import { getTmsFields, addTmsField, updateTmsField, deleteTmsField, getCouriersMissingFields } from '../lib/supabase-service-proxy';
+// Import from the Edge Functions service
+import {
+  getTmsFields,
+  addTmsField,
+  updateTmsField,
+  deleteTmsField,
+  getCouriersMissingFields,
+  checkRlsConfiguration
+} from '../lib/edge-functions-service';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -31,9 +38,38 @@ const Settings = () => {
   });
   const [couriersMissingFields, setCouriersMissingFields] = useState([]);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [rlsError, setRlsError] = useState(false);
 
-  // Fetch TMS fields on component mount
+  // Check RLS configuration first
   useEffect(() => {
+    const checkRls = async () => {
+      try {
+        const result = await checkRlsConfiguration();
+        if (!result.success) {
+          setRlsError(true);
+          setError({
+            message: 'Row Level Security (RLS) Configuration Issue',
+            details: {
+              message: result.message,
+              details: result.details,
+              help: 'Please enable RLS for the tms_fields table and add a policy to allow access.'
+            }
+          });
+          setLoading(false);
+        } else {
+          // RLS is configured correctly, proceed to fetch data
+          fetchTmsFields();
+        }
+      } catch (err) {
+        console.error('Error checking RLS configuration:', err);
+        setError({
+          message: 'Failed to check RLS configuration',
+          details: err
+        });
+        setLoading(false);
+      }
+    };
+
     const fetchTmsFields = async () => {
       setLoading(true);
       setError(null);
@@ -49,16 +85,32 @@ const Settings = () => {
         }
       } catch (err) {
         console.error('Error fetching TMS fields:', err);
-        setError({
-          message: 'Failed to load TMS fields',
-          details: err
-        });
+
+        // Check if it's an RLS error
+        if (err.isRlsError ||
+            (err.details && err.details.code === 'RLS_ERROR') ||
+            err.message?.includes('permission denied') ||
+            err.details?.message?.includes('permission denied')) {
+          setRlsError(true);
+          setError({
+            message: 'Row Level Security (RLS) Configuration Issue',
+            details: {
+              message: 'Permission denied. Row Level Security (RLS) is preventing access to the tms_fields table.',
+              help: 'Please enable RLS for the tms_fields table and add a policy to allow access.'
+            }
+          });
+        } else {
+          setError({
+            message: 'Failed to load TMS fields',
+            details: err
+          });
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTmsFields();
+    checkRls();
   }, []);
 
   // Handle adding a new TMS field
@@ -182,16 +234,44 @@ const Settings = () => {
   if (error) {
     return (
       <div className="max-w-6xl mx-auto p-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
-          <h3 className="text-lg font-medium mb-2">Error Loading Settings</h3>
+        <div className={`border p-4 rounded-md mb-6 ${rlsError ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          <h3 className="text-lg font-medium mb-2">{rlsError ? 'Supabase Configuration Issue' : 'Error Loading Settings'}</h3>
           <p>{error.message}</p>
 
           {error.details && (
-            <div className="mt-4 p-4 bg-red-100 rounded text-sm">
+            <div className={`mt-4 p-4 rounded text-sm ${rlsError ? 'bg-amber-100' : 'bg-red-100'}`}>
               <h4 className="font-medium mb-2">Error Details:</h4>
               <pre className="whitespace-pre-wrap">
-                {JSON.stringify(error.details, null, 2)}
+                {typeof error.details === 'object'
+                  ? JSON.stringify(error.details, null, 2)
+                  : error.details}
               </pre>
+            </div>
+          )}
+
+          {rlsError && (
+            <div className="mt-4 p-4 bg-white border border-amber-200 rounded">
+              <h4 className="font-medium mb-2">How to Fix:</h4>
+              <ol className="list-decimal pl-5 space-y-2">
+                <li>Log in to your Supabase dashboard</li>
+                <li>Go to the "Table Editor" section</li>
+                <li>Select the <code className="bg-gray-100 px-1 py-0.5 rounded">tms_fields</code> table</li>
+                <li>Click on the "Authentication" tab</li>
+                <li>Toggle "Row Level Security (RLS)" to ON</li>
+                <li>Click "Add Policy"</li>
+                <li>Choose "Create a policy from scratch"</li>
+                <li>
+                  For a simple read-only policy:
+                  <ul className="list-disc pl-5 mt-1">
+                    <li>Name: "Allow anonymous read access"</li>
+                    <li>Policy definition: <code className="bg-gray-100 px-1 py-0.5 rounded">true</code> (to allow all reads)</li>
+                    <li>Target roles: Leave blank or select "authenticated" and "anon"</li>
+                    <li>Operation: SELECT</li>
+                  </ul>
+                </li>
+                <li>Click "Save Policy"</li>
+                <li>Repeat for INSERT, UPDATE, and DELETE operations if needed</li>
+              </ol>
             </div>
           )}
 

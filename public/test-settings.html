@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings API Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #2d2d2d;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    button {
+      background-color: #000;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-bottom: 20px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #333;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+  </style>
+</head>
+<body>
+  <h1>Settings API Test</h1>
+  
+  <div>
+    <button id="testTmsFields">Test TMS Fields</button>
+    <button id="testMissingFields">Test Missing Fields</button>
+    <button id="testOldEndpoint">Test Old Endpoint</button>
+  </div>
+  
+  <div id="status" class="status" style="display: none;"></div>
+  
+  <h2>Results:</h2>
+  <pre id="result">Click a button above to run a test...</pre>
+  
+  <script>
+    document.getElementById('testTmsFields').addEventListener('click', async () => {
+      try {
+        document.getElementById('result').textContent = 'Testing TMS Fields endpoint...';
+        const response = await fetch('/tms-fields');
+        const data = await response.json();
+        
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        
+        const statusEl = document.getElementById('status');
+        statusEl.style.display = 'block';
+        
+        if (Array.isArray(data)) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Successfully retrieved TMS fields!';
+        } else {
+          statusEl.className = 'status error';
+          statusEl.textContent = 'Failed to retrieve TMS fields!';
+        }
+      } catch (error) {
+        document.getElementById('result').textContent = `Error: ${error.message}`;
+        const statusEl = document.getElementById('status');
+        statusEl.style.display = 'block';
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Failed to test TMS fields!';
+      }
+    });
+    
+    document.getElementById('testMissingFields').addEventListener('click', async () => {
+      try {
+        document.getElementById('result').textContent = 'Testing Missing Fields endpoint...';
+        const response = await fetch('/couriers-missing-fields');
+        const data = await response.json();
+        
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        
+        const statusEl = document.getElementById('status');
+        statusEl.style.display = 'block';
+        
+        if (Array.isArray(data)) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Successfully retrieved missing fields!';
+        } else {
+          statusEl.className = 'status error';
+          statusEl.textContent = 'Failed to retrieve missing fields!';
+        }
+      } catch (error) {
+        document.getElementById('result').textContent = `Error: ${error.message}`;
+        const statusEl = document.getElementById('status');
+        statusEl.style.display = 'block';
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Failed to test missing fields!';
+      }
+    });
+    
+    document.getElementById('testOldEndpoint').addEventListener('click', async () => {
+      try {
+        document.getElementById('result').textContent = 'Testing old endpoint...';
+        const response = await fetch('/api/tms_fields?select=*&order=created_at.asc');
+        const data = await response.json();
+        
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        
+        const statusEl = document.getElementById('status');
+        statusEl.style.display = 'block';
+        
+        if (Array.isArray(data)) {
+          statusEl.className = 'status success';
+          statusEl.textContent = 'Successfully retrieved TMS fields from old endpoint!';
+        } else {
+          statusEl.className = 'status error';
+          statusEl.textContent = 'Failed to retrieve TMS fields from old endpoint!';
+        }
+      } catch (error) {
+        document.getElementById('result').textContent = `Error: ${error.message}`;
+        const statusEl = document.getElementById('status');
+        statusEl.style.display = 'block';
+        statusEl.className = 'status error';
+        statusEl.textContent = 'Failed to test old endpoint!';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -13,6 +13,48 @@
   status = 200
   force = true
 
+# Debug endpoint for environment variables
+[[redirects]]
+  from = "/debug-env"
+  to = "/.netlify/functions/debug-env"
+  status = 200
+  force = true
+
+# Test URL endpoint
+[[redirects]]
+  from = "/test-url"
+  to = "/.netlify/functions/test-url"
+  status = 200
+  force = true
+
+# Direct Supabase test endpoint
+[[redirects]]
+  from = "/direct-test"
+  to = "/.netlify/functions/direct-supabase-test"
+  status = 200
+  force = true
+
+# Check Supabase tables endpoint
+[[redirects]]
+  from = "/check-tables"
+  to = "/.netlify/functions/check-tables"
+  status = 200
+  force = true
+
+# TMS Fields endpoint
+[[redirects]]
+  from = "/tms-fields"
+  to = "/.netlify/functions/tms-fields"
+  status = 200
+  force = true
+
+# Couriers Missing Fields endpoint
+[[redirects]]
+  from = "/couriers-missing-fields"
+  to = "/.netlify/functions/couriers-missing-fields"
+  status = 200
+  force = true
+
 # Handle SPA routing (this should be last)
 [[redirects]]
   from = "/*"

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Import from the proxy service instead of the direct service
-import { getCouriers, getTmsFields, getCourierMappings, addFieldMapping } from '../lib/supabase-service-proxy';
+// Import TMS fields from the Edge Functions service
+import { getTmsFields } from '../lib/edge-functions-service';
+// Import other functions from the proxy service
+import { getCouriers, getCourierMappings, addFieldMapping } from '../lib/supabase-service-proxy';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { testCourierApi } from '../lib/api-utils';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../components/ui/card';

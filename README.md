@@ -56,14 +56,20 @@ This application uses Supabase as its backend. To run the application:
 
 2. Set up the database schema using the SQL in `supabase-schema.sql`
 
-3. Create a `.env` file with your Supabase credentials:
+3. Configure Row Level Security (RLS) policies:
+   - Run the SQL in `fix-rls-policies.sql` to enable proper access to tables
+   - This is critical for the application to work correctly, especially the Settings page
+
+4. Create a `.env` file with your Supabase credentials:
 
    ```
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-4. Start the development server:
+   **Important**: Make sure the `VITE_SUPABASE_URL` is a complete URL starting with `https://` and ending with `.co`
+
+5. Start the development server:
    ```
    npm run dev
    ```
@@ -87,8 +93,9 @@ This application uses Supabase as its backend. To run the application:
 
    - Go to Site settings > Environment variables
    - Add the following variables:
-     - `SUPABASE_URL`: Your Supabase project URL
+     - `SUPABASE_URL`: Your Supabase project URL (must start with `https://` and end with `.co`)
      - `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+   - **Important**: Make sure the `SUPABASE_URL` is a complete URL starting with `https://` and ending with `.co`
 
 4. Alternatively, deploy using Netlify CLI:
    ```
