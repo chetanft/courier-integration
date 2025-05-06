@@ -238,7 +238,14 @@ const ViewCouriers = () => {
                       </div>
                     </div>
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => window.location.href = `/courier/${selectedCourier.id}`}
+                        disabled={loading}
+                      >
+                        View Full Details & Map Clients
+                      </Button>
                       <Button
                         variant="default"
                         onClick={generateJsFile}
@@ -292,14 +299,32 @@ const ViewCouriers = () => {
 
                 {!loading && activeTab === 'clients' && (
                   <div>
-                    <h2 className="text-xl font-semibold mb-4">Linked Clients</h2>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-semibold">Linked Clients</h2>
+                      <Button
+                        variant="default"
+                        onClick={() => window.location.href = `/courier/${selectedCourier.id}`}
+                      >
+                        View Full Details & Map Clients
+                      </Button>
+                    </div>
 
                     {clients.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded border">
                         <p className="text-gray-500">No clients linked to this courier</p>
-                        <Link to="/add-client" className="text-blue-600 hover:underline mt-2 inline-block">
-                          Link clients
-                        </Link>
+                        <div className="mt-4 space-y-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => window.location.href = `/courier/${selectedCourier.id}`}
+                          >
+                            Go to Full Detail Page to Map Clients
+                          </Button>
+                          <div>
+                            <Link to="/add-client" className="text-blue-600 hover:underline mt-2 inline-block">
+                              Or add a new client
+                            </Link>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

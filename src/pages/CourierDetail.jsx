@@ -30,20 +30,30 @@ const CourierDetail = () => {
       setError(null);
 
       try {
-        // Fetch courier, mappings, clients, and JS files in parallel
-        const [courierData, mappingsData, clientsData, allClientsData, jsFilesData] = await Promise.all([
-          getCourierById(id),
+        console.log('Fetching courier details for ID:', id);
+
+        // First, try to get the courier data
+        const courierData = await getCourierById(id);
+
+        if (!courierData) {
+          console.error('Courier not found for ID:', id);
+          throw new Error('Courier not found. Please check the courier ID.');
+        }
+
+        console.log('Courier data retrieved:', courierData);
+        setCourier(courierData);
+
+        // Now fetch the rest of the data in parallel
+        const [mappingsData, clientsData, allClientsData, jsFilesData] = await Promise.all([
           getCourierMappings(id),
           getCourierClients(id),
           getClients(),
           getJsFilesForCourier(id)
         ]);
 
-        if (!courierData) {
-          throw new Error('Courier not found');
-        }
+        console.log('Mappings data:', mappingsData);
+        console.log('Clients data:', clientsData);
 
-        setCourier(courierData);
         setMappings(mappingsData || []);
         setClients(clientsData || []);
         setAllClients(allClientsData || []);
@@ -57,7 +67,7 @@ const CourierDetail = () => {
       } catch (err) {
         console.error('Error fetching courier details:', err);
         setError({
-          message: 'Failed to load courier details',
+          message: err.message || 'Failed to load courier details',
           details: err
         });
       } finally {
@@ -155,13 +165,30 @@ const CourierDetail = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
           <h3 className="text-lg font-medium mb-2">Error</h3>
           <p>{error.message}</p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => navigate('/view-couriers')}
-          >
-            Back to Couriers
-          </Button>
+
+          {error.details && (
+            <div className="mt-4 p-4 bg-red-100 rounded text-sm">
+              <h4 className="font-medium mb-2">Error Details:</h4>
+              <pre className="whitespace-pre-wrap">
+                {JSON.stringify(error.details, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          <div className="mt-6 flex space-x-4">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/view-couriers')}
+            >
+              Back to Couriers
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => window.location.reload()}
+            >
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     );
