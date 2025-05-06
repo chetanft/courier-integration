@@ -26,8 +26,13 @@ const ResponseViewer = ({
 
   // Handle field mapping change
   const handleMappingChange = (index, tmsField) => {
+    console.log('Mapping change:', index, tmsField);
     const newMappings = [...fieldMappings];
-    newMappings[index] = { ...newMappings[index], tms_field: tmsField };
+
+    // Convert "none" to empty string for the backend
+    const finalValue = tmsField === 'none' ? '' : tmsField;
+
+    newMappings[index] = { ...newMappings[index], tms_field: finalValue };
     onMappingChange(newMappings);
   };
 
@@ -109,14 +114,14 @@ const ResponseViewer = ({
                           </td>
                           <td className="py-2 px-4">
                             <Select
-                              value={mapping.tms_field || ""}
+                              value={mapping.tms_field || "none"}
                               onValueChange={(value) => handleMappingChange(index, value)}
                             >
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select TMS field" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">-- None --</SelectItem>
+                                <SelectItem value="none">-- None --</SelectItem>
                                 {tmsFields && tmsFields.length > 0 ? (
                                   tmsFields.map((field) => (
                                     <SelectItem key={field.id} value={field.name}>
@@ -124,7 +129,7 @@ const ResponseViewer = ({
                                     </SelectItem>
                                   ))
                                 ) : (
-                                  <SelectItem value="" disabled>No TMS fields available</SelectItem>
+                                  <SelectItem value="no_fields_available" disabled>No TMS fields available</SelectItem>
                                 )}
                               </SelectContent>
                             </Select>

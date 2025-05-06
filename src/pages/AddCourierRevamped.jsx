@@ -284,8 +284,10 @@ const AddCourierRevamped = () => {
     try {
       setLoading(true);
 
-      // Filter out mappings without a TMS field
-      const validMappings = fieldMappings.filter(mapping => mapping.tms_field);
+      // Filter out mappings without a TMS field or with "none" value
+      const validMappings = fieldMappings.filter(mapping =>
+        mapping.tms_field && mapping.tms_field !== 'none'
+      );
 
       if (validMappings.length === 0) {
         alert('Please map at least one field before saving.');
@@ -312,7 +314,9 @@ const AddCourierRevamped = () => {
     try {
       if (!courier) return;
 
-      const validMappings = fieldMappings.filter(mapping => mapping.tms_field);
+      const validMappings = fieldMappings.filter(mapping =>
+        mapping.tms_field && mapping.tms_field !== 'none'
+      );
       if (validMappings.length === 0) {
         alert('Please map at least one field before generating a JS file.');
         return;
