@@ -26,7 +26,7 @@ const HomeContent = () => {
   const [couriers, setCouriers] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const navigate = useNavigate();
 
   // Fetch couriers and clients on component mount
@@ -60,8 +60,6 @@ const HomeContent = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Courier Integration Platform</h1>
-
       <Tabs defaultValue="couriers" className="w-full">
         <TabsList className="w-full mb-6">
           <TabsTrigger value="couriers" className="flex-1">Couriers</TabsTrigger>
@@ -71,7 +69,7 @@ const HomeContent = () => {
         <TabsContent value="couriers" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Couriers</h2>
-            <Button onClick={() => navigate('/add-courier')}>Add Courier</Button>
+            <Button variant="default" onClick={() => navigate('/add-courier')}>Add Courier</Button>
           </div>
 
           {loading ? (
@@ -85,7 +83,7 @@ const HomeContent = () => {
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500 mb-4">No couriers found</p>
                 <p className="text-sm text-gray-500 mb-4">Add a courier to get started with integrations</p>
-                <Button onClick={() => navigate('/add-courier')}>Add Courier</Button>
+                <Button variant="default" onClick={() => navigate('/add-courier')}>Add Courier</Button>
               </CardContent>
             </Card>
           ) : (
@@ -108,7 +106,7 @@ const HomeContent = () => {
         <TabsContent value="clients" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Clients</h2>
-            <Button onClick={() => navigate('/add-client')}>Add Client</Button>
+            <Button variant="default" onClick={() => navigate('/add-client')}>Add Client</Button>
           </div>
 
           {loading ? (
@@ -122,7 +120,7 @@ const HomeContent = () => {
               <CardContent className="p-6 text-center">
                 <p className="text-gray-500 mb-4">No clients found</p>
                 <p className="text-sm text-gray-500 mb-4">Add a client to start mapping to couriers</p>
-                <Button onClick={() => navigate('/add-client')}>Add Client</Button>
+                <Button variant="default" onClick={() => navigate('/add-client')}>Add Client</Button>
               </CardContent>
             </Card>
           ) : (
@@ -155,13 +153,6 @@ function App() {
               <Link to="/" className="font-bold text-lg no-underline text-gray-800">
                 Courier Integration
               </Link>
-
-              <div className="flex space-x-4">
-                <Link to="/" className="text-gray-600 hover:text-gray-900 no-underline">Home</Link>
-                <Link to="/add-courier" className="text-gray-600 hover:text-gray-900 no-underline">Add Courier</Link>
-                <Link to="/add-client" className="text-gray-600 hover:text-gray-900 no-underline">Add Client</Link>
-                <Link to="/view-couriers" className="text-gray-600 hover:text-gray-900 no-underline">View Couriers</Link>
-              </div>
             </div>
           </div>
         </nav>

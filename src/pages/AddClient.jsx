@@ -62,8 +62,7 @@ const AddClient = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Add New Client</h1>
+      <div className="flex items-center justify-end mb-6">
         <Link to="/" className="px-4 py-2 border rounded hover:bg-gray-50">
           Back to Dashboard
         </Link>
@@ -143,6 +142,7 @@ const AddClient = () => {
 
             <div className="flex justify-end">
               <Button
+                variant="default"
                 type="submit"
                 disabled={loading || !clientName.trim()}
               >

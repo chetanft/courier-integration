@@ -5,7 +5,7 @@ import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
 import { addCourier, addFieldMapping, saveApiTestResult, uploadJsFile } from '../lib/supabase-service';
-import { isValidUrl, cn } from '../lib/utils';
+// import { cn } from '../lib/utils';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -41,12 +41,12 @@ const AddCourier = () => {
     },
     mode: 'onChange' // Enable validation on change
   });
-  const { register, handleSubmit, watch, formState: { errors }, control } = form;
+  const { handleSubmit, watch, control } = form;
   const [apiResponse, setApiResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fieldMappings, setFieldMappings] = useState([]);
   const [courier, setCourier] = useState(null);
-  const [apiType, setApiType] = useState('track_docket');
+  // const [apiType, setApiType] = useState('track_docket');
   const [tmsFields] = useState([
     'docket_number',
     'status',
@@ -198,11 +198,11 @@ const AddCourier = () => {
   };
 
   // Handle field mapping changes
-  const handleMappingChange = (apiField, tmsField) => {
+  const handleMappingChange = (apiField, tmsFieldValue) => {
     setFieldMappings(prevMappings =>
       prevMappings.map(mapping =>
         mapping.api_field === apiField
-          ? { ...mapping, tms_field }
+          ? { ...mapping, tms_field: tmsFieldValue }
           : mapping
       )
     );
@@ -264,8 +264,7 @@ const AddCourier = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Add New Courier</h1>
+      <div className="flex items-center justify-end mb-6">
         <Link to="/" className="px-4 py-2 border rounded hover:bg-gray-50">
           Back to Dashboard
         </Link>
@@ -461,7 +460,7 @@ const AddCourier = () => {
             </Card>
 
             <div className="flex justify-end">
-              <Button type="submit" disabled={loading}>
+              <Button variant="default" type="submit" disabled={loading}>
                 {loading ? 'Testing API...' : 'Test API & Continue'}
               </Button>
             </div>
@@ -538,6 +537,7 @@ const AddCourier = () => {
                 Save Mappings
               </Button>
               <Button
+                variant="default"
                 onClick={() => generateJsFile()}
                 disabled={loading}
               >

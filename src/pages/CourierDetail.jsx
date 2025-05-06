@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getCouriers, getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById, getJsFilesForCourier, getJsFileDownloadUrl } from '../lib/supabase-service';
+import { getCourierMappings, getCourierClients, linkClientsToCourier, getClients, getCourierById, getJsFilesForCourier, getJsFileDownloadUrl } from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -187,8 +187,7 @@ const CourierDetail = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{courier.name}</h1>
+      <div className="flex items-center justify-end mb-6">
         <div className="flex space-x-2">
           <Button
             variant="outline"
@@ -199,7 +198,7 @@ const CourierDetail = () => {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>Map Client</Button>
+              <Button variant="default">Map Client</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
@@ -242,6 +241,7 @@ const CourierDetail = () => {
                     </div>
                     <div className="flex justify-end mt-4">
                       <Button
+                        variant="default"
                         onClick={handleMapClients}
                         disabled={mappingLoading || selectedClients.length === 0}
                       >
