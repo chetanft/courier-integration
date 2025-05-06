@@ -138,7 +138,10 @@ const CourierDetail = () => {
       console.log('JS file downloaded successfully!');
     } catch (error) {
       console.error('Error downloading JS file:', error);
-      alert(`Error downloading JS file: ${error.message}`);
+      setError({
+        message: `Failed to download JS file: ${error.message}`,
+        details: error
+      });
     } finally {
       setDownloadLoading(false);
     }
@@ -163,7 +166,7 @@ const CourierDetail = () => {
     return (
       <div className="max-w-6xl mx-auto p-6">
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-6">
-          <h3 className="text-lg font-medium mb-2">Error</h3>
+          <h3 className="text-lg font-medium mb-2">Error Loading Courier</h3>
           <p>{error.message}</p>
 
           {error.details && (
@@ -178,9 +181,9 @@ const CourierDetail = () => {
           <div className="mt-6 flex space-x-4">
             <Button
               variant="outline"
-              onClick={() => navigate('/view-couriers')}
+              onClick={() => navigate('/')}
             >
-              Back to Couriers
+              Back to Home
             </Button>
             <Button
               variant="default"

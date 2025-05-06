@@ -31,12 +31,14 @@ A full-stack internal platform to automate the onboarding and integration of cou
 ### Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/chetanft/courier-integration.git
    cd courier-integration
    ```
 
 2. Install dependencies:
+
    ```
    npm install
    ```
@@ -55,6 +57,7 @@ This application uses Supabase as its backend. To run the application:
 2. Set up the database schema using the SQL in `supabase-schema.sql`
 
 3. Create a `.env` file with your Supabase credentials:
+
    ```
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -70,6 +73,7 @@ This application uses Supabase as its backend. To run the application:
 1. Create a Netlify account at [netlify.com](https://netlify.com)
 
 2. Deploy using the Netlify UI:
+
    - Go to [app.netlify.com](https://app.netlify.com)
    - Click "Add new site" > "Import an existing project"
    - Connect to your Git provider (GitHub, GitLab, etc.)
@@ -80,6 +84,7 @@ This application uses Supabase as its backend. To run the application:
    - Click "Deploy site"
 
 3. Configure environment variables:
+
    - Go to Site settings > Environment variables
    - Add the following variables:
      - `SUPABASE_URL`: Your Supabase project URL
@@ -114,10 +119,9 @@ This application uses Supabase as its backend. To run the application:
 
 ### Viewing Couriers
 
-1. Navigate to the "View Couriers" page
-2. Select a courier from the list
-3. View courier details, field mappings, and linked clients
-4. Generate JavaScript configuration files
+1. From the home page, click on a courier card
+2. View courier details, field mappings, and linked clients
+3. Generate JavaScript configuration files
 
 ## Project Structure
 
@@ -140,7 +144,7 @@ This application uses Supabase as its backend. To run the application:
 │   ├── pages/
 │   │   ├── AddCourier.jsx    # Add new courier
 │   │   ├── AddClient.jsx     # Add client to courier
-│   │   └── ViewCouriers.jsx  # View existing couriers
+│   │   └── CourierDetail.jsx # View courier details
 │   ├── App.jsx               # Main app component with routing
 │   └── main.jsx              # Entry point
 ├── supabase-schema.sql        # Supabase database schema
@@ -163,28 +167,28 @@ Example:
 
 ```javascript
 const safeExpressMapping = {
-  "generate_token_request": {
-    "url": ConfigAccessor.getConfig('third_party_url', 'safexpress_auth'),
-    "method": "POST",
-    "headers": {
+  generate_token_request: {
+    url: ConfigAccessor.getConfig("third_party_url", "safexpress_auth"),
+    method: "POST",
+    headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      "Authorization": (payload) => {
+      Authorization: (payload) => {
         const username = payload.config.user_name;
         const password = payload.config.password;
-        return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
-      }
+        return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+      },
     },
-    "body": "scope=server/waybillapps&grant_type=client_credentials"
+    body: "scope=server/waybillapps&grant_type=client_credentials",
   },
-  "track_docket_response": {
-    "is_success": (payload) => {
-      return payload?.shipment?.result === "success"
+  track_docket_response: {
+    is_success: (payload) => {
+      return payload?.shipment?.result === "success";
     },
-    "error_message": (payload) => {
-      return payload?.shipment?.error || null
+    error_message: (payload) => {
+      return payload?.shipment?.error || null;
     },
-    "tracking_provider": "safexpress",
+    tracking_provider: "safexpress",
     // ... more mappings
-  }
+  },
 };
 ```

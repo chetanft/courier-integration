@@ -5,7 +5,6 @@ import './App.css';
 // Import pages
 import AddCourier from './pages/AddCourier';
 import AddClient from './pages/AddClient';
-import ViewCouriers from './pages/ViewCouriers';
 import CourierDetail from './pages/CourierDetail';
 
 // Import components
@@ -162,7 +161,6 @@ function App() {
             <Route path="/" element={<HomeWithNavigation />} />
             <Route path="/add-courier" element={<AddCourier />} />
             <Route path="/add-client" element={<AddClient />} />
-            <Route path="/view-couriers" element={<ViewCouriers />} />
             <Route path="/courier/:id" element={<CourierDetail />} />
           </Routes>
         </main>
