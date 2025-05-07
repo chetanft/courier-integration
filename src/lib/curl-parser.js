@@ -1,5 +1,12 @@
 /**
  * Parses a cURL command string into a structured request object
+ *
+ * SECURITY NOTE:
+ * This parser handles authentication credentials including Basic Auth and Bearer/JWT tokens.
+ * - All credentials are treated as sensitive information
+ * - No actual credentials should be logged to the console
+ * - Any example tokens or credentials in this file are dummy values for testing only
+ *
  * @param {string} curlString - The cURL command to parse
  * @returns {Object} The parsed request object
  */
@@ -92,6 +99,8 @@ export const parseCurl = (curlString) => {
                 const [username, password] = credentials.split(':');
                 request.auth.username = username || '';
                 request.auth.password = password || '';
+                // Don't log actual credentials for security reasons
+                console.log('Extracted Basic auth credentials: [CREDENTIALS REDACTED]');
               } catch (e) {
                 // If we can't decode, just store the raw value
                 console.error('Failed to decode Basic auth:', e);
@@ -99,7 +108,8 @@ export const parseCurl = (curlString) => {
             } else if (value.toLowerCase().startsWith('bearer ')) {
               // Extract the full token (trim any whitespace)
               const token = value.substring(7).trim();
-              console.log('Extracted bearer token:', token);
+              // Don't log the actual token value for security reasons
+              console.log('Extracted bearer token: [TOKEN CONTENT REDACTED]');
 
               // Check if it's a JWT token (has 2 dots for header.payload.signature)
               if (token.split('.').length === 3) {
@@ -255,7 +265,19 @@ export const parseCurl = (curlString) => {
     i++;
   }
 
-  console.log('Parsed cURL request:', request);
+  // Create a sanitized version of the request for logging (without sensitive data)
+  const sanitizedRequest = {
+    ...request,
+    auth: {
+      ...request.auth,
+      // Redact sensitive information
+      username: request.auth.username ? '[USERNAME REDACTED]' : '',
+      password: request.auth.password ? '[PASSWORD REDACTED]' : '',
+      token: request.auth.token ? '[TOKEN REDACTED]' : ''
+    }
+  };
+
+  console.log('Parsed cURL request:', sanitizedRequest);
   return request;
 };
 

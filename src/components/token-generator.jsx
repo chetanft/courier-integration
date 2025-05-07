@@ -324,9 +324,10 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
 
                   <p><strong>With multiple headers:</strong></p>
                   <pre className="p-1 bg-gray-100 rounded">
+                    {/* Note: This is a DUMMY credential for example purposes only */}
                     curl https://api.example.com/oauth/token -X POST \<br />
                     -H "Content-Type: application/json" \<br />
-                    -H "Authorization: Basic YWRtaW46YWRtaW4=" \<br />
+                    -H "Authorization: Basic DUMMY_CREDENTIAL_EXAMPLE_ONLY" \<br />
                     -d {"{\"grant_type\":\"password\",\"username\":\"user\",\"password\":\"pass\"}"}
                   </pre>
 
@@ -339,9 +340,10 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
 
                   <p><strong>With JWT token:</strong></p>
                   <pre className="p-1 bg-gray-100 rounded">
+                    {/* Note: This is a DUMMY JWT token for example purposes only */}
                     curl https://api.example.com/tracking -X GET \<br />
                     -H "Content-Type: application/json" \<br />
-                    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+                    -H "Authorization: Bearer EXAMPLE.JWT.TOKEN_NOT_REAL"
                   </pre>
                 </div>
               </details>
