@@ -102,8 +102,8 @@ const AddCourierRevamped = () => {
           message: 'Test docket number is required for shipment tracking'
         });
 
-        // Mark the form as submitted to trigger error display
-        formMethods.formState.isSubmitted = true;
+        // Manually trigger validation to show the error
+        formMethods.trigger('testDocket');
 
         // Focus on the testDocket field
         const testDocketInput = document.querySelector('input[name="testDocket"]');

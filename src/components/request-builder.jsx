@@ -41,7 +41,7 @@ const RequestBuilder = ({
   showCurlInput = true,
   showApiIntents = true
 }) => {
-  const { control, watch, setValue, handleSubmit } = formMethods;
+  const { control, watch, setValue, handleSubmit, formState } = formMethods;
 
   // Watch for changes to relevant fields
   const method = watch('method') || 'GET';
@@ -374,8 +374,7 @@ const RequestBuilder = ({
                     }
                   }}
                   render={({ field }) => {
-                    // Get form state to check if form has been submitted
-                    const formState = formMethods.getState();
+                    // Check if form has been submitted
                     const isSubmitted = formState.isSubmitted;
                     const isEmpty = !field.value;
 
