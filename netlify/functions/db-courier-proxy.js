@@ -3,15 +3,39 @@ const axios = require('axios');
 // Import credential utilities
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase client
+// Initialize Supabase client if credentials are available
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+
+// Only create the client if both URL and key are available
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('Supabase client initialized successfully');
+  } catch (error) {
+    console.error('Error initializing Supabase client:', error);
+  }
+} else {
+  console.warn('Supabase credentials missing, database features will be unavailable');
+  console.log('Available environment variables:', Object.keys(process.env).filter(key =>
+    key.includes('SUPABASE') || key.includes('VITE_SUPABASE')
+  ));
+}
 
 /**
  * Get courier credentials from Supabase
  */
 const getCourierCredentials = async (courier) => {
+  // If Supabase client is not available, return error
+  if (!supabase) {
+    console.warn('Supabase client not available, cannot get credentials from database');
+    return {
+      success: false,
+      error: new Error('Database connection not available. Please provide credentials directly.')
+    };
+  }
+
   try {
     // First find the courier by name
     const { data: courierData, error: courierError } = await supabase
@@ -350,40 +374,56 @@ exports.handler = async (event) => {
     // Process credentials from Supabase if needed
     if (requestConfig.auth && requestConfig.courier) {
       if (requestConfig.auth.useDbCredentials) {
-        // Get credentials from Supabase based on courier name
-        const result = await getCourierCredentials(requestConfig.courier);
+        // Check if we're dealing with Safexpress and have direct credentials in the request
+        const isSafexpress = requestConfig.courier.toLowerCase() === 'safexpress' ||
+                            (requestConfig.url && requestConfig.url.toLowerCase().includes('safexpress'));
 
-        if (!result.success) {
-          return {
-            statusCode: 404,
-            body: JSON.stringify({
-              error: true,
-              message: `Credentials not found for courier '${requestConfig.courier}'`,
-              timestamp: new Date().toISOString()
-            })
-          };
-        }
+        // For Safexpress, we can use the provided credentials directly if available
+        if (isSafexpress && requestConfig.auth.token && requestConfig.auth.apiKey) {
+          console.log('Using provided Safexpress credentials directly');
+          // No need to fetch from database, credentials are already provided
+        } else {
+          // Get credentials from Supabase based on courier name
+          const result = await getCourierCredentials(requestConfig.courier);
 
-        // Use the credentials from Supabase
-        const credentials = result.credentials;
-
-        switch (requestConfig.auth.type) {
-          case 'basic':
-            requestConfig.auth.username = credentials.username;
-            requestConfig.auth.password = credentials.password;
-            break;
-          case 'api_key':
-            requestConfig.auth.apiKey = credentials.apiKey;
-            break;
-          case 'bearer':
-            if (!requestConfig.auth.token) {
-              requestConfig.auth.token = credentials.token;
+          if (!result.success) {
+            // If database lookup failed but we have direct credentials, continue anyway
+            if ((requestConfig.auth.token || requestConfig.auth.apiKey ||
+                (requestConfig.auth.username && requestConfig.auth.password))) {
+              console.log('Database lookup failed but using provided credentials');
+            } else {
+              return {
+                statusCode: 404,
+                body: JSON.stringify({
+                  error: true,
+                  message: `Credentials not found for courier '${requestConfig.courier}': ${result.error.message}`,
+                  timestamp: new Date().toISOString()
+                })
+              };
             }
-            break;
-          case 'jwt_auth':
-            // Set JWT-specific configs from credentials
-            Object.assign(requestConfig.auth, credentials.jwt || {});
-            break;
+          } else {
+            // Use the credentials from Supabase
+            const credentials = result.credentials;
+
+            switch (requestConfig.auth.type) {
+              case 'basic':
+                requestConfig.auth.username = credentials.username;
+                requestConfig.auth.password = credentials.password;
+                break;
+              case 'api_key':
+                requestConfig.auth.apiKey = credentials.apiKey;
+                break;
+              case 'bearer':
+                if (!requestConfig.auth.token) {
+                  requestConfig.auth.token = credentials.token;
+                }
+                break;
+              case 'jwt_auth':
+                // Set JWT-specific configs from credentials
+                Object.assign(requestConfig.auth, credentials.jwt || {});
+                break;
+            }
+          }
         }
       }
       // Fallback to environment variables if specified
