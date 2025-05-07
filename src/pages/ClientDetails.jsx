@@ -329,32 +329,35 @@ const ClientDetails = () => {
           {filteredCouriers.map((courier) => {
             const status = getCourierStatus(courier);
 
-            // Determine gradient based on status
-            let gradientFrom = 'from-white';
-            let gradientTo = 'to-gray-50';
+            // Use theme based on status
+            let cardTheme;
 
+            // Generate a hash from courier name to get consistent theme
+            const nameHash = courier.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            const themes = ['lavender', 'peach', 'cyan'];
+
+            // Use status-based theme or a consistent theme based on name
             switch (status) {
               case 'configured':
-                gradientFrom = 'from-green-50';
-                gradientTo = 'to-white';
+                cardTheme = 'configured';
                 break;
               case 'in-progress':
-                gradientFrom = 'from-blue-50';
-                gradientTo = 'to-white';
+                cardTheme = 'in-progress';
                 break;
               case 'setup-required':
-                gradientFrom = 'from-orange-50';
-                gradientTo = 'to-white';
+                cardTheme = 'setup-required';
                 break;
+              default:
+                cardTheme = themes[nameHash % themes.length];
             }
 
             return (
               <GradientCard
                 key={courier.id}
-                className="cursor-pointer hover:shadow-md transition-shadow"
+                className="cursor-pointer"
                 onClick={() => handleCourierClick(courier.id)}
-                gradientFrom={gradientFrom}
-                gradientTo={gradientTo}
+                theme={cardTheme}
+                glassmorphic={true}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-2">
