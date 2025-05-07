@@ -111,6 +111,22 @@ export const getClients = async () => {
   }
 };
 
+// Get a single client by ID
+export const getClientById = async (clientId) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getClientById');
+  }
+};
+
 // Get all couriers
 export const getCouriers = async () => {
   try {
@@ -173,6 +189,34 @@ export const getCourierClients = async (courierId) => {
   }
 };
 
+// Get couriers linked to a client
+export const getCouriersByClientId = async (clientId) => {
+  try {
+    // Join courier_clients with couriers to get courier details
+    const { data, error } = await supabase
+      .from('courier_clients')
+      .select(`
+        courier_id,
+        couriers:courier_id (
+          id,
+          name,
+          api_base_url,
+          auth_type,
+          api_intent,
+          created_at
+        )
+      `)
+      .eq('client_id', clientId);
+
+    if (error) throw error;
+
+    // Transform the data to match the expected format
+    return data.map(item => item.couriers);
+  } catch (error) {
+    handleApiError(error, 'getCouriersByClientId');
+  }
+};
+
 // Get field mappings for a courier
 export const getCourierMappings = async (courierId) => {
   try {
@@ -226,6 +270,22 @@ export const saveApiTestResult = async (testData) => {
     return data;
   } catch (error) {
     handleApiError(error, 'saveApiTestResult');
+  }
+};
+
+// Get API test results for a courier
+export const getApiTestResults = async (courierId) => {
+  try {
+    const { data, error } = await supabase
+      .from('api_test_results')
+      .select('*')
+      .eq('courier_id', courierId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getApiTestResults');
   }
 };
 
@@ -571,10 +631,10 @@ export const saveCourierCredentials = async (courierId, credentials) => {
         .from('courier_credentials')
         .update({ credentials })
         .eq('courier_id', courierId);
-      
+
       if (error) throw error;
       return { success: true, data };
-    } 
+    }
     // Otherwise, insert new record
     else {
       const { data, error } = await supabase
@@ -626,7 +686,7 @@ export const getCourierCredentialsByName = async (courierName) => {
       .single();
 
     if (courierError) throw courierError;
-    
+
     // Then get credentials by courier ID
     return getCourierCredentials(courier.id);
   } catch (error) {
