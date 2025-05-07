@@ -67,6 +67,26 @@ const RequestBuilder = ({
   useEffect(() => {
     console.log('Current auth type state:', authType);
   }, [authType]);
+
+  // Highlight token in headers if present
+  useEffect(() => {
+    const token = watch('auth.token');
+    if (token && authType === 'jwt_auth' || authType === 'bearer' || authType === 'jwt') {
+      // Check if Authorization header already exists
+      const headers = watch('headers') || [];
+      const hasAuthHeader = headers.some(h => h.key.toLowerCase() === 'authorization');
+      
+      // If no Authorization header exists, add it
+      if (!hasAuthHeader) {
+        const updatedHeaders = [
+          ...headers,
+          { key: 'Authorization', value: `Bearer ${token}` }
+        ];
+        setValue('headers', updatedHeaders);
+      }
+    }
+  }, [authType, watch, setValue]);
+
   // These are used in the useEffect for generating cURL preview
   const curlCommand = watch('curlCommand') || '';
 
@@ -1023,6 +1043,15 @@ const RequestBuilder = ({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Headers</FormLabel>
+                      {(authType === 'jwt_auth' || authType === 'bearer' || authType === 'jwt') && watch('auth.token') && (
+                        <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-md text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-green-700">
+                              <span className="font-medium">Authorization:</span> Bearer token is automatically included
+                            </span>
+                          </div>
+                        </div>
+                      )}
                       <FormControl>
                         <KeyValueEditor
                           pairs={field.value}
@@ -1030,6 +1059,7 @@ const RequestBuilder = ({
                           keyPlaceholder="Content-Type"
                           valuePlaceholder="application/json"
                           description="Add HTTP headers for the request"
+                          disabledKeys={[(authType === 'jwt_auth' || authType === 'bearer' || authType === 'jwt') && watch('auth.token') ? 'Authorization' : null].filter(Boolean)}
                         />
                       </FormControl>
                     </FormItem>
