@@ -211,7 +211,7 @@ const AddClient = () => {
         <CardContent>
           <form onSubmit={onSubmit}>
             <div className="mb-6">
-              <Label htmlFor="clientName" className="mb-2 block">Client Name</Label>
+              <Label htmlFor="clientName" className="mb-2 block font-medium">Client Name</Label>
               <Input
                 id="clientName"
                 type="text"
@@ -227,7 +227,7 @@ const AddClient = () => {
             </div>
 
             <div className="mb-6">
-              <Label htmlFor="apiUrl" className="mb-2 block">Courier API URL</Label>
+              <Label htmlFor="apiUrl" className="mb-2 block font-medium">Courier API URL</Label>
               <div className="flex gap-2">
                 <Input
                   id="apiUrl"
@@ -236,7 +236,7 @@ const AddClient = () => {
                   onChange={(e) => setApiUrl(e.target.value)}
                   placeholder="https://api.client.com/couriers"
                   disabled={loading || fetchingCouriers}
-                  className="flex-1"
+                  className="flex-1 border-2 border-gray-300"
                 />
                 <Button
                   type="button"
