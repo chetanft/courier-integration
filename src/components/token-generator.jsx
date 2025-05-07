@@ -16,6 +16,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   const [tokenResult, setTokenResult] = useState(null);
   const [tokenError, setTokenError] = useState(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [curlDetected, setCurlDetected] = useState(false);
   const { addToast } = useToast();
   
   // Watch auth configuration values
@@ -28,21 +29,47 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   // Parse curl command if provided
   const parseCurl = (curlCommand) => {
     try {
-      // Basic curl command regex pattern
-      const urlMatch = curlCommand.match(/curl\s+['"]?([^'")\s]+)['"]?/i);
-      const methodMatch = curlCommand.match(/-X\s+([A-Z]+)/i);
+      // Normalize input for better parsing
+      const normalizedCurl = curlCommand.replace(/\s+/g, ' ').trim();
+      console.log('Normalized curl:', normalizedCurl);
+      
+      // Extract the URL using a more robust pattern
+      // This pattern tries to match the full URL including query parameters
+      let urlMatch = normalizedCurl.match(/curl\s+(['"])(https?:\/\/[^'"]+)\1/i);
+      
+      // Fallback to unquoted URL pattern if the quoted pattern doesn't match
+      if (!urlMatch) {
+        // This gets everything after curl and before the first flag/option
+        urlMatch = normalizedCurl.match(/curl\s+(https?:\/\/[^\s"'-]+[\w/])/i);
+      }
+      
+      // Final fallback - try to extract any URL
+      if (!urlMatch) {
+        const anyUrlMatch = normalizedCurl.match(/(https?:\/\/[^\s"']+)/i);
+        if (anyUrlMatch) {
+          urlMatch = anyUrlMatch;
+        }
+      }
+      
+      // Extract method
+      const methodMatch = normalizedCurl.match(/-X\s+([A-Z]+)/i);
       
       // Extract URL
-      const url = urlMatch ? urlMatch[1] : '';
+      const url = urlMatch ? urlMatch[1] || urlMatch[2] : '';
+      
+      // Log the extracted URL for debugging
+      console.log('Extracted URL:', url);
       
       // Extract method
       const method = methodMatch ? methodMatch[1] : 'POST';
       
       // Extract headers
-      const headerMatches = curlCommand.matchAll(/-H\s+['"]([^'"]+)['"]?/gi);
+      // Normalize whitespace and line breaks for better regex matching
+      const headerMatches = Array.from(normalizedCurl.matchAll(/-H\s+(['"])(.*?)\1/gi));
       const headers = [];
+      
       for (const match of headerMatches) {
-        const headerStr = match[1];
+        const headerStr = match[2];
         const colonIndex = headerStr.indexOf(':');
         if (colonIndex > -1) {
           const key = headerStr.slice(0, colonIndex).trim();
@@ -53,14 +80,16 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       
       // Extract body if present
       let body = {};
-      const dataMatch = curlCommand.match(/-d\s+['"]([^'"]+)['"]?/i);
+      // Handle both single and double quotes, as well as the --data flag variation
+      const dataMatch = normalizedCurl.match(/(?:-d|--data)\s+(['"])(.*?)\1/i);
       if (dataMatch) {
+        const dataContent = dataMatch[2];
         try {
-          body = JSON.parse(dataMatch[1]);
+          body = JSON.parse(dataContent);
         } catch (error) {
           console.log('Failed to parse JSON body, trying form data format:', error.message);
           // If not valid JSON, try to parse as form data
-          const formData = dataMatch[1].split('&').reduce((acc, pair) => {
+          const formData = dataContent.split('&').reduce((acc, pair) => {
             const [key, value] = pair.split('=');
             if (key && value) {
               acc[decodeURIComponent(key)] = decodeURIComponent(value);
@@ -84,22 +113,34 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
     
     // Check if this looks like a curl command
     if (value.trim().toLowerCase().startsWith('curl ')) {
+      setCurlDetected(true);
+      console.log('Detected curl command, parsing...');
       const parsedCurl = parseCurl(value);
-      if (parsedCurl) {
+      
+      if (parsedCurl && parsedCurl.url) {
+        console.log('Parsed curl results:', parsedCurl);
+        
         // Auto-fill the form with the parsed curl data
         setValue('auth.jwtAuthEndpoint', parsedCurl.url);
         setValue('auth.jwtAuthMethod', parsedCurl.method);
         
         if (parsedCurl.headers.length > 0) {
           setValue('auth.jwtAuthHeaders', parsedCurl.headers);
+          console.log('Set headers:', parsedCurl.headers);
         }
         
         if (Object.keys(parsedCurl.body).length > 0) {
           setValue('auth.jwtAuthBody', parsedCurl.body);
+          console.log('Set body:', parsedCurl.body);
         }
         
         addToast('Curl command parsed successfully', 'success');
+      } else {
+        console.error('Failed to parse curl command or extract URL');
+        addToast('Could not parse curl command correctly', 'error');
       }
+    } else {
+      setCurlDetected(false);
     }
   };
   
@@ -202,11 +243,19 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Auth Endpoint URL or Curl Command</label>
-              <Input
-                placeholder="https://api.example.com/oauth/token or curl command"
-                value={authEndpoint}
-                onChange={(e) => handleAuthEndpointChange(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  placeholder="https://api.example.com/oauth/token or curl command"
+                  value={authEndpoint}
+                  onChange={(e) => handleAuthEndpointChange(e.target.value)}
+                  className={curlDetected ? "pr-20 border-blue-300" : ""}
+                />
+                {curlDetected && (
+                  <div className="absolute top-0 right-0 bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded h-full flex items-center">
+                    curl detected
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 Enter the authentication endpoint URL or paste a curl command to auto-fill all fields
               </p>
