@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getClientById, getCouriersByClientId, getCouriers, linkClientsToCourier } from '../lib/supabase-service';
-import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { ArrowLeft, PlusCircle, Truck, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { SearchBar } from '../components/ui/search-bar';
+import { FilterDropdown } from '../components/ui/filter-dropdown';
+import { SortDropdown } from '../components/ui/sort-dropdown';
+import { StatusBadge } from '../components/ui/status-badge';
+import { GradientCard, CardContent } from '../components/ui/gradient-card';
 
 const ClientDetails = () => {
   const { id: clientId } = useParams();
@@ -21,6 +25,11 @@ const ClientDetails = () => {
   const [availableCouriers, setAvailableCouriers] = useState([]);
   const [selectedCourier, setSelectedCourier] = useState('');
   const [addingCourier, setAddingCourier] = useState(false);
+
+  // Search, filter, and sort state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterValue, setFilterValue] = useState('all');
+  const [sortValue, setSortValue] = useState({ field: 'name', direction: 'asc' });
 
   // Fetch client and its couriers on component mount
   useEffect(() => {
@@ -66,6 +75,54 @@ const ClientDetails = () => {
   const handleCourierClick = (courierId) => {
     navigate(`/client/${clientId}/courier/${courierId}`);
   };
+
+  // Get courier status based on API configuration
+  const getCourierStatus = (courier) => {
+    if (!courier.api_base_url) {
+      return 'setup-required';
+    }
+
+    if (courier.auth_type && courier.api_intent) {
+      return 'configured';
+    }
+
+    return 'in-progress';
+  };
+
+  // Filter, sort, and search couriers
+  const filteredCouriers = useMemo(() => {
+    return couriers
+      .filter(courier => {
+        // Apply search filter
+        const matchesSearch = courier.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (courier.api_base_url && courier.api_base_url.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        // Apply status filter
+        const status = getCourierStatus(courier);
+        const matchesFilter =
+          filterValue === 'all' ||
+          (filterValue === 'configured' && status === 'configured') ||
+          (filterValue === 'setup-required' && status === 'setup-required') ||
+          (filterValue === 'in-progress' && status === 'in-progress');
+
+        return matchesSearch && matchesFilter;
+      })
+      .sort((a, b) => {
+        // Apply sorting
+        const direction = sortValue.direction === 'asc' ? 1 : -1;
+
+        switch (sortValue.field) {
+          case 'name':
+            return direction * a.name.localeCompare(b.name);
+          case 'created_at':
+            return direction * (new Date(a.created_at) - new Date(b.created_at));
+          case 'status':
+            return direction * getCourierStatus(a).localeCompare(getCourierStatus(b));
+          default:
+            return 0;
+        }
+      });
+  }, [couriers, searchQuery, filterValue, sortValue]);
 
   // Handle adding a courier to this client
   const handleAddCourier = async () => {
@@ -201,6 +258,42 @@ const ClientDetails = () => {
         </div>
       </div>
 
+      {/* Search, filter, and sort controls */}
+      {couriers.length > 0 && (
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search couriers..."
+            className="md:w-1/3"
+          />
+
+          <div className="flex gap-2 ml-auto">
+            <FilterDropdown
+              options={[
+                { value: 'all', label: 'All Statuses' },
+                { value: 'configured', label: 'Configured' },
+                { value: 'in-progress', label: 'In Progress' },
+                { value: 'setup-required', label: 'Setup Required' }
+              ]}
+              value={filterValue}
+              onChange={setFilterValue}
+              label="Filter"
+            />
+
+            <SortDropdown
+              options={[
+                { value: 'name', label: 'Name' },
+                { value: 'created_at', label: 'Date Added' },
+                { value: 'status', label: 'Status' }
+              ]}
+              value={sortValue}
+              onChange={setSortValue}
+            />
+          </div>
+        </div>
+      )}
+
       {couriers.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -219,33 +312,90 @@ const ClientDetails = () => {
             </Button>
           </div>
         </div>
+      ) : filteredCouriers.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg border">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Matching Couriers</h3>
+          <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p>
+          <Button variant="outline" onClick={() => {
+            setSearchQuery('');
+            setFilterValue('all');
+            setSortValue({ field: 'name', direction: 'asc' });
+          }}>
+            Clear Filters
+          </Button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {couriers.map((courier) => (
-            <Card
-              key={courier.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => handleCourierClick(courier.id)}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
+          {filteredCouriers.map((courier) => {
+            const status = getCourierStatus(courier);
+
+            // Determine gradient based on status
+            let gradientFrom = 'from-white';
+            let gradientTo = 'to-gray-50';
+
+            switch (status) {
+              case 'configured':
+                gradientFrom = 'from-green-50';
+                gradientTo = 'to-white';
+                break;
+              case 'in-progress':
+                gradientFrom = 'from-blue-50';
+                gradientTo = 'to-white';
+                break;
+              case 'setup-required':
+                gradientFrom = 'from-orange-50';
+                gradientTo = 'to-white';
+                break;
+            }
+
+            return (
+              <GradientCard
+                key={courier.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => handleCourierClick(courier.id)}
+                gradientFrom={gradientFrom}
+                gradientTo={gradientTo}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-2">
                     <h3 className="text-lg font-semibold">{courier.name}</h3>
-                    <p className="text-sm text-gray-500">
-                      {courier.api_base_url ? (
-                        <span className="text-green-600">API Configured</span>
-                      ) : (
-                        <span className="text-amber-600">Setup Required</span>
-                      )}
-                    </p>
+                    <StatusBadge status={status} />
                   </div>
-                  <div className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full">
-                    Courier
+
+                  <div className="space-y-2">
+                    {courier.api_base_url && (
+                      <p className="text-xs text-gray-500 truncate max-w-[200px]" title={courier.api_base_url}>
+                        API: {courier.api_base_url}
+                      </p>
+                    )}
+
+                    {courier.auth_type && (
+                      <p className="text-xs text-gray-500">
+                        Auth: {courier.auth_type.toUpperCase()}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                      <div className="text-xs text-gray-500">
+                        {status === 'configured' ? (
+                          <span className="text-green-600">All steps completed</span>
+                        ) : status === 'in-progress' ? (
+                          <span className="text-blue-600">Configuration in progress</span>
+                        ) : (
+                          <span className="text-amber-600">Setup needed</span>
+                        )}
+                      </div>
+
+                      <StatusBadge
+                        status="courier"
+                        className="bg-amber-100 text-amber-800 border-amber-200"
+                      />
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </GradientCard>
+            );
+          })}
         </div>
       )}
     </div>
