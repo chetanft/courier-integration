@@ -110,6 +110,10 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             {isExpanded ? 'Collapse' : 'Expand'}
           </Button>
         </div>
+        <p className="text-sm text-gray-500 mt-1">
+          Generate an authentication token that will be used for the tracking API in the next step.
+          This token will be automatically added as an "Authorization" header.
+        </p>
         {!isExpanded && tokenResult?.token && (
           <div className="text-sm text-green-600">Token generated successfully</div>
         )}

@@ -339,24 +339,35 @@ const AddCourierRevamped = () => {
   const isAuthValid = () => {
     const authTypeValue = formMethods.getValues('auth.type');
     
+    // If auth type is 'none', we can always proceed
+    if (authTypeValue === 'none') {
+      return true;
+    }
+    
     // If JWT auth is selected, check if token is generated
-    if (authTypeValue === 'jwt_auth' || authTypeValue === 'bearer' || authTypeValue === 'jwt') {
+    if (authTypeValue === 'jwt_auth') {
       return tokenGenerated || (authToken && authToken.trim() !== '');
     }
     
-    // For other auth types, basic validation
+    // For Bearer or JWT token, just check if a token is provided
+    if (authTypeValue === 'bearer' || authTypeValue === 'jwt') {
+      return authToken && authToken.trim() !== '';
+    }
+    
+    // For basic auth, both username and password are required
     if (authTypeValue === 'basic') {
       const username = formMethods.getValues('auth.username');
       const password = formMethods.getValues('auth.password');
       return username && password;
     }
     
+    // For API key, the key is required
     if (authTypeValue === 'apikey') {
       const apiKey = formMethods.getValues('auth.apiKey');
       return apiKey && apiKey.trim() !== '';
     }
     
-    // No auth or other types are always valid
+    // Default case - allow proceeding
     return true;
   };
 
@@ -522,6 +533,10 @@ const AddCourierRevamped = () => {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Authentication Details</CardTitle>
+                <p className="text-sm text-gray-500">
+                  Select the authentication method required by the courier API. 
+                  If no authentication is needed, select "No Authentication" or use the "Skip Authentication" button.
+                </p>
               </CardHeader>
               <CardContent>
                 <FormField
@@ -658,13 +673,25 @@ const AddCourierRevamped = () => {
                   >
                     Back
                   </Button>
-                  <Button 
-                    type="button" 
-                    onClick={goToNextStep}
-                    disabled={!isAuthValid()}
-                  >
-                    Next: Test API
-                  </Button>
+                  <div className="space-x-2">
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={() => {
+                        console.log('Skipping authentication step');
+                        setCurrentStep(3);  // Skip to Test API step
+                      }}
+                    >
+                      Skip Authentication
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={goToNextStep}
+                      disabled={!isAuthValid()}
+                    >
+                      Next: Test API
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
