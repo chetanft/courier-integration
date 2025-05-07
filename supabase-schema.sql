@@ -62,6 +62,15 @@ CREATE TABLE js_files (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Courier Credentials table (sensitive info)
+CREATE TABLE courier_credentials (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  courier_id UUID NOT NULL REFERENCES couriers(id) ON DELETE CASCADE,
+  credentials JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX courier_clients_courier_id_idx ON courier_clients(courier_id);
 CREATE INDEX courier_clients_client_id_idx ON courier_clients(client_id);
@@ -77,6 +86,7 @@ ALTER TABLE courier_clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE field_mappings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_test_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE js_files ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courier_credentials ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for authenticated users
 CREATE POLICY "Allow full access to authenticated users" ON couriers FOR ALL TO authenticated USING (true);
@@ -85,6 +95,9 @@ CREATE POLICY "Allow full access to authenticated users" ON courier_clients FOR 
 CREATE POLICY "Allow full access to authenticated users" ON field_mappings FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow full access to authenticated users" ON api_test_results FOR ALL TO authenticated USING (true);
 CREATE POLICY "Allow full access to authenticated users" ON js_files FOR ALL TO authenticated USING (true);
+CREATE POLICY "Allow full access to authenticated users" ON courier_credentials
+  USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
 
 -- Create policies for anonymous users (read-only)
 CREATE POLICY "Allow read access to anonymous users" ON couriers FOR SELECT TO anon USING (true);
@@ -92,3 +105,40 @@ CREATE POLICY "Allow read access to anonymous users" ON clients FOR SELECT TO an
 CREATE POLICY "Allow read access to anonymous users" ON courier_clients FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow read access to anonymous users" ON field_mappings FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow read access to anonymous users" ON js_files FOR SELECT TO anon USING (true);
+
+-- Create view for admin UI (excluding credential details)
+CREATE VIEW courier_credentials_summary AS
+  SELECT 
+    cc.id,
+    cc.courier_id,
+    c.name AS courier_name,
+    cc.created_at,
+    cc.updated_at,
+    jsonb_build_object(
+      'auth_type', 
+      CASE 
+        WHEN credentials ? 'username' AND credentials ? 'password' THEN 'basic'
+        WHEN credentials ? 'apiKey' THEN 'api_key'
+        WHEN credentials ? 'token' THEN 'bearer'
+        WHEN credentials ? 'jwt' THEN 'jwt_auth'
+        ELSE 'unknown'
+      END
+    ) AS auth_type
+  FROM 
+    courier_credentials cc
+    JOIN couriers c ON cc.courier_id = c.id;
+
+-- Function to update timestamps automatically
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create trigger for updating timestamps
+CREATE TRIGGER update_courier_credentials_updated_at
+  BEFORE UPDATE ON courier_credentials
+  FOR EACH ROW
+  EXECUTE PROCEDURE update_updated_at_column();

@@ -1,254 +1,78 @@
 import axios from 'axios';
 
+// Path to our Netlify Function proxy with Supabase credential support
+const COURIER_PROXY_URL = '/.netlify/functions/db-courier-proxy';
+
 /**
- * Makes an API call to test courier credentials and endpoints
- * @param {Object} requestConfig - The complete request configuration
- * @returns {Promise<Object>} The API response
+ * Generic function to make courier API requests through our proxy
+ * @param {string} courier - Courier identifier (e.g., 'safexpress')
+ * @param {string} endpoint - Endpoint identifier (e.g., 'track_shipment')
+ * @param {object} data - Request payload
+ * @returns {Promise} API response
  */
-/**
- * Fetches a JWT token from the specified endpoint
- * @param {Object} jwtConfig - The JWT configuration
- * @returns {Promise<string>} The JWT token
- */
-const fetchJwtToken = async (jwtConfig) => {
+export const makeCourierRequest = async (courier, endpoint, data) => {
   try {
-    console.log('Fetching JWT token from:', jwtConfig.jwtAuthEndpoint);
-
-    // Prepare headers for JWT auth request
-    const headers = {};
-
-    // Add custom headers
-    if (jwtConfig.jwtAuthHeaders && Array.isArray(jwtConfig.jwtAuthHeaders)) {
-      jwtConfig.jwtAuthHeaders.forEach(header => {
-        if (header.key && header.value) {
-          headers[header.key] = header.value;
-        }
-      });
-    }
-
-    // Set default content type if not specified
-    if (!headers['Content-Type'] && !headers['content-type']) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    // Create axios request config
-    const axiosConfig = {
-      method: jwtConfig.jwtAuthMethod || 'POST',
-      url: jwtConfig.jwtAuthEndpoint,
-      headers
-    };
-
-    // Add request body for methods that support it
-    if (['POST', 'PUT', 'PATCH'].includes(axiosConfig.method.toUpperCase()) && jwtConfig.jwtAuthBody) {
-      axiosConfig.data = jwtConfig.jwtAuthBody;
-    }
-
-    console.log('Making JWT auth request with config:', axiosConfig);
-    const response = await axios(axiosConfig);
-
-    // Extract token from response using the specified path
-    const tokenPath = jwtConfig.jwtTokenPath || 'access_token';
-    const pathParts = tokenPath.split('.');
-
-    let token = response.data;
-    for (const part of pathParts) {
-      if (token && typeof token === 'object' && part in token) {
-        token = token[part];
-      } else {
-        throw new Error(`Token path "${tokenPath}" not found in response`);
+    const response = await axios({
+      method: 'POST',
+      url: COURIER_PROXY_URL,
+      data: {
+        courier,
+        endpoint,
+        data
       }
-    }
+    });
 
-    if (!token || typeof token !== 'string') {
-      throw new Error(`Token not found in response using path "${tokenPath}"`);
-    }
-
-    console.log('JWT token fetched successfully');
-    return token;
+    return response.data;
   } catch (error) {
-    console.error('Error fetching JWT token:', error);
+    console.error(`Error making ${courier} API request:`, error);
     throw error;
   }
 };
 
+/**
+ * Track a shipment using the specified courier
+ * @param {string} courier - Courier identifier
+ * @param {string} trackingNumber - Shipment tracking number
+ * @returns {Promise} Tracking information
+ */
+export const trackShipment = async (courier, trackingNumber) => {
+  return makeCourierRequest(courier, 'track_shipment', { trackingNumber });
+};
+
+/**
+ * Makes an API call to test courier credentials and endpoints through our proxy
+ * @param {Object} requestConfig - The complete request configuration
+ * @returns {Promise<Object>} The API response
+ */
 export const testCourierApi = async (requestConfig) => {
   try {
-    // Handle JWT Token Auth
-    if (requestConfig.auth?.type === 'jwt_auth') {
-      try {
-        console.log('JWT Token Auth detected, fetching token first');
-        const token = await fetchJwtToken(requestConfig.auth);
-
-        // Store the token in the request config
-        requestConfig.auth.token = token;
-
-        // Change auth type to 'bearer' for the main request
-        requestConfig.auth.type = 'bearer';
-
-        console.log('JWT token fetched and stored for main request');
-      } catch (error) {
-        console.error('Error fetching JWT token:', error);
-        return {
-          error: true,
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          message: `Failed to fetch JWT token: ${error.message}`,
-          details: error.response?.data || {},
-          timestamp: new Date().toISOString()
-        };
-      }
+    console.log(`Sending request to proxy for ${requestConfig.url}`);
+    
+    // Set flag to use database credentials if not explicitly provided
+    if (requestConfig.auth && !requestConfig.auth.username && !requestConfig.auth.apiKey && !requestConfig.auth.token) {
+      requestConfig.auth.useDbCredentials = true;
     }
-
-    console.log(`Making real API call to ${requestConfig.url} with intent: ${requestConfig.apiIntent}`);
-
-    // Prepare headers
-    const headers = {};
-
-    // Add custom headers from the request config
-    if (requestConfig.headers && Array.isArray(requestConfig.headers)) {
-      console.log('Processing headers from request config:', requestConfig.headers);
-
-      requestConfig.headers.forEach(header => {
-        if (header.key && header.value !== undefined) {
-          console.log(`Adding header: ${header.key} = ${header.value}`);
-          headers[header.key] = header.value;
-        }
-      });
-    } else {
-      console.log('No headers found in request config');
-    }
-
-    // Add auth headers based on auth type
-    switch (requestConfig.auth?.type) {
-      case 'bearer':
-        headers['Authorization'] = `${requestConfig.auth.token}`;
-        break;
-      case 'basic':
-        headers['Authorization'] = `Basic ${btoa(`${requestConfig.auth.username}:${requestConfig.auth.password}`)}`;
-        break;
-      case 'api_key':
-        if (requestConfig.auth.apiKeyLocation === 'header') {
-          headers[requestConfig.auth.apiKeyName || 'x-api-key'] = requestConfig.auth.apiKey;
-        }
-        break;
-    }
-
-    // Create axios request config
-    const axiosConfig = {
-      method: requestConfig.method || 'GET',
-      url: requestConfig.url,
-      headers: {
-        ...headers,
-        'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
-      },
-      // Add timeout
-      timeout: 30000, // 30 seconds
-      // Add validateStatus to handle all status codes
-      // eslint-disable-next-line no-unused-vars
-      validateStatus: function (status) {
-        return true; // Don't reject any status codes, we'll handle them in our code
-      }
-    };
-
-    // Handle query parameters
-    if (requestConfig.queryParams && Array.isArray(requestConfig.queryParams)) {
-      const params = new URLSearchParams();
-      requestConfig.queryParams.forEach(param => {
-        if (param.key && param.value !== undefined) {
-          params.append(param.key, param.value);
-        }
-      });
-      if (params.toString()) {
-        const separator = requestConfig.url.includes('?') ? '&' : '?';
-        axiosConfig.url = `${requestConfig.url}${separator}${params.toString()}`;
-      }
-    }
-
-    // Handle request body
-    if (['POST', 'PUT', 'PATCH'].includes(axiosConfig.method.toUpperCase())) {
-      if (requestConfig.isFormUrlEncoded) {
-        axiosConfig.data = new URLSearchParams(requestConfig.body).toString();
-      } else {
-        axiosConfig.data = requestConfig.body;
-      }
-    }
-
-    // Special handling for different API intents
-    switch (requestConfig.apiIntent) {
-      case 'track_shipment':
-        // For tracking, add the tracking number to the URL if it's a GET request
-        // and the tracking number is in the body
-        if (axiosConfig.method.toUpperCase() === 'GET' &&
-            requestConfig.testDocket &&
-            !requestConfig.url.includes(requestConfig.testDocket)) {
-
-          const separator = requestConfig.url.includes('?') ? '&' : '?';
-          axiosConfig.url = `${requestConfig.url}${separator}trackingNumber=${requestConfig.testDocket}`;
-        }
-
-        // For POST requests, ensure the tracking number is in the body
-        if (axiosConfig.method.toUpperCase() === 'POST' &&
-            requestConfig.testDocket &&
-            typeof axiosConfig.data === 'object') {
-
-          axiosConfig.data = {
-            ...axiosConfig.data,
-            docNo: requestConfig.testDocket,
-            docType: "WB"  // Add docType for Safexpress
-          };
-        }
-        break;
-    }
-
-    // Make the request
-    console.log('Making request with config:', axiosConfig);
-    console.log('Headers being sent:', axiosConfig.headers);
-
-    try {
-      const response = await axios(axiosConfig);
-      console.log('API response:', response);
-
-      // Check if the response indicates an error
-      if (response.status >= 400) {
-        return {
-          error: true,
-          status: response.status,
-          statusText: response.statusText,
-          message: response.data?.message || 'API request failed',
-          details: response.data,
-          url: requestConfig.url,
-          method: requestConfig.method,
-          apiIntent: requestConfig.apiIntent,
-          timestamp: new Date().toISOString()
-        };
-      }
-
-      return response.data;
-    } catch (axiosError) {
-      console.error('Axios error details:', {
-        message: axiosError.message,
-        code: axiosError.code,
-        response: axiosError.response,
-        request: axiosError.request,
-        config: axiosError.config
-      });
-
-      // Return a structured error response
-      return {
-        error: true,
-        status: axiosError.response?.status,
-        statusText: axiosError.response?.statusText,
-        message: axiosError.message,
-        details: axiosError.response?.data || {},
-        url: requestConfig.url,
-        method: requestConfig.method,
-        apiIntent: requestConfig.apiIntent,
-        timestamp: new Date().toISOString()
-      };
-    }
+    
+    // Make API call through our Netlify proxy
+    const response = await axios.post(COURIER_PROXY_URL, requestConfig);
+    
+    // Return the response data, which comes pre-formatted from our proxy
+    return response.data;
   } catch (error) {
-    console.error('General error in testCourierApi:', error);
-    throw error;
+    console.error('Error calling courier API via proxy:', error);
+    
+    // Return a structured error response
+    return {
+      error: true,
+      status: error.response?.status,
+      statusText: error.response?.statusText || error.message,
+      message: error.message,
+      details: error.response?.data || {},
+      url: requestConfig.url,
+      method: requestConfig.method,
+      apiIntent: requestConfig.apiIntent,
+      timestamp: new Date().toISOString()
+    };
   }
 };
 
@@ -257,7 +81,15 @@ export const testCourierApi = async (requestConfig) => {
  * @deprecated Use the new testCourierApi with requestConfig instead
  */
 export const testCourierApiLegacy = async (credentials, endpoint, payload, apiIntent) => {
-  // Convert legacy parameters to new request config format
+  // Try to determine courier from endpoint
+  let courier = '';
+  if (endpoint.includes('safexpress')) {
+    courier = 'safexpress';
+  } else if (endpoint.includes('delhivery')) {
+    courier = 'delhivery';
+  }
+  // Add more courier detections as needed
+  
   // Determine auth type
   let authType = 'none';
   if (credentials.api_key) {
@@ -275,11 +107,15 @@ export const testCourierApiLegacy = async (credentials, endpoint, payload, apiIn
     url: endpoint,
     method: apiIntent === 'generate_auth_token' || apiIntent === 'track_shipment' ? 'POST' : 'GET',
     apiIntent,
+    courier, // Add courier identifier for credential lookup
     auth: {
       type: authType,
+      // If credentials are provided, use them
       username: credentials.username,
       password: credentials.password,
-      token: credentials.api_key
+      token: credentials.api_key,
+      // If no credentials, get from database
+      useDbCredentials: !credentials.username && !credentials.password && !credentials.api_key
     },
     body: payload,
     headers: []
@@ -292,3 +128,5 @@ export const testCourierApiLegacy = async (credentials, endpoint, payload, apiIn
 
   return testCourierApi(requestConfig);
 };
+
+// Add other courier-specific functions as needed

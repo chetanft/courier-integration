@@ -549,3 +549,88 @@ export const getCouriersMissingFields = async () => {
     handleApiError(error, 'getCouriersMissingFields');
   }
 };
+
+/**
+ * Save courier credentials to Supabase
+ * @param {string} courierId - The ID of the courier
+ * @param {Object} credentials - The credentials object (username, password, apiKey, etc.)
+ * @returns {Promise<Object>} The result of the operation
+ */
+export const saveCourierCredentials = async (courierId, credentials) => {
+  try {
+    // Check if courier exists
+    const { data: existing } = await supabase
+      .from('courier_credentials')
+      .select('*')
+      .eq('courier_id', courierId)
+      .single();
+
+    // If exists, update it
+    if (existing) {
+      const { data, error } = await supabase
+        .from('courier_credentials')
+        .update({ credentials })
+        .eq('courier_id', courierId);
+      
+      if (error) throw error;
+      return { success: true, data };
+    } 
+    // Otherwise, insert new record
+    else {
+      const { data, error } = await supabase
+        .from('courier_credentials')
+        .insert([{ courier_id: courierId, credentials }]);
+
+      if (error) throw error;
+      return { success: true, data };
+    }
+  } catch (error) {
+    console.error('Error saving courier credentials:', error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Get courier credentials from Supabase
+ * @param {string} courierId - The ID of the courier
+ * @returns {Promise<Object>} The credentials object
+ */
+export const getCourierCredentials = async (courierId) => {
+  try {
+    const { data, error } = await supabase
+      .from('courier_credentials')
+      .select('credentials')
+      .eq('courier_id', courierId)
+      .single();
+
+    if (error) throw error;
+    return { success: true, credentials: data.credentials };
+  } catch (error) {
+    console.error('Error getting courier credentials:', error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Get courier credentials by courier name
+ * @param {string} courierName - The name of the courier (e.g., 'safexpress')
+ * @returns {Promise<Object>} The credentials object
+ */
+export const getCourierCredentialsByName = async (courierName) => {
+  try {
+    // First find the courier by name
+    const { data: courier, error: courierError } = await supabase
+      .from('couriers')
+      .select('id')
+      .eq('name', courierName)
+      .single();
+
+    if (courierError) throw courierError;
+    
+    // Then get credentials by courier ID
+    return getCourierCredentials(courier.id);
+  } catch (error) {
+    console.error('Error getting courier credentials by name:', error);
+    return { success: false, error };
+  }
+};

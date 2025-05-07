@@ -57,6 +57,7 @@ This application uses Supabase as its backend. To run the application:
 2. Set up the database schema using the SQL in `supabase-schema.sql`
 
 3. Configure Row Level Security (RLS) policies:
+
    - Run the SQL in `fix-rls-policies.sql` to enable proper access to tables
    - This is critical for the application to work correctly, especially the Settings page
 
@@ -199,3 +200,65 @@ const courierXYZMapping = {
   },
 };
 ```
+
+## Courier API Integration
+
+This project uses a CORS-safe backend proxy to handle all courier API requests securely. All credentials are stored in the Supabase database, not in environment variables or frontend code.
+
+### How It Works
+
+1. Users enter courier credentials through a form interface
+2. Credentials are securely stored in the Supabase database
+3. Frontend calls our Netlify Function proxy
+4. The proxy retrieves credentials from the database
+5. The proxy makes the API call to the courier service
+6. The proxy returns the response to the frontend
+
+This approach solves CORS issues and keeps credentials secure, while providing a user-friendly interface for non-technical users.
+
+### Credential Management for Non-Technical Users
+
+- Users can add and update courier credentials through a simple form interface
+- No environment variables or code changes needed
+- Supports multiple authentication types:
+  - Basic Auth (username/password)
+  - API Key
+  - Bearer Token
+  - JWT Authentication
+
+### Using the Courier API Client
+
+```javascript
+import { testCourierApi } from "../lib/api-utils";
+
+// Example tracking a shipment using database credentials
+const result = await testCourierApi({
+  url: "https://apigateway.safexpress.com/api/shipments/track",
+  method: "POST",
+  apiIntent: "track_shipment",
+  courier: "safexpress", // Used to look up credentials in database
+  auth: {
+    type: "basic",
+    useDbCredentials: true, // Get credentials from database
+  },
+  body: {
+    docNo: "123456789",
+    docType: "WB",
+  },
+});
+```
+
+### Security Considerations
+
+- Courier API credentials are stored securely in your Supabase database
+- All API calls go through the Netlify Function proxy
+- The frontend never directly accesses or stores courier API credentials
+- All requests are properly authenticated on the server side
+
+### Adding New Couriers
+
+To add a new courier:
+
+1. Add appropriate environment variables for authentication
+2. Update your code to call `testCourierApi` with the correct parameters
+3. No changes to the proxy itself are required for most couriers

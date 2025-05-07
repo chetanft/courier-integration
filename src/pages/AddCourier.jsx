@@ -26,6 +26,7 @@ import {
   FormDescription,
   FormMessage,
 } from '../components/ui/form';
+import CourierCredentialsForm from '../components/forms/CourierCredentialsForm';
 
 const AddCourier = () => {
   const form = useForm({
@@ -54,6 +55,18 @@ const AddCourier = () => {
 
   // Watch the api_intent field to conditionally render the test docket field
   const apiIntent = watch('api_intent');
+
+  const [currentStep, setCurrentStep] = useState(1);
+  // State for courier data that will be used across steps
+  // eslint-disable-next-line no-unused-vars
+  const [courierData, setCourierData] = useState({
+    id: null,
+    name: '',
+    trackingEndpoint: '',
+    testDocket: ''
+  });
+  // eslint-disable-next-line no-unused-vars
+  const [credentialsAdded, setCredentialsAdded] = useState(false);
 
   // Fetch TMS fields on component mount
   useEffect(() => {
@@ -86,8 +99,8 @@ const AddCourier = () => {
     }
   }, [apiIntent, form]);
 
-  // Handle form submission
-  const onSubmit = async (data) => {
+  // Step 1: Add courier details
+  const handleCourierSubmit = async (data) => {
     try {
       // Validate test_docket is provided when API intent is track_shipment
       if (data.api_intent === 'track_shipment' && !data.test_docket) {
@@ -187,6 +200,9 @@ const AddCourier = () => {
       })));
 
       console.log('Courier added successfully!');
+
+      // After saving courier, move to credentials step
+      setCurrentStep(2);
     } catch (error) {
       console.error('Error adding courier:', error);
 
@@ -200,6 +216,46 @@ const AddCourier = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Step 2: Add credentials
+  const handleCredentialsSuccess = () => {
+    setCredentialsAdded(true);
+    // Move to API testing step
+    setCurrentStep(3);
+  };
+
+  // Step 3: Test API
+  const handleTestApi = async () => {
+    try {
+      // ... existing test API code ...
+      
+      // Use the proxy with database credentials
+      // eslint-disable-next-line no-unused-vars
+      const result = await testCourierApi({
+        url: courierData.trackingEndpoint,
+        method: 'POST',
+        apiIntent: 'track_shipment',
+        courier: courierData.name,
+        auth: {
+          type: 'basic', // This will be overridden by DB credentials
+          useDbCredentials: true
+        },
+        body: {
+          docNo: courierData.testDocket,
+          docType: 'WB'
+        }
+      });
+      
+      // ... handle result and proceed to next step ...
+    } catch (error) {
+      console.error('Error testing API:', error);
+      setApiError({
+        error: true,
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
@@ -276,10 +332,18 @@ const AddCourier = () => {
         </Link>
       </div>
 
-      {/* Courier Form */}
-      {!apiResponse && (
+      {/* Step navigation */}
+      <div className="steps">
+        <div className={`step ${currentStep === 1 ? 'active' : ''}`}>1. Courier Details</div>
+        <div className={`step ${currentStep === 2 ? 'active' : ''}`}>2. Add Credentials</div>
+        <div className={`step ${currentStep === 3 ? 'active' : ''}`}>3. Test API</div>
+        <div className={`step ${currentStep === 4 ? 'active' : ''}`}>4. Map Fields</div>
+      </div>
+      
+      {/* Step 1: Courier Details */}
+      {currentStep === 1 && (
         <Form {...form}>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(handleCourierSubmit)} className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Courier Information</CardTitle>
@@ -472,6 +536,23 @@ const AddCourier = () => {
             </div>
           </form>
         </Form>
+      )}
+
+      {/* Step 2: Credentials */}
+      {currentStep === 2 && courierData.id && (
+        <CourierCredentialsForm 
+          courierId={courierData.id} 
+          courierName={courierData.name}
+          onSuccess={handleCredentialsSuccess} 
+        />
+      )}
+
+      {/* Step 3: Test API */}
+      {currentStep === 3 && (
+        <ApiTestForm 
+          courierData={courierData}
+          onTest={handleTestApi}
+        />
       )}
 
       {/* Field Mapping */}
