@@ -138,67 +138,67 @@ const ClientDetails = () => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Couriers</h2>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={availableCouriers.length === 0}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Courier
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Courier to {client.name}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {availableCouriers.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">No available couriers to add</p>
-                  <Link to={`/client/${clientId}/add-courier`} className="text-blue-600 hover:underline mt-2 inline-block">
-                    Create a new courier
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="courier-select" className="text-sm font-medium">
-                      Select Courier
-                    </label>
-                    <Select
-                      value={selectedCourier}
-                      onValueChange={setSelectedCourier}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a courier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableCouriers.map((courier) => (
-                          <SelectItem key={courier.id} value={courier.id}>
-                            {courier.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+        <div className="flex space-x-2">
+          {availableCouriers.length > 0 && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Link Existing Courier
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Link Existing Courier to {client.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label htmlFor="courier-select" className="text-sm font-medium">
+                        Select Courier
+                      </label>
+                      <Select
+                        value={selectedCourier}
+                        onValueChange={setSelectedCourier}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a courier" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCouriers.map((courier) => (
+                            <SelectItem key={courier.id} value={courier.id}>
+                              {courier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
-            <div className="flex justify-end">
-              <Button
-                onClick={handleAddCourier}
-                disabled={addingCourier || !selectedCourier || availableCouriers.length === 0}
-              >
-                {addingCourier ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  'Add Courier'
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleAddCourier}
+                    disabled={addingCourier || !selectedCourier}
+                  >
+                    {addingCourier ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Linking...
+                      </>
+                    ) : (
+                      'Link Courier'
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          <Button onClick={() => navigate(`/client/${clientId}/add-courier`)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Courier
+          </Button>
+        </div>
       </div>
 
       {couriers.length === 0 ? (
@@ -206,17 +206,18 @@ const ClientDetails = () => {
           <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Couriers Found</h3>
           <p className="text-gray-500 mb-4">Add a courier to this client to get started.</p>
-          <Button onClick={() => setDialogOpen(true)} disabled={availableCouriers.length === 0}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Courier
-          </Button>
-          {availableCouriers.length === 0 && (
-            <div className="mt-4">
-              <Link to={`/client/${clientId}/add-courier`} className="text-blue-600 hover:underline">
-                Create a new courier first
-              </Link>
-            </div>
-          )}
+          <div className="flex justify-center space-x-4">
+            {availableCouriers.length > 0 && (
+              <Button onClick={() => setDialogOpen(true)} variant="outline">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Link Existing Courier
+              </Button>
+            )}
+            <Button onClick={() => navigate(`/client/${clientId}/add-courier`)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add New Courier
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
