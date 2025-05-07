@@ -156,17 +156,90 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
         return;
       }
       
-      // Create a request to your proxy
-      const response = await axios.post('/.netlify/functions/db-courier-proxy', {
-        url: authEndpoint,
-        method: authMethod,
-        headers: authHeaders,
-        body: authBody,
-        apiIntent: 'generate_auth_token'
+      console.log("Making token request with:", { 
+        url: authEndpoint, 
+        method: authMethod, 
+        headers: authHeaders, 
+        bodySize: Object.keys(authBody).length
       });
+      
+      // Define possible proxy endpoints to try
+      const proxyEndpoints = [
+        '/.netlify/functions/db-courier-proxy',  // Primary endpoint
+        '/.netlify/functions/courier-proxy',     // Fallback endpoint
+        '/.netlify/functions/api-proxy'          // Another fallback
+      ];
+      
+      let lastError = null;
+      let response = null;
+      
+      // Try each endpoint until one works
+      for (const endpoint of proxyEndpoints) {
+        try {
+          console.log(`Attempting to use proxy endpoint: ${endpoint}`);
+          
+          // Create a request to the proxy
+          response = await axios.post(endpoint, {
+            url: authEndpoint,
+            method: authMethod,
+            headers: authHeaders,
+            body: authBody,
+            apiIntent: 'generate_auth_token'
+          });
+          
+          console.log(`Success with endpoint ${endpoint}:`, response.status);
+          // If we got here, the request succeeded
+          break;
+        } catch (error) {
+          console.error(`Error with endpoint ${endpoint}:`, {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+          });
+          lastError = error;
+          // Continue to the next endpoint
+        }
+      }
+      
+      // Last resort: Try a direct request if all proxies failed (may fail due to CORS)
+      if (!response) {
+        try {
+          console.log("All proxies failed, attempting direct request (may fail due to CORS)");
+          
+          // Create headers object from array of key-value pairs
+          const directHeaders = authHeaders.reduce((obj, item) => {
+            obj[item.key] = item.value;
+            return obj;
+          }, {});
+          
+          // Make direct request (will likely fail due to CORS, but worth trying)
+          response = await axios({
+            url: authEndpoint,
+            method: authMethod,
+            headers: directHeaders,
+            data: authBody
+          });
+          
+          console.log("Direct request succeeded:", response.status);
+        } catch (error) {
+          console.error("Direct request failed:", {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+          });
+          // Re-throw the proxy error since it's more relevant
+          throw new Error(`API request failed across all proxy endpoints: ${lastError?.message}`);
+        }
+      }
+      
+      // If we still don't have a response
+      if (!response) {
+        throw new Error(`API request failed across all methods`);
+      }
       
       // Process the response
       if (response.data.error) {
+        console.error("Error in response data:", response.data);
         throw new Error(response.data.message || 'Failed to generate token');
       }
       
@@ -319,7 +392,16 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           
           {tokenError && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm">
-              {tokenError}
+              <div className="font-medium">Error</div>
+              <div>{tokenError}</div>
+              <div className="mt-2 text-xs">
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Ensure the endpoint URL is correct and accessible</li>
+                  <li>Check that your headers and request body match the API requirements</li>
+                  <li>If using a curl command, verify it works in your terminal</li>
+                  <li>You may need network admin assistance if your organization blocks API requests</li>
+                </ul>
+              </div>
             </div>
           )}
           
@@ -347,10 +429,42 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             </div>
           )}
           
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  // Just test connection without token extraction
+                  const testResponse = await axios.post('/.netlify/functions/api-proxy', {
+                    url: authEndpoint,
+                    method: authMethod,
+                    headers: authHeaders.reduce((obj, item) => {
+                      obj[item.key] = item.value;
+                      return obj;
+                    }, {}),
+                    body: authBody
+                  });
+                  
+                  if (testResponse.status >= 200 && testResponse.status < 300) {
+                    addToast('Connection test successful!', 'success');
+                  } else {
+                    addToast(`Connection test returned status: ${testResponse.status}`, 'warning');
+                  }
+                } catch (error) {
+                  console.error('Connection test failed:', error);
+                  addToast(`Connection test failed: ${error.message}`, 'error');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading || !authEndpoint}
+            >
+              Test Connection
+            </Button>
             <Button
               onClick={generateToken}
-              disabled={loading}
+              disabled={loading || !authEndpoint}
               className={loading ? 'opacity-70' : ''}
             >
               {loading ? 'Generating Token...' : 'Generate Token'}
