@@ -25,6 +25,84 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   const authBody = watch('auth.jwtAuthBody') || {};
   const tokenPath = watch('auth.jwtTokenPath') || 'access_token';
   
+  // Parse curl command if provided
+  const parseCurl = (curlCommand) => {
+    try {
+      // Basic curl command regex pattern
+      const urlMatch = curlCommand.match(/curl\s+['"]?([^'")\s]+)['"]?/i);
+      const methodMatch = curlCommand.match(/-X\s+([A-Z]+)/i);
+      
+      // Extract URL
+      const url = urlMatch ? urlMatch[1] : '';
+      
+      // Extract method
+      const method = methodMatch ? methodMatch[1] : 'POST';
+      
+      // Extract headers
+      const headerMatches = curlCommand.matchAll(/-H\s+['"]([^'"]+)['"]?/gi);
+      const headers = [];
+      for (const match of headerMatches) {
+        const headerStr = match[1];
+        const colonIndex = headerStr.indexOf(':');
+        if (colonIndex > -1) {
+          const key = headerStr.slice(0, colonIndex).trim();
+          const value = headerStr.slice(colonIndex + 1).trim();
+          headers.push({ key, value });
+        }
+      }
+      
+      // Extract body if present
+      let body = {};
+      const dataMatch = curlCommand.match(/-d\s+['"]([^'"]+)['"]?/i);
+      if (dataMatch) {
+        try {
+          body = JSON.parse(dataMatch[1]);
+        } catch (error) {
+          console.log('Failed to parse JSON body, trying form data format:', error.message);
+          // If not valid JSON, try to parse as form data
+          const formData = dataMatch[1].split('&').reduce((acc, pair) => {
+            const [key, value] = pair.split('=');
+            if (key && value) {
+              acc[decodeURIComponent(key)] = decodeURIComponent(value);
+            }
+            return acc;
+          }, {});
+          body = formData;
+        }
+      }
+      
+      return { url, method, headers, body };
+    } catch (error) {
+      console.error('Error parsing curl command:', error);
+      return null;
+    }
+  };
+  
+  // Handle auth endpoint input change - detect and parse curl commands
+  const handleAuthEndpointChange = (value) => {
+    setValue('auth.jwtAuthEndpoint', value);
+    
+    // Check if this looks like a curl command
+    if (value.trim().toLowerCase().startsWith('curl ')) {
+      const parsedCurl = parseCurl(value);
+      if (parsedCurl) {
+        // Auto-fill the form with the parsed curl data
+        setValue('auth.jwtAuthEndpoint', parsedCurl.url);
+        setValue('auth.jwtAuthMethod', parsedCurl.method);
+        
+        if (parsedCurl.headers.length > 0) {
+          setValue('auth.jwtAuthHeaders', parsedCurl.headers);
+        }
+        
+        if (Object.keys(parsedCurl.body).length > 0) {
+          setValue('auth.jwtAuthBody', parsedCurl.body);
+        }
+        
+        addToast('Curl command parsed successfully', 'success');
+      }
+    }
+  };
+  
   const generateToken = async () => {
     try {
       setLoading(true);
@@ -123,15 +201,21 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Auth Endpoint URL</label>
+              <label className="block text-sm font-medium mb-1">Auth Endpoint URL or Curl Command</label>
               <Input
-                placeholder="https://api.example.com/oauth/token"
+                placeholder="https://api.example.com/oauth/token or curl command"
                 value={authEndpoint}
-                onChange={(e) => setValue('auth.jwtAuthEndpoint', e.target.value)}
+                onChange={(e) => handleAuthEndpointChange(e.target.value)}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Enter the authentication endpoint URL provided by the courier API documentation
+                Enter the authentication endpoint URL or paste a curl command to auto-fill all fields
               </p>
+              <details className="text-xs text-gray-500 mt-1">
+                <summary className="cursor-pointer font-medium">Example curl command</summary>
+                <pre className="mt-1 p-2 bg-gray-50 rounded overflow-x-auto text-xs">
+                  curl https://api.example.com/oauth/token -X POST -H "Content-Type: application/json" -d {"{\"grant_type\":\"client_credentials\",\"client_id\":\"your_client_id\",\"client_secret\":\"your_client_secret\"}"}
+                </pre>
+              </details>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">HTTP Method</label>
