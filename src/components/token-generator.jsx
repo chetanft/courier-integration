@@ -111,8 +111,10 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           </Button>
         </div>
         <p className="text-sm text-gray-500 mt-1">
-          Generate an authentication token that will be used for the tracking API in the next step.
-          This token will be automatically added as an "Authorization" header.
+          Use this tool to generate an authentication token from services like Safexpress Auth API 
+          (e.g., https://api-auth.safexpress.com/oauth2/token). This token will be automatically 
+          carried forward to the next step for your tracking API request 
+          (e.g., https://apigateway.safexpress.com/wbtrack/SafexWaybillTracking/webresources/safex_customer/tracking).
         </p>
         {!isExpanded && tokenResult?.token && (
           <div className="text-sm text-green-600">Token generated successfully</div>
@@ -125,10 +127,13 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Auth Endpoint URL</label>
               <Input
-                placeholder="https://api.example.com/oauth/token"
+                placeholder="https://api-auth.safexpress.com/oauth2/token"
                 value={authEndpoint}
                 onChange={(e) => setValue('auth.jwtAuthEndpoint', e.target.value)}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Example: https://api-auth.safexpress.com/oauth2/token for Safexpress
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">HTTP Method</label>
@@ -161,6 +166,10 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               onChange={(body) => setValue('auth.jwtAuthBody', body)}
               height="120px"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Common examples: {"{ \"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_CLIENT_SECRET\" }"} 
+              or {"{ \"username\": \"YOUR_USERNAME\", \"password\": \"YOUR_PASSWORD\" }"}
+            </p>
           </div>
           
           <div>

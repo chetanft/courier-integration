@@ -712,6 +712,15 @@ const AddCourierRevamped = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Test API</CardTitle>
+                {tokenGenerated && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-green-700">
+                        <span className="font-medium">Authentication Token:</span> Successfully generated in the previous step and automatically included in headers
+                      </span>
+                    </div>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <RequestBuilder
