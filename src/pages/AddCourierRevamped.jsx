@@ -325,6 +325,11 @@ const AddCourierRevamped = () => {
   // Check if the courier details are valid for moving to the next step
   const isCourierDetailsValid = () => {
     const courierName = formMethods.getValues('courier_name');
+    console.log('Courier name validation:', {
+      courierName,
+      isEmpty: !courierName || courierName.trim() === '',
+      isValid: courierName && courierName.trim() !== ''
+    });
     return courierName && courierName.trim() !== '';
   };
   
@@ -472,7 +477,17 @@ const AddCourierRevamped = () => {
                   <FormItem>
                     <FormLabel>Courier Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter courier name" {...field} />
+                      <Input 
+                        placeholder="Enter courier name" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          // Force validation check after each change
+                          formMethods.trigger('courier_name');
+                          // Log the current value
+                          console.log('Input changed:', e.target.value);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -482,7 +497,10 @@ const AddCourierRevamped = () => {
               <div className="flex justify-end space-x-4 mt-6">
                 <Button 
                   type="button" 
-                  onClick={goToNextStep}
+                  onClick={() => {
+                    console.log('Next button clicked, validation state:', isCourierDetailsValid());
+                    goToNextStep();
+                  }}
                   disabled={!isCourierDetailsValid()}
                 >
                   Next: Authentication
