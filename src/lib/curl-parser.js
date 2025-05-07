@@ -97,14 +97,19 @@ export const parseCurl = (curlString) => {
                 console.error('Failed to decode Basic auth:', e);
               }
             } else if (value.toLowerCase().startsWith('bearer ')) {
+              // Extract the full token (trim any whitespace)
+              const token = value.substring(7).trim();
+              console.log('Extracted bearer token:', token);
+
               // Check if it's a JWT token (has 2 dots for header.payload.signature)
-              const token = value.substring(7);
               if (token.split('.').length === 3) {
                 request.auth.type = 'jwt';
                 request.auth.token = token;
+                console.log('Detected JWT token format');
               } else {
                 request.auth.type = 'bearer';
                 request.auth.token = token;
+                console.log('Detected regular bearer token format');
               }
             }
           }

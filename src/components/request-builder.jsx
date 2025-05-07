@@ -136,7 +136,12 @@ const RequestBuilder = ({
       // Update form values with parsed data
       setValue('method', parsed.method);
       setValue('url', parsed.url);
+
+      // Set auth type and update local state
+      console.log('Setting auth type from cURL:', parsed.auth.type);
       setValue('auth.type', parsed.auth.type);
+      setAuthType(parsed.auth.type); // Update local state to ensure UI reflects the change
+
       setValue('auth.username', parsed.auth.username);
       setValue('auth.password', parsed.auth.password);
       setValue('auth.token', parsed.auth.token);
@@ -362,22 +367,44 @@ const RequestBuilder = ({
                 <FormField
                   control={control}
                   name="testDocket"
-                  rules={{ required: "Test docket number is required for shipment tracking" }}
-                  render={({ field }) => (
-                    <FormItem className="mt-4 border-2 border-red-300 p-4 rounded-md bg-red-50">
-                      <FormLabel className="text-red-700 font-bold flex items-center">
-                        <span className="mr-2">⚠️</span>
-                        Test Docket Number (Required)
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="ABC123456" {...field} className="border-red-300" />
-                      </FormControl>
-                      <FormDescription className="text-red-700">
-                        You must enter a valid tracking/docket number to test the shipment tracking API
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  rules={{
+                    validate: () => {
+                      // Only validate on form submission, not on field change
+                      return true;
+                    }
+                  }}
+                  render={({ field }) => {
+                    // Get form state to check if form has been submitted
+                    const formState = formMethods.getState();
+                    const isSubmitted = formState.isSubmitted;
+                    const isEmpty = !field.value;
+
+                    // Only show error styling if the form was submitted and field is empty
+                    const showError = isSubmitted && isEmpty;
+
+                    return (
+                      <FormItem className={`mt-4 p-4 rounded-md ${showError ? 'border-2 border-red-300 bg-red-50' : 'border border-gray-200'}`}>
+                        <FormLabel className={`flex items-center ${showError ? 'text-red-700 font-bold' : ''}`}>
+                          {showError && <span className="mr-2">⚠️</span>}
+                          Test Docket Number (Required)
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="ABC123456"
+                            {...field}
+                            className={showError ? 'border-red-300' : ''}
+                          />
+                        </FormControl>
+                        <FormDescription className={showError ? 'text-red-700' : 'text-gray-500'}>
+                          {showError
+                            ? 'You must enter a valid tracking/docket number to test the shipment tracking API'
+                            : 'Enter a tracking/docket number to test the shipment tracking API'
+                          }
+                        </FormDescription>
+                        {showError && <FormMessage />}
+                      </FormItem>
+                    );
+                  }}
                 />
               )}
             </CardContent>

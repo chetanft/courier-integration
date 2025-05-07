@@ -77,6 +77,20 @@ const ResponseViewer = ({
                   <h4 className="text-sm font-medium text-red-800 mb-1">Details:</h4>
                   <JsonViewer data={apiResponse} className="bg-white p-2 rounded border" />
                 </div>
+                <div className="mt-4 flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                  >
+                    Back to API Details
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => setActiveTab('mapping')}
+                  >
+                    Continue to Field Mapping
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="p-4 border border-green-200 bg-green-50 rounded-md">

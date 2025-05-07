@@ -102,8 +102,15 @@ const AddCourierRevamped = () => {
           message: 'Test docket number is required for shipment tracking'
         });
 
-        // Show a more visible alert to the user
-        alert('Please enter a test docket number for shipment tracking');
+        // Mark the form as submitted to trigger error display
+        formMethods.formState.isSubmitted = true;
+
+        // Focus on the testDocket field
+        const testDocketInput = document.querySelector('input[name="testDocket"]');
+        if (testDocketInput) {
+          testDocketInput.focus();
+        }
+
         return;
       }
 
