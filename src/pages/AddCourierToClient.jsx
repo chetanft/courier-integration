@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { getClientById, addCourier, linkClientsToCourier, getAvailableCouriersForClient } from '../lib/supabase-service';
+import { getClientById, addCourier, linkClientsToCourier, getCouriersByClientId } from '../lib/supabase-service';
+import { fetchCourierData } from '../lib/courier-api-service';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths } from '../lib/field-extractor';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
@@ -33,11 +34,13 @@ const AddCourierToClient = () => {
   const [error, setError] = useState(null);
   const [apiResponse, setApiResponse] = useState(null);
   const [apiError, setApiError] = useState(null);
-  const [courier, setCourier] = useState(null);
+  // Courier state is set after successful API test and form submission
+  const [, setCourier] = useState(null);
   const [fieldMappings, setFieldMappings] = useState([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [tokenGenerated, setTokenGenerated] = useState(false);
-  const [jsFileGenerated, setJsFileGenerated] = useState(false);
+  // jsFileGenerated is used in the UI to show success message after JS file generation
+  const [jsFileGenerated] = useState(false);
   const [availableCouriers, setAvailableCouriers] = useState([]);
 
   // Define the steps for the stepper
@@ -97,25 +100,69 @@ const AddCourierToClient = () => {
         // Check if client has an API URL
         if (clientData.api_url) {
           try {
-            // Get available couriers from the client's API
-            const availableCouriers = await getAvailableCouriersForClient(clientId, clientData.api_url);
+            // Log the API URL for debugging
+            console.log(`Original API URL: ${clientData.api_url}`);
 
-            if (availableCouriers && availableCouriers.length > 0) {
-              // Set the available couriers
-              setAvailableCouriers(availableCouriers);
+            // Check if the URL is encoded and decode it if necessary
+            let apiUrl = clientData.api_url;
+            if (apiUrl.includes('%')) {
+              try {
+                const decodedUrl = decodeURIComponent(apiUrl);
+                console.log(`Decoded API URL: ${decodedUrl}`);
+                apiUrl = decodedUrl;
+              } catch (decodeError) {
+                console.warn('Error decoding URL, will use original:', decodeError);
+              }
+            }
 
-              // Pre-select the first courier
-              form.setValue('courier_name', availableCouriers[0].name);
+            // Directly fetch couriers from the client's API
+            console.log(`Fetching couriers from API: ${apiUrl}`);
+            const allCouriers = await fetchCourierData(apiUrl);
 
-              // If the courier has an API URL, pre-fill it
-              if (availableCouriers[0].api_base_url) {
-                form.setValue('url', availableCouriers[0].api_base_url);
+            if (allCouriers && allCouriers.length > 0) {
+              console.log(`Found ${allCouriers.length} couriers in API response:`, allCouriers);
+
+              // Get couriers already linked to this client to filter them out
+              const linkedCouriers = await getCouriersByClientId(clientId);
+              console.log(`Found ${linkedCouriers.length} linked couriers:`, linkedCouriers);
+
+              const linkedCourierNames = linkedCouriers.map(c => c.name.toLowerCase());
+              console.log('Linked courier names (lowercase):', linkedCourierNames);
+
+              // Filter out already linked couriers
+              const availableCouriersList = allCouriers.filter(c => {
+                const courierName = (c.name || '').toLowerCase();
+                const isLinked = linkedCourierNames.includes(courierName);
+                console.log(`Courier ${courierName} is ${isLinked ? 'already linked' : 'available'}`);
+                return !isLinked;
+              });
+
+              console.log(`After filtering, found ${availableCouriersList.length} available couriers`);
+
+              if (availableCouriersList && availableCouriersList.length > 0) {
+                // Set the available couriers
+                setAvailableCouriers(availableCouriersList);
+                console.log(`${availableCouriersList.length} couriers available to add`);
+
+                // Pre-select the first courier
+                form.setValue('courier_name', availableCouriersList[0].name);
+
+                // If the courier has an API URL, pre-fill it
+                if (availableCouriersList[0].api_base_url) {
+                  form.setValue('url', availableCouriersList[0].api_base_url);
+                }
+              } else {
+                console.log('All couriers from API are already linked to this client');
+                toast.info('All couriers from API are already linked to this client');
               }
             } else {
-              console.log('No available couriers found for this client');
+              console.log('No couriers found in API response');
+              toast.warning('No couriers found in the API response');
             }
           } catch (apiError) {
             console.error('Error fetching couriers from API:', apiError);
+            console.error('Error details:', apiError);
+            toast.error(`Error fetching couriers: ${apiError.message}`);
             // Don't fail the whole component if API fetch fails
           }
         }
@@ -188,8 +235,50 @@ const AddCourierToClient = () => {
     setError(null);
 
     try {
-      // Get available couriers from the client's API
-      const refreshedCouriers = await getAvailableCouriersForClient(clientId, client.api_url);
+      // Log the API URL for debugging
+      console.log(`Original API URL: ${client.api_url}`);
+
+      // Check if the URL is encoded and decode it if necessary
+      let apiUrl = client.api_url;
+      if (apiUrl.includes('%')) {
+        try {
+          const decodedUrl = decodeURIComponent(apiUrl);
+          console.log(`Decoded API URL: ${decodedUrl}`);
+          apiUrl = decodedUrl;
+        } catch (decodeError) {
+          console.warn('Error decoding URL, will use original:', decodeError);
+        }
+      }
+
+      // Directly fetch couriers from the client's API
+      console.log(`Fetching couriers from API: ${apiUrl}`);
+      const allCouriers = await fetchCourierData(apiUrl);
+
+      if (!allCouriers || allCouriers.length === 0) {
+        toast.warning('No couriers found in the API response');
+        setAvailableCouriers([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log(`Found ${allCouriers.length} couriers in API response:`, allCouriers);
+
+      // Get couriers already linked to this client
+      const linkedCouriers = await getCouriersByClientId(clientId);
+      console.log(`Found ${linkedCouriers.length} linked couriers:`, linkedCouriers);
+
+      const linkedCourierNames = linkedCouriers.map(c => c.name.toLowerCase());
+      console.log('Linked courier names (lowercase):', linkedCourierNames);
+
+      // Filter out already linked couriers
+      const refreshedCouriers = allCouriers.filter(c => {
+        const courierName = (c.name || '').toLowerCase();
+        const isLinked = linkedCourierNames.includes(courierName);
+        console.log(`Courier ${courierName} is ${isLinked ? 'already linked' : 'available'}`);
+        return !isLinked;
+      });
+
+      console.log(`After filtering, found ${refreshedCouriers.length} available couriers`);
 
       if (refreshedCouriers && refreshedCouriers.length > 0) {
         setAvailableCouriers(refreshedCouriers);
@@ -208,6 +297,8 @@ const AddCourierToClient = () => {
       }
     } catch (err) {
       console.error('Error refreshing couriers:', err);
+      console.error('Error details:', err);
+
       setError({
         message: err.message || 'Failed to refresh couriers',
         details: err
