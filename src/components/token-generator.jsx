@@ -111,10 +111,8 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           </Button>
         </div>
         <p className="text-sm text-gray-500 mt-1">
-          Use this tool to generate an authentication token from services like Safexpress Auth API 
-          (e.g., https://api-auth.safexpress.com/oauth2/token). This token will be automatically 
-          carried forward to the next step for your tracking API request 
-          (e.g., https://apigateway.safexpress.com/wbtrack/SafexWaybillTracking/webresources/safex_customer/tracking).
+          Use this tool to generate an authentication token from courier API authentication endpoints.
+          This token will be automatically carried forward to the next step for your tracking API request.
         </p>
         {!isExpanded && tokenResult?.token && (
           <div className="text-sm text-green-600">Token generated successfully</div>
@@ -127,12 +125,12 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Auth Endpoint URL</label>
               <Input
-                placeholder="https://api-auth.safexpress.com/oauth2/token"
+                placeholder="https://api.example.com/oauth/token"
                 value={authEndpoint}
                 onChange={(e) => setValue('auth.jwtAuthEndpoint', e.target.value)}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Example: https://api-auth.safexpress.com/oauth2/token for Safexpress
+                Enter the authentication endpoint URL provided by the courier API documentation
               </p>
             </div>
             <div>

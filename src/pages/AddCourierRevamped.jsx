@@ -539,9 +539,9 @@ const AddCourierRevamped = () => {
                 </p>
                 <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
                   <p className="text-blue-700">
-                    <strong>For Safexpress token authentication:</strong> Select "JWT Authentication (Generate Token)" 
-                    from the dropdown below, then enter the auth URL (https://api-auth.safexpress.com/oauth2/token) 
-                    in the form that will appear.
+                    <strong>For token authentication:</strong> Select "JWT Authentication (Generate Token)" 
+                    from the dropdown below, then enter the auth endpoint URL
+                    in the form that will appear. This will allow you to generate a token that will be used in the next step.
                   </p>
                 </div>
               </CardHeader>
@@ -561,7 +561,7 @@ const AddCourierRevamped = () => {
                           <option value="basic">Basic Authentication</option>
                           <option value="apikey">API Key</option>
                           <option value="bearer">Bearer Token</option>
-                          <option value="jwt_auth">JWT Authentication (Generate Token - For Safexpress)</option>
+                          <option value="jwt_auth">JWT Authentication (Generate Token)</option>
                         </select>
                       </FormControl>
                     </FormItem>
