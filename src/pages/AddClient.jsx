@@ -433,6 +433,7 @@ const AddClient = () => {
             loading={loading || fetchingCouriers}
             showCurlInput={true}
             showApiIntents={false}
+            customSubmitLabel="Save Client"
           />
 
           {/* Add a Test API button */}
@@ -444,7 +445,7 @@ const AddClient = () => {
               disabled={loading || fetchingCouriers || !formMethods.getValues().url.trim()}
               className="mr-2"
             >
-              {fetchingCouriers ? 'Testing...' : 'Test API'}
+              {fetchingCouriers ? 'Testing...' : 'Test API Connection Only'}
             </Button>
           </div>
         </CardContent>

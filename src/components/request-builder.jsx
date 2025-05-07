@@ -39,7 +39,8 @@ const RequestBuilder = ({
   onSubmit,
   loading = false,
   showCurlInput = true,
-  showApiIntents = true
+  showApiIntents = true,
+  customSubmitLabel = 'Test API & Continue'
 }) => {
   const { control, watch, setValue, handleSubmit, formState } = formMethods;
 
@@ -75,7 +76,7 @@ const RequestBuilder = ({
       // Check if Authorization header already exists
       const headers = watch('headers') || [];
       const hasAuthHeader = headers.some(h => h.key.toLowerCase() === 'authorization');
-      
+
       // If no Authorization header exists, add it
       if (!hasAuthHeader) {
         const updatedHeaders = [
@@ -1132,7 +1133,7 @@ const RequestBuilder = ({
             disabled={loading}
             onClick={() => console.log('Submit button clicked')}
           >
-            {loading ? 'Testing API...' : 'Test API & Continue'}
+            {loading ? 'Processing...' : customSubmitLabel}
           </Button>
         </div>
       </form>
