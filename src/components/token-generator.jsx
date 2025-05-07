@@ -9,6 +9,7 @@ import { useToast } from './ui/use-toast';
 import CopyButton from './ui/copy-button';
 import axios from 'axios';
 import _ from 'lodash';
+import { parseCurl } from '../lib/curl-parser';
 
 const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   const { watch, setValue } = formMethods;
@@ -18,122 +19,103 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [curlDetected, setCurlDetected] = useState(false);
   const { addToast } = useToast();
-  
+
   // Watch auth configuration values
   const authEndpoint = watch('auth.jwtAuthEndpoint') || '';
   const authMethod = watch('auth.jwtAuthMethod') || 'POST';
   const authHeaders = watch('auth.jwtAuthHeaders') || [];
   const authBody = watch('auth.jwtAuthBody') || {};
   const tokenPath = watch('auth.jwtTokenPath') || 'access_token';
-  
-  // Parse curl command if provided
-  const parseCurl = (curlCommand) => {
+
+  // State to track if a curl command was detected
+  // (We keep this minimal state to show a simple notification)
+
+  // We're now using the imported parseCurl function from curl-parser.js
+  // This is a wrapper to handle errors and provide consistent interface
+  const parseCurlCommand = (curlCommand) => {
     try {
-      // Normalize input for better parsing
-      const normalizedCurl = curlCommand.replace(/\s+/g, ' ').trim();
-      console.log('Normalized curl:', normalizedCurl);
-      
-      // Extract the URL using a more robust pattern
-      // This pattern tries to match the full URL including query parameters
-      let urlMatch = normalizedCurl.match(/curl\s+(['"])(https?:\/\/[^'"]+)\1/i);
-      
-      // Fallback to unquoted URL pattern if the quoted pattern doesn't match
-      if (!urlMatch) {
-        // This gets everything after curl and before the first flag/option
-        urlMatch = normalizedCurl.match(/curl\s+(https?:\/\/[^\s"'-]+[\w/])/i);
+      console.log('Parsing curl command using curl-parser library:', curlCommand);
+
+      // Use the imported parseCurl function
+      const parsed = parseCurl(curlCommand);
+
+      // Log the parsed result for debugging
+      console.log('Parsed curl result:', parsed);
+
+      // Extract the relevant parts we need
+      const { url, method, headers, body, auth } = parsed;
+
+      // Check if we have a JWT token in the auth object
+      if (auth && auth.type === 'jwt' && auth.token) {
+        console.log('JWT token found in curl command:', auth.token);
       }
-      
-      // Final fallback - try to extract any URL
-      if (!urlMatch) {
-        const anyUrlMatch = normalizedCurl.match(/(https?:\/\/[^\s"']+)/i);
-        if (anyUrlMatch) {
-          urlMatch = anyUrlMatch;
-        }
-      }
-      
-      // Extract method
-      const methodMatch = normalizedCurl.match(/-X\s+([A-Z]+)/i);
-      
-      // Extract URL
-      const url = urlMatch ? urlMatch[1] || urlMatch[2] : '';
-      
-      // Log the extracted URL for debugging
-      console.log('Extracted URL:', url);
-      
-      // Extract method
-      const method = methodMatch ? methodMatch[1] : 'POST';
-      
-      // Extract headers
-      // Normalize whitespace and line breaks for better regex matching
-      const headerMatches = Array.from(normalizedCurl.matchAll(/-H\s+(['"])(.*?)\1/gi));
-      const headers = [];
-      
-      for (const match of headerMatches) {
-        const headerStr = match[2];
-        const colonIndex = headerStr.indexOf(':');
-        if (colonIndex > -1) {
-          const key = headerStr.slice(0, colonIndex).trim();
-          const value = headerStr.slice(colonIndex + 1).trim();
-          headers.push({ key, value });
-        }
-      }
-      
-      // Extract body if present
-      let body = {};
-      // Handle both single and double quotes, as well as the --data flag variation
-      const dataMatch = normalizedCurl.match(/(?:-d|--data)\s+(['"])(.*?)\1/i);
-      if (dataMatch) {
-        const dataContent = dataMatch[2];
-        try {
-          body = JSON.parse(dataContent);
-        } catch (error) {
-          console.log('Failed to parse JSON body, trying form data format:', error.message);
-          // If not valid JSON, try to parse as form data
-          const formData = dataContent.split('&').reduce((acc, pair) => {
-            const [key, value] = pair.split('=');
-            if (key && value) {
-              acc[decodeURIComponent(key)] = decodeURIComponent(value);
-            }
-            return acc;
-          }, {});
-          body = formData;
-        }
-      }
-      
-      return { url, method, headers, body };
+
+      return { url, method, headers, body, auth };
     } catch (error) {
       console.error('Error parsing curl command:', error);
+      setTokenError(`Failed to parse curl command: ${error.message}`);
       return null;
     }
   };
-  
+
   // Handle auth endpoint input change - detect and parse curl commands
   const handleAuthEndpointChange = (value) => {
     setValue('auth.jwtAuthEndpoint', value);
-    
+
     // Check if this looks like a curl command
     if (value.trim().toLowerCase().startsWith('curl ')) {
       setCurlDetected(true);
+
       console.log('Detected curl command, parsing...');
-      const parsedCurl = parseCurl(value);
-      
+      const parsedCurl = parseCurlCommand(value);
+
       if (parsedCurl && parsedCurl.url) {
         console.log('Parsed curl results:', parsedCurl);
-        
+
         // Auto-fill the form with the parsed curl data
         setValue('auth.jwtAuthEndpoint', parsedCurl.url);
         setValue('auth.jwtAuthMethod', parsedCurl.method);
-        
-        if (parsedCurl.headers.length > 0) {
+
+        // Check if headers were found
+        if (parsedCurl.headers && parsedCurl.headers.length > 0) {
+          console.log('Setting headers:', parsedCurl.headers);
           setValue('auth.jwtAuthHeaders', parsedCurl.headers);
-          console.log('Set headers:', parsedCurl.headers);
+          addToast(`Found ${parsedCurl.headers.length} headers`, 'success');
+        } else {
+          console.log('No headers found in curl command');
         }
-        
-        if (Object.keys(parsedCurl.body).length > 0) {
+
+        // Check if body was found
+        if (parsedCurl.body && Object.keys(parsedCurl.body).length > 0) {
+          console.log('Setting body:', parsedCurl.body);
           setValue('auth.jwtAuthBody', parsedCurl.body);
-          console.log('Set body:', parsedCurl.body);
+          addToast(`Request body data extracted successfully`, 'success');
+        } else {
+          console.log('No body found in curl command');
         }
-        
+
+        // Check if JWT token was found in the auth object
+        if (parsedCurl.auth && (parsedCurl.auth.type === 'jwt' || parsedCurl.auth.type === 'bearer') && parsedCurl.auth.token) {
+          console.log('Setting token from curl auth:', parsedCurl.auth.token);
+          setValue('auth.token', parsedCurl.auth.token);
+
+          // If it's a JWT token, we can set it directly
+          if (parsedCurl.auth.type === 'jwt') {
+            addToast('JWT token extracted from curl command', 'success');
+
+            // Notify parent component about token generation
+            onTokenGenerated && onTokenGenerated(parsedCurl.auth.token);
+
+            // Set token result for display
+            setTokenResult({
+              token: parsedCurl.auth.token,
+              fullResponse: { _source: 'curl_command', token: parsedCurl.auth.token }
+            });
+          } else {
+            addToast('Bearer token extracted from curl command', 'success');
+          }
+        }
+
         addToast('Curl command parsed successfully', 'success');
       } else {
         console.error('Failed to parse curl command or extract URL');
@@ -143,41 +125,41 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       setCurlDetected(false);
     }
   };
-  
+
   const generateToken = async () => {
     try {
       setLoading(true);
       setTokenError(null);
-      
+
       // Validate required fields
       if (!authEndpoint) {
         setTokenError('Auth endpoint URL is required');
         addToast('Auth endpoint URL is required', 'error');
         return;
       }
-      
-      console.log("Making token request with:", { 
-        url: authEndpoint, 
-        method: authMethod, 
-        headers: authHeaders, 
+
+      console.log("Making token request with:", {
+        url: authEndpoint,
+        method: authMethod,
+        headers: authHeaders,
         bodySize: Object.keys(authBody).length
       });
-      
+
       // Define possible proxy endpoints to try
       const proxyEndpoints = [
         '/.netlify/functions/db-courier-proxy',  // Primary endpoint
         '/.netlify/functions/courier-proxy',     // Fallback endpoint
         '/.netlify/functions/api-proxy'          // Another fallback
       ];
-      
+
       let lastError = null;
       let response = null;
-      
+
       // Try each endpoint until one works
       for (const endpoint of proxyEndpoints) {
         try {
           console.log(`Attempting to use proxy endpoint: ${endpoint}`);
-          
+
           // Create a request to the proxy
           response = await axios.post(endpoint, {
             url: authEndpoint,
@@ -186,7 +168,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             body: authBody,
             apiIntent: 'generate_auth_token'
           });
-          
+
           console.log(`Success with endpoint ${endpoint}:`, response.status);
           // If we got here, the request succeeded
           break;
@@ -200,18 +182,18 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           // Continue to the next endpoint
         }
       }
-      
+
       // Last resort: Try a direct request if all proxies failed (may fail due to CORS)
       if (!response) {
         try {
           console.log("All proxies failed, attempting direct request (may fail due to CORS)");
-          
+
           // Create headers object from array of key-value pairs
           const directHeaders = authHeaders.reduce((obj, item) => {
             obj[item.key] = item.value;
             return obj;
           }, {});
-          
+
           // Make direct request (will likely fail due to CORS, but worth trying)
           response = await axios({
             url: authEndpoint,
@@ -219,7 +201,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             headers: directHeaders,
             data: authBody
           });
-          
+
           console.log("Direct request succeeded:", response.status);
         } catch (error) {
           console.error("Direct request failed:", {
@@ -231,44 +213,44 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           throw new Error(`API request failed across all proxy endpoints: ${lastError?.message}`);
         }
       }
-      
+
       // If we still don't have a response
       if (!response) {
         throw new Error(`API request failed across all methods`);
       }
-      
+
       // Process the response
       if (response.data.error) {
         console.error("Error in response data:", response.data);
         throw new Error(response.data.message || 'Failed to generate token');
       }
-      
+
       // Extract the token using the provided path
       let token = response.data;
       try {
         if (tokenPath) {
           token = _.get(response.data, tokenPath);
         }
-        
+
         if (!token) {
           throw new Error(`Could not find token at path: ${tokenPath}`);
         }
-        
+
         // Save the token in the form
         setValue('auth.token', token);
-        
+
         // Save the full response for reference
         setTokenResult({
           token,
           fullResponse: response.data
         });
-        
+
         // Notify success
         addToast('Token generated successfully', 'success');
-        
+
         // Notify parent component
         onTokenGenerated && onTokenGenerated(token);
-        
+
       } catch (err) {
         console.error('Token path error:', err);
         setTokenError(`Failed to extract token using path "${tokenPath}". Please check the path and try again.`);
@@ -285,18 +267,18 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       setLoading(false);
     }
   };
-  
+
   // Generate token header for display and copying
   const tokenHeader = tokenResult?.token ? `Authorization: Bearer ${tokenResult.token}` : '';
-  
+
   return (
     <Card className="mb-6">
       <CardHeader className="relative pb-2">
         <div className="flex justify-between items-center">
           <CardTitle>Authentication Token Generator</CardTitle>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {isExpanded ? 'Collapse' : 'Expand'}
@@ -310,7 +292,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           <div className="text-sm text-green-600">Token generated successfully</div>
         )}
       </CardHeader>
-      
+
       {isExpanded && (
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -333,10 +315,35 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
                 Enter the authentication endpoint URL or paste a curl command to auto-fill all fields
               </p>
               <details className="text-xs text-gray-500 mt-1">
-                <summary className="cursor-pointer font-medium">Example curl command</summary>
-                <pre className="mt-1 p-2 bg-gray-50 rounded overflow-x-auto text-xs">
-                  curl https://api.example.com/oauth/token -X POST -H "Content-Type: application/json" -d {"{\"grant_type\":\"client_credentials\",\"client_id\":\"your_client_id\",\"client_secret\":\"your_client_secret\"}"}
-                </pre>
+                <summary className="cursor-pointer font-medium">Example curl commands</summary>
+                <div className="mt-1 p-2 bg-gray-50 rounded overflow-x-auto text-xs space-y-2">
+                  <p><strong>Basic example:</strong></p>
+                  <pre className="p-1 bg-gray-100 rounded">
+                    curl https://api.example.com/oauth/token -X POST -H "Content-Type: application/json" -d {"{\"grant_type\":\"client_credentials\",\"client_id\":\"your_client_id\",\"client_secret\":\"your_client_secret\"}"}
+                  </pre>
+
+                  <p><strong>With multiple headers:</strong></p>
+                  <pre className="p-1 bg-gray-100 rounded">
+                    curl https://api.example.com/oauth/token -X POST \<br />
+                    -H "Content-Type: application/json" \<br />
+                    -H "Authorization: Basic YWRtaW46YWRtaW4=" \<br />
+                    -d {"{\"grant_type\":\"password\",\"username\":\"user\",\"password\":\"pass\"}"}
+                  </pre>
+
+                  <p><strong>Form data format:</strong></p>
+                  <pre className="p-1 bg-gray-100 rounded">
+                    curl https://api.example.com/oauth/token -X POST \<br />
+                    -H "Content-Type: application/x-www-form-urlencoded" \<br />
+                    -d "grant_type=client_credentials&client_id=your_id&client_secret=your_secret"
+                  </pre>
+
+                  <p><strong>With JWT token:</strong></p>
+                  <pre className="p-1 bg-gray-100 rounded">
+                    curl https://api.example.com/tracking -X GET \<br />
+                    -H "Content-Type: application/json" \<br />
+                    -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+                  </pre>
+                </div>
               </details>
             </div>
             <div>
@@ -352,7 +359,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               </select>
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">Headers</label>
             <KeyValueEditor
@@ -362,7 +369,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               valuePlaceholder="application/json"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">Request Body</label>
             <JsonEditor
@@ -371,11 +378,11 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               height="120px"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Common examples: {"{ \"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_CLIENT_SECRET\" }"} 
+              Common examples: {"{ \"grant_type\": \"client_credentials\", \"client_id\": \"YOUR_CLIENT_ID\", \"client_secret\": \"YOUR_CLIENT_SECRET\" }"}
               or {"{ \"username\": \"YOUR_USERNAME\", \"password\": \"YOUR_PASSWORD\" }"}
             </p>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium mb-1">
               Token Path in Response (e.g., "data.access_token" or "access_token")
@@ -389,7 +396,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               Specify the JSON path to extract the token from the response
             </p>
           </div>
-          
+
           {tokenError && (
             <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm">
               <div className="font-medium">Error</div>
@@ -404,7 +411,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               </div>
             </div>
           )}
-          
+
           {tokenResult?.token && (
             <div className="bg-green-50 border border-green-200 p-3 rounded-md">
               <div className="flex justify-between items-center mb-2">
@@ -428,7 +435,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               />
             </div>
           )}
-          
+
           <div className="flex justify-end space-x-2">
             <Button
               variant="outline"
@@ -445,7 +452,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
                     }, {}),
                     body: authBody
                   });
-                  
+
                   if (testResponse.status >= 200 && testResponse.status < 300) {
                     addToast('Connection test successful!', 'success');
                   } else {
@@ -470,7 +477,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               {loading ? 'Generating Token...' : 'Generate Token'}
             </Button>
           </div>
-          
+
           {tokenResult?.fullResponse && (
             <div className="mt-4">
               <details className="bg-gray-50 border border-gray-200 rounded-md">
@@ -485,10 +492,17 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
               </details>
             </div>
           )}
+          {curlDetected && (
+            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+              <p className="text-blue-700">
+                <span className="font-medium">Curl command detected!</span> The form has been automatically filled with the parsed data.
+              </p>
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
   );
 };
 
-export default TokenGenerator; 
+export default TokenGenerator;
