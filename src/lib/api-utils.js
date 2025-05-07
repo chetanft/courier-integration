@@ -47,20 +47,20 @@ export const trackShipment = async (courier, trackingNumber) => {
 export const testCourierApi = async (requestConfig) => {
   try {
     console.log(`Sending request to proxy for ${requestConfig.url}`);
-    
+
     // Set flag to use database credentials if not explicitly provided
     if (requestConfig.auth && !requestConfig.auth.username && !requestConfig.auth.apiKey && !requestConfig.auth.token) {
       requestConfig.auth.useDbCredentials = true;
     }
-    
+
     // Make API call through our Netlify proxy
     const response = await axios.post(COURIER_PROXY_URL, requestConfig);
-    
+
     // Return the response data, which comes pre-formatted from our proxy
     return response.data;
   } catch (error) {
     console.error('Error calling courier API via proxy:', error);
-    
+
     // Return a structured error response
     return {
       error: true,
@@ -89,7 +89,7 @@ export const testCourierApiLegacy = async (credentials, endpoint, payload, apiIn
     courier = 'delhivery';
   }
   // Add more courier detections as needed
-  
+
   // Determine auth type
   let authType = 'none';
   if (credentials.api_key) {
@@ -125,6 +125,36 @@ export const testCourierApiLegacy = async (credentials, endpoint, payload, apiIn
   if (apiIntent === 'track_shipment' && payload?.docNo) {
     requestConfig.testDocket = payload.docNo;
   }
+
+  return testCourierApi(requestConfig);
+};
+
+/**
+ * Specific function for testing Safexpress API
+ * @param {string} trackingNumber - The tracking number to test
+ * @param {string} authToken - The authorization token
+ * @param {string} apiKey - The x-api-key value
+ * @returns {Promise<Object>} The API response
+ */
+export const testSafexpressApi = async (trackingNumber, authToken, apiKey) => {
+  const requestConfig = {
+    url: 'https://apigateway.safexpress.com/wbtrack/SafexWaybillTracking/webresources/safex_customer/tracking',
+    method: 'POST',
+    apiIntent: 'track_shipment',
+    courier: 'safexpress',
+    auth: {
+      type: 'bearer',
+      token: authToken,
+      apiKey: apiKey
+    },
+    body: {
+      docNo: trackingNumber,
+      docType: 'WB'
+    },
+    headers: [
+      { key: 'Content-Type', value: 'application/json' }
+    ]
+  };
 
   return testCourierApi(requestConfig);
 };

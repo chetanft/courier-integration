@@ -55,6 +55,20 @@
   status = 200
   force = true
 
+# External API proxy endpoint
+[[redirects]]
+  from = "/external-api/*"
+  to = "/.netlify/functions/api-proxy"
+  status = 200
+  force = true
+
+# DB Courier proxy endpoint
+[[redirects]]
+  from = "/.netlify/functions/db-courier-proxy"
+  to = "/.netlify/functions/db-courier-proxy"
+  status = 200
+  force = true
+
 # Handle SPA routing (this should be last)
 [[redirects]]
   from = "/*"

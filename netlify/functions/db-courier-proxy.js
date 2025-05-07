@@ -21,7 +21,7 @@ const getCourierCredentials = async (courier) => {
       .single();
 
     if (courierError) throw courierError;
-    
+
     // Then get credentials by courier ID
     const { data, error } = await supabase
       .from('courier_credentials')
@@ -156,9 +156,17 @@ const makeCourierApiCall = async (requestConfig) => {
     }
 
     // Add auth headers based on auth type
+    // Get token outside the switch to avoid lexical declaration error
+    const token = requestConfig.auth?.token || '';
+
     switch (requestConfig.auth?.type) {
       case 'bearer':
-        headers['Authorization'] = `${requestConfig.auth.token}`;
+        // Make sure we include 'Bearer ' prefix if it's not already there
+        if (token && !token.startsWith('Bearer ')) {
+          headers['Authorization'] = `Bearer ${token}`;
+        } else {
+          headers['Authorization'] = token;
+        }
         break;
       case 'basic':
         // Use Buffer.from for base64 encoding in Node.js (instead of btoa which is browser-only)
@@ -167,8 +175,22 @@ const makeCourierApiCall = async (requestConfig) => {
       case 'api_key':
         if (requestConfig.auth.apiKeyLocation === 'header') {
           headers[requestConfig.auth.apiKeyName || 'x-api-key'] = requestConfig.auth.apiKey;
+        } else {
+          // If no location specified, default to x-api-key header
+          headers['x-api-key'] = requestConfig.auth.apiKey;
         }
         break;
+    }
+
+    // Special handling for Safexpress which needs both Authorization and x-api-key
+    if ((requestConfig.url && requestConfig.url.includes('safexpress')) ||
+        (requestConfig.courier === 'safexpress')) {
+      console.log('Detected Safexpress API, ensuring both auth headers are present');
+
+      // Make sure we have x-api-key header
+      if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
+        headers['x-api-key'] = requestConfig.auth.apiKey;
+      }
     }
 
     // Create axios request config
@@ -232,11 +254,27 @@ const makeCourierApiCall = async (requestConfig) => {
             requestConfig.testDocket &&
             typeof axiosConfig.data === 'object') {
 
-          axiosConfig.data = {
-            ...axiosConfig.data,
-            docNo: requestConfig.testDocket,
-            docType: "WB"  // Add docType for Safexpress
-          };
+          // Special handling for Safexpress
+          if (requestConfig.url.includes('safexpress') || requestConfig.courier === 'safexpress') {
+            console.log('Detected Safexpress API, adding special parameters');
+            axiosConfig.data = {
+              ...axiosConfig.data,
+              docNo: requestConfig.testDocket,
+              docType: "WB"  // Add docType for Safexpress
+            };
+
+            // Ensure we have the x-api-key header for Safexpress
+            if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
+              headers['x-api-key'] = requestConfig.auth.apiKey;
+            }
+          } else {
+            // Generic handling for other couriers
+            axiosConfig.data = {
+              ...axiosConfig.data,
+              docNo: requestConfig.testDocket,
+              trackingNumber: requestConfig.testDocket
+            };
+          }
         }
         break;
     }
@@ -314,7 +352,7 @@ exports.handler = async (event) => {
       if (requestConfig.auth.useDbCredentials) {
         // Get credentials from Supabase based on courier name
         const result = await getCourierCredentials(requestConfig.courier);
-        
+
         if (!result.success) {
           return {
             statusCode: 404,
@@ -325,10 +363,10 @@ exports.handler = async (event) => {
             })
           };
         }
-        
+
         // Use the credentials from Supabase
         const credentials = result.credentials;
-        
+
         switch (requestConfig.auth.type) {
           case 'basic':
             requestConfig.auth.username = credentials.username;
@@ -351,7 +389,7 @@ exports.handler = async (event) => {
       // Fallback to environment variables if specified
       else if (requestConfig.auth.useEnvCredentials) {
         const courier = requestConfig.courier.toUpperCase();
-        
+
         switch (requestConfig.auth.type) {
           case 'basic':
             requestConfig.auth.username = process.env[`${courier}_USERNAME`];
@@ -378,7 +416,7 @@ exports.handler = async (event) => {
     };
   } catch (error) {
     console.error('Error in courier-proxy:', error);
-    
+
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -388,4 +426,4 @@ exports.handler = async (event) => {
       })
     };
   }
-}; 
+};
