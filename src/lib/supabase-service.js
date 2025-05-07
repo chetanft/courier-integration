@@ -74,16 +74,69 @@ export const addClient = async (clientData) => {
   try {
     console.log('Adding client with data:', clientData);
 
+    // Create a base client object
+    const clientObject = {
+      name: clientData.name,
+      created_at: new Date().toISOString()
+    };
+
+    // Add api_url if provided
+    if (clientData.api_url) {
+      try {
+        clientObject.api_url = clientData.api_url;
+        clientObject.last_api_fetch = null;
+      } catch (fieldError) {
+        // If the field doesn't exist in the database, log the error but continue
+        console.warn('Could not add api_url field, it might not exist in the database yet:', fieldError);
+      }
+    }
+
+    // Add request_config if provided
+    if (clientData.request_config) {
+      try {
+        clientObject.request_config = clientData.request_config;
+      } catch (fieldError) {
+        // If the field doesn't exist in the database, log the error but continue
+        console.warn('Could not add request_config field, it might not exist in the database yet:', fieldError);
+      }
+    }
+
+    // Insert the client
     const { data, error } = await supabase
       .from('clients')
-      .insert({
-        name: clientData.name,
-        created_at: new Date().toISOString()
-      })
+      .insert(clientObject)
       .select()
       .single();
 
     if (error) {
+      // If the error is related to the api_url field not existing, try again without it
+      if (error.message && (
+          error.message.includes('api_url') ||
+          error.message.includes('last_api_fetch') ||
+          error.message.includes('request_config') ||
+          error.message.includes('column')
+        )) {
+        console.warn('Error might be related to missing columns, trying without api_url, last_api_fetch, and request_config');
+
+        // Try again without the api_url, last_api_fetch, and request_config fields
+        const { data: retryData, error: retryError } = await supabase
+          .from('clients')
+          .insert({
+            name: clientData.name,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (retryError) {
+          console.error('Retry also failed:', retryError);
+          throw retryError;
+        }
+
+        console.log('Client added successfully on retry:', retryData);
+        return retryData;
+      }
+
       console.error('Supabase error when adding client:', error);
       throw error;
     }
@@ -108,6 +161,22 @@ export const getClients = async () => {
     return data;
   } catch (error) {
     handleApiError(error, 'getClients');
+  }
+};
+
+// Get a single client by ID
+export const getClientById = async (clientId) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getClientById');
   }
 };
 
@@ -173,6 +242,34 @@ export const getCourierClients = async (courierId) => {
   }
 };
 
+// Get couriers linked to a client
+export const getCouriersByClientId = async (clientId) => {
+  try {
+    // Join courier_clients with couriers to get courier details
+    const { data, error } = await supabase
+      .from('courier_clients')
+      .select(`
+        courier_id,
+        couriers:courier_id (
+          id,
+          name,
+          api_base_url,
+          auth_type,
+          api_intent,
+          created_at
+        )
+      `)
+      .eq('client_id', clientId);
+
+    if (error) throw error;
+
+    // Transform the data to match the expected format
+    return data.map(item => item.couriers);
+  } catch (error) {
+    handleApiError(error, 'getCouriersByClientId');
+  }
+};
+
 // Get field mappings for a courier
 export const getCourierMappings = async (courierId) => {
   try {
@@ -226,6 +323,327 @@ export const saveApiTestResult = async (testData) => {
     return data;
   } catch (error) {
     handleApiError(error, 'saveApiTestResult');
+  }
+};
+
+// Get API test results for a courier
+export const getApiTestResults = async (courierId) => {
+  try {
+    const { data, error } = await supabase
+      .from('api_test_results')
+      .select('*')
+      .eq('courier_id', courierId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getApiTestResults');
+  }
+};
+
+// Update client's last API fetch timestamp
+export const updateClientLastFetch = async (clientId) => {
+  try {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update({
+          last_api_fetch: new Date().toISOString()
+        })
+        .eq('id', clientId)
+        .select()
+        .single();
+
+      if (error) {
+        // If the error is related to the last_api_fetch field not existing, just log and continue
+        if (error.message && (
+            error.message.includes('last_api_fetch') ||
+            error.message.includes('column')
+          )) {
+          console.warn('Could not update last_api_fetch, column might not exist:', error.message);
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (updateError) {
+      console.warn('Error updating last_api_fetch timestamp:', updateError);
+      // Return null instead of throwing to allow the process to continue
+      return null;
+    }
+  } catch (error) {
+    handleApiError(error, 'updateClientLastFetch');
+  }
+};
+
+// Fetch and store courier data from client API
+export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig = null) => {
+  try {
+    // Import the courier API service
+    const { fetchCourierData } = await import('./courier-api-service.js');
+
+    // Check if the URL is encoded and decode it if necessary
+    let decodedUrl = apiUrl;
+    try {
+      if (apiUrl.includes('%')) {
+        console.log('URL appears to be encoded, attempting to decode...');
+        decodedUrl = decodeURIComponent(apiUrl);
+        console.log(`Decoded URL: ${decodedUrl}`);
+      }
+    } catch (decodeError) {
+      console.warn('Error decoding URL, will use original:', decodeError);
+      decodedUrl = apiUrl;
+    }
+
+    console.log(`fetchAndStoreCourierData: Fetching couriers from API URL: ${decodedUrl}`);
+    console.log('Request config:', requestConfig);
+
+    // Fetch data from the client's API
+    const couriers = await fetchCourierData(decodedUrl, requestConfig);
+
+    console.log(`fetchAndStoreCourierData: API response received, couriers:`, couriers);
+
+    if (!couriers || couriers.length === 0) {
+      console.warn('No couriers found in API response');
+      return [];
+    }
+
+    console.log(`Found ${couriers.length} couriers in API response`);
+
+    // Store each courier and link to the client
+    const results = [];
+
+    for (const courier of couriers) {
+      try {
+        if (!courier.name) {
+          console.warn('Skipping courier without a name:', courier);
+          continue;
+        }
+
+        console.log(`Processing courier: ${courier.name}`);
+
+        // Check if courier already exists by name
+        const { data: existingCouriers, error: searchError } = await supabase
+          .from('couriers')
+          .select('id, name')
+          .eq('name', courier.name);
+
+        if (searchError) {
+          console.error('Error searching for existing courier:', searchError);
+          throw searchError;
+        }
+
+        let courierId;
+
+        if (existingCouriers && existingCouriers.length > 0) {
+          // Courier already exists, use its ID
+          courierId = existingCouriers[0].id;
+          console.log(`Courier "${courier.name}" already exists with ID ${courierId}`);
+        } else {
+          // Create new courier
+          console.log(`Creating new courier: ${courier.name}`);
+          const newCourier = await addCourier({
+            name: courier.name,
+            api_base_url: courier.api_base_url || '',
+            auth_type: courier.auth_type || 'none',
+            api_intent: 'track_shipment'
+          });
+
+          courierId = newCourier.id;
+          console.log(`Created new courier "${courier.name}" with ID ${courierId}`);
+        }
+
+        // Check if courier is already linked to this client
+        const { data: existingLinks, error: linkCheckError } = await supabase
+          .from('courier_clients')
+          .select('*')
+          .eq('courier_id', courierId)
+          .eq('client_id', clientId);
+
+        if (linkCheckError) {
+          console.error('Error checking existing links:', linkCheckError);
+          throw linkCheckError;
+        }
+
+        if (!existingLinks || existingLinks.length === 0) {
+          // Link courier to client
+          console.log(`Linking courier "${courier.name}" to client ID ${clientId}`);
+          await linkClientsToCourier(courierId, [clientId]);
+          console.log(`Linked courier "${courier.name}" to client ID ${clientId}`);
+        } else {
+          console.log(`Courier "${courier.name}" is already linked to client ID ${clientId}`);
+        }
+
+        results.push({
+          id: courierId,
+          name: courier.name,
+          isNew: !existingCouriers || existingCouriers.length === 0
+        });
+      } catch (courierError) {
+        console.error(`Error processing courier "${courier.name}":`, courierError);
+        // Continue with next courier
+      }
+    }
+
+    // Update last fetch timestamp
+    await updateClientLastFetch(clientId);
+
+    return results;
+  } catch (error) {
+    console.error('Error in fetchAndStoreCourierData:', error);
+
+    // Log more detailed error information
+    if (error.isAxiosError) {
+      console.error('Axios error details:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers,
+          data: error.config?.data
+        }
+      });
+    }
+
+    // Create a more detailed error object
+    const errorDetails = {
+      message: error.message || 'Failed to fetch courier data',
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: apiUrl,
+      operation: 'fetchAndStoreCourierData',
+      timestamp: new Date().toISOString()
+    };
+
+    console.error('Error details:', errorDetails);
+
+    // Throw a more informative error
+    throw errorDetails;
+  }
+};
+
+// Get available couriers for a client from API
+export const getAvailableCouriersForClient = async (clientId, apiUrl, requestConfig = null) => {
+  try {
+    // Import the courier API service
+    const { fetchCourierData } = await import('./courier-api-service.js');
+
+    console.log(`getAvailableCouriersForClient: Starting for client ID ${clientId}`);
+
+    // Get client details to ensure we have the API URL and request config
+    if (!apiUrl) {
+      const client = await getClientById(clientId);
+      console.log(`getAvailableCouriersForClient: Retrieved client:`, client);
+
+      // Check if client has api_url property
+      if (client && Object.prototype.hasOwnProperty.call(client, 'api_url')) {
+        apiUrl = client.api_url;
+        console.log(`getAvailableCouriersForClient: Using client API URL: ${apiUrl}`);
+
+        // Check if client has request_config property
+        if (client && Object.prototype.hasOwnProperty.call(client, 'request_config') && !requestConfig) {
+          try {
+            requestConfig = JSON.parse(client.request_config);
+            console.log(`getAvailableCouriersForClient: Using client request config:`, requestConfig);
+          } catch (parseError) {
+            console.warn('Error parsing request_config from client:', parseError);
+          }
+        }
+      }
+
+      if (!apiUrl) {
+        // If no API URL is available, return an empty array instead of throwing
+        console.warn('Client does not have an API URL configured');
+        return [];
+      }
+    }
+
+    // Check if the URL is encoded and decode it if necessary
+    let decodedUrl = apiUrl;
+    try {
+      if (apiUrl.includes('%')) {
+        console.log('URL appears to be encoded, attempting to decode...');
+        decodedUrl = decodeURIComponent(apiUrl);
+        console.log(`Decoded URL: ${decodedUrl}`);
+      }
+    } catch (decodeError) {
+      console.warn('Error decoding URL, will use original:', decodeError);
+      decodedUrl = apiUrl;
+    }
+
+    console.log(`getAvailableCouriersForClient: Fetching couriers from API URL: ${decodedUrl}`);
+    console.log('Request config:', requestConfig);
+
+    // Fetch all couriers from the API
+    const allCouriers = await fetchCourierData(decodedUrl, requestConfig);
+
+    console.log(`getAvailableCouriersForClient: API response received, couriers:`, allCouriers);
+
+    if (!allCouriers || allCouriers.length === 0) {
+      console.warn('No couriers found in API response');
+      return [];
+    }
+
+    console.log(`Found ${allCouriers.length} couriers in API response`);
+
+    // Get couriers already linked to this client
+    const linkedCouriers = await getCouriersByClientId(clientId);
+    console.log(`Found ${linkedCouriers.length} linked couriers:`, linkedCouriers);
+
+    const linkedCourierNames = linkedCouriers.map(c => c.name.toLowerCase());
+    console.log('Linked courier names (lowercase):', linkedCourierNames);
+
+    // Filter out already linked couriers
+    const availableCouriers = allCouriers.filter(c => {
+      if (!c.name) {
+        console.warn('Skipping courier without a name:', c);
+        return false;
+      }
+      const courierName = c.name.toLowerCase();
+      const isLinked = linkedCourierNames.includes(courierName);
+      console.log(`Courier ${courierName} is ${isLinked ? 'already linked' : 'available'}`);
+      return !isLinked;
+    });
+
+    console.log(`${availableCouriers.length} couriers available to add`);
+
+    return availableCouriers;
+  } catch (error) {
+    console.error('Error in getAvailableCouriersForClient:', error);
+    console.error('Error details:', error);
+    // Throw the error to allow proper error handling by the caller
+    throw error;
+  }
+};
+
+// Get courier by name
+export const getCourierByName = async (courierName) => {
+  try {
+    const { data, error } = await supabase
+      .from('couriers')
+      .select('*')
+      .eq('name', courierName)
+      .single();
+
+    if (error) {
+      // If no courier found, return null instead of throwing an error
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getCourierByName');
   }
 };
 
@@ -571,10 +989,10 @@ export const saveCourierCredentials = async (courierId, credentials) => {
         .from('courier_credentials')
         .update({ credentials })
         .eq('courier_id', courierId);
-      
+
       if (error) throw error;
       return { success: true, data };
-    } 
+    }
     // Otherwise, insert new record
     else {
       const { data, error } = await supabase
@@ -626,7 +1044,7 @@ export const getCourierCredentialsByName = async (courierName) => {
       .single();
 
     if (courierError) throw courierError;
-    
+
     // Then get credentials by courier ID
     return getCourierCredentials(courier.id);
   } catch (error) {

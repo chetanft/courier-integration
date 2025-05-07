@@ -17,6 +17,8 @@ CREATE TABLE couriers (
 CREATE TABLE clients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
+  api_url TEXT,
+  last_api_fetch TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -108,15 +110,15 @@ CREATE POLICY "Allow read access to anonymous users" ON js_files FOR SELECT TO a
 
 -- Create view for admin UI (excluding credential details)
 CREATE VIEW courier_credentials_summary AS
-  SELECT 
+  SELECT
     cc.id,
     cc.courier_id,
     c.name AS courier_name,
     cc.created_at,
     cc.updated_at,
     jsonb_build_object(
-      'auth_type', 
-      CASE 
+      'auth_type',
+      CASE
         WHEN credentials ? 'username' AND credentials ? 'password' THEN 'basic'
         WHEN credentials ? 'apiKey' THEN 'api_key'
         WHEN credentials ? 'token' THEN 'bearer'
@@ -124,7 +126,7 @@ CREATE VIEW courier_credentials_summary AS
         ELSE 'unknown'
       END
     ) AS auth_type
-  FROM 
+  FROM
     courier_credentials cc
     JOIN couriers c ON cc.courier_id = c.id;
 
