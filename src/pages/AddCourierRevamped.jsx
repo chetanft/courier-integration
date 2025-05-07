@@ -537,6 +537,13 @@ const AddCourierRevamped = () => {
                   Select the authentication method required by the courier API. 
                   If no authentication is needed, select "No Authentication" or use the "Skip Authentication" button.
                 </p>
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
+                  <p className="text-blue-700">
+                    <strong>For Safexpress token authentication:</strong> Select "JWT Authentication (Generate Token)" 
+                    from the dropdown below, then enter the auth URL (https://api-auth.safexpress.com/oauth2/token) 
+                    in the form that will appear.
+                  </p>
+                </div>
               </CardHeader>
               <CardContent>
                 <FormField
@@ -554,7 +561,7 @@ const AddCourierRevamped = () => {
                           <option value="basic">Basic Authentication</option>
                           <option value="apikey">API Key</option>
                           <option value="bearer">Bearer Token</option>
-                          <option value="jwt_auth">JWT Authentication (Generate Token)</option>
+                          <option value="jwt_auth">JWT Authentication (Generate Token - For Safexpress)</option>
                         </select>
                       </FormControl>
                     </FormItem>
