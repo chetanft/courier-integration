@@ -272,26 +272,24 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   const tokenHeader = tokenResult?.token ? `Authorization: Bearer ${tokenResult.token}` : '';
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="relative pb-2">
-        <div className="flex justify-between items-center">
-          <CardTitle>Authentication Token Generator</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? 'Collapse' : 'Expand'}
-          </Button>
-        </div>
-        <p className="text-sm text-gray-500 mt-1">
-          Use this tool to generate an authentication token from courier API authentication endpoints.
-          This token will be automatically carried forward to the next step for your tracking API request.
-        </p>
-        {!isExpanded && tokenResult?.token && (
-          <div className="text-sm text-green-600">Token generated successfully</div>
-        )}
-      </CardHeader>
+    <div className="token-generator">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-medium">Authentication Token Generator</h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? 'Collapse' : 'Expand'}
+        </Button>
+      </div>
+      <p className="text-sm text-gray-500 mb-4">
+        Use this tool to generate an authentication token from courier API authentication endpoints.
+        This token will be automatically carried forward to the next step for your tracking API request.
+      </p>
+      {!isExpanded && tokenResult?.token && (
+        <div className="text-sm text-green-600 mb-4">Token generated successfully</div>
+      )}
 
       {isExpanded && (
         <CardContent className="space-y-4">
@@ -503,7 +501,7 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
           )}
         </CardContent>
       )}
-    </Card>
+    </div>
   );
 };
 

@@ -104,11 +104,11 @@ const AddCourierRevamped = () => {
   // Handle token generation success
   const handleTokenGenerated = (token) => {
     setTokenGenerated(true);
-    
+
     // Add Authorization header if not already present
     const currentHeaders = formMethods.getValues('headers') || [];
     const hasAuthHeader = currentHeaders.some(h => h.key.toLowerCase() === 'authorization');
-    
+
     if (!hasAuthHeader && token) {
       const updatedHeaders = [
         ...currentHeaders,
@@ -116,7 +116,7 @@ const AddCourierRevamped = () => {
       ];
       formMethods.setValue('headers', updatedHeaders);
     }
-    
+
     addToast('Token generated and applied to Authorization header', 'success');
   };
 
@@ -241,7 +241,7 @@ const AddCourierRevamped = () => {
       const savedCourier = await addCourier(courierData);
       setCourier(savedCourier);
       setApiResponse(response);
-      
+
       // Show success toast
       addToast('API test successful!', 'success');
 
@@ -279,11 +279,11 @@ const AddCourierRevamped = () => {
 
         // Create mapping objects with courier ID
         const mappings = paths.map(path => ({
-          api_field: path,
-          tms_field: '',
-          courier_id: savedCourier.id,
-          api_type: data.apiIntent
-        }));
+        api_field: path,
+        tms_field: '',
+        courier_id: savedCourier.id,
+        api_type: data.apiIntent
+      }));
 
         setFieldMappings(mappings);
         console.log(`Extracted ${mappings.length} field paths from response`);
@@ -323,7 +323,7 @@ const AddCourierRevamped = () => {
       setCurrentStep(currentStep - 1);
     }
   };
-  
+
   // Check if the courier details are valid for moving to the next step
   const isCourierDetailsValid = () => {
     // Use the watched value instead of getValues to ensure reactivity
@@ -334,39 +334,39 @@ const AddCourierRevamped = () => {
     });
     return courierName && courierName.trim() !== '';
   };
-  
+
   // Check if the auth details are valid for moving to the next step
   const isAuthValid = () => {
     const authTypeValue = formMethods.getValues('auth.type');
-    
+
     // If auth type is 'none', we can always proceed
     if (authTypeValue === 'none') {
       return true;
     }
-    
+
     // If JWT auth is selected, check if token is generated
     if (authTypeValue === 'jwt_auth') {
       return tokenGenerated || (authToken && authToken.trim() !== '');
     }
-    
+
     // For Bearer or JWT token, just check if a token is provided
     if (authTypeValue === 'bearer' || authTypeValue === 'jwt') {
       return authToken && authToken.trim() !== '';
     }
-    
+
     // For basic auth, both username and password are required
     if (authTypeValue === 'basic') {
       const username = formMethods.getValues('auth.username');
       const password = formMethods.getValues('auth.password');
       return username && password;
     }
-    
+
     // For API key, the key is required
     if (authTypeValue === 'apikey') {
       const apiKey = formMethods.getValues('auth.apiKey');
       return apiKey && apiKey.trim() !== '';
     }
-    
+
     // Default case - allow proceeding
     return true;
   };
@@ -375,28 +375,28 @@ const AddCourierRevamped = () => {
   const handleMappingChange = (newMappings) => {
     setFieldMappings(newMappings);
   };
-  
+
   // Save field mappings
   const saveMappings = async () => {
     try {
       setLoading(true);
-  
+
       // Filter out mappings without a TMS field or with "none" value
       const validMappings = fieldMappings.filter(mapping =>
         mapping.tms_field && mapping.tms_field !== 'none'
       );
-  
+
       if (validMappings.length === 0) {
         addToast('Please map at least one field before saving.', 'warning');
         setLoading(false);
         return;
       }
-  
+
       // Save each mapping
       for (const mapping of validMappings) {
         await addFieldMapping(mapping);
       }
-  
+
       addToast('Mappings saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving mappings:', error);
@@ -410,7 +410,7 @@ const AddCourierRevamped = () => {
   const generateJsFile = async () => {
     try {
       if (!courier) return;
-  
+
       const validMappings = fieldMappings.filter(mapping =>
         mapping.tms_field && mapping.tms_field !== 'none'
       );
@@ -418,11 +418,11 @@ const AddCourierRevamped = () => {
         addToast('Please map at least one field before generating a JS file.', 'warning');
         return;
       }
-  
+
       setLoading(true);
       const jsCode = generateJsConfig(courier, validMappings);
       const fileName = `${courier.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_mapping.js`;
-  
+
       // Create download link
       const blob = new Blob([jsCode], { type: 'text/javascript' });
       const url = URL.createObjectURL(blob);
@@ -433,15 +433,15 @@ const AddCourierRevamped = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-  
+
       // Upload to Supabase
       console.log('Uploading JS file to Supabase...');
       const result = await uploadJsFile(courier.id, fileName, jsCode);
       console.log('Upload result:', result);
-  
+
       // Set JS file generated flag to true
       setJsFileGenerated(true);
-  
+
       if (result && result.success) {
         // Success with possible message
         addToast('JS file generated and downloaded successfully!', 'success');
@@ -490,9 +490,9 @@ const AddCourierRevamped = () => {
                   <FormItem>
                     <FormLabel>Courier Name</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="Enter courier name" 
-                        {...field} 
+                      <Input
+                        placeholder="Enter courier name"
+                        {...field}
                         onChange={(e) => {
                           field.onChange(e);
                           // Force validation check after each change
@@ -510,10 +510,10 @@ const AddCourierRevamped = () => {
                   </FormItem>
                 )}
               />
-              
+
               <div className="flex justify-end space-x-4 mt-6">
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={() => {
                     console.log('Next button clicked, validation state:', isCourierDetailsValid());
                     goToNextStep();
@@ -534,12 +534,12 @@ const AddCourierRevamped = () => {
               <CardHeader>
                 <CardTitle>Authentication Details</CardTitle>
                 <p className="text-sm text-gray-500">
-                  Select the authentication method required by the courier API. 
+                  Select the authentication method required by the courier API.
                   If no authentication is needed, select "No Authentication" or use the "Skip Authentication" button.
                 </p>
                 <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
                   <p className="text-blue-700">
-                    <strong>For token authentication:</strong> Select "JWT Authentication (Generate Token)" 
+                    <strong>For token authentication:</strong> Select "JWT Authentication (Generate Token)"
                     from the dropdown below, then enter the auth endpoint URL
                     in the form that will appear. This will allow you to generate a token that will be used in the next step.
                   </p>
@@ -671,18 +671,28 @@ const AddCourierRevamped = () => {
                     />
                   </div>
                 )}
-                
+
+                {/* Show Token Generator for JWT auth inside the card */}
+                {authType === 'jwt_auth' && (
+                  <div className="mt-6 mb-6 border-t border-gray-200 pt-6">
+                    <TokenGenerator
+                      formMethods={formMethods}
+                      onTokenGenerated={handleTokenGenerated}
+                    />
+                  </div>
+                )}
+
                 <div className="flex justify-between mt-6">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={goToPreviousStep}
                   >
                     Back
                   </Button>
                   <div className="space-x-2">
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       variant="outline"
                       onClick={() => {
                         console.log('Skipping authentication step');
@@ -691,8 +701,8 @@ const AddCourierRevamped = () => {
                     >
                       Skip Authentication
                     </Button>
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       onClick={goToNextStep}
                       disabled={!isAuthValid()}
                     >
@@ -702,14 +712,6 @@ const AddCourierRevamped = () => {
                 </div>
               </CardContent>
             </Card>
-            
-            {/* Show Token Generator for JWT auth */}
-            {authType === 'jwt_auth' && (
-              <TokenGenerator 
-                formMethods={formMethods}
-                onTokenGenerated={handleTokenGenerated}
-              />
-            )}
           </>
         )}
 
@@ -750,18 +752,18 @@ const AddCourierRevamped = () => {
                 </CardContent>
               </Card>
             )}
-            
+
             <div className="flex justify-between">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={goToPreviousStep}
               >
                 Back
               </Button>
               {apiResponse && !apiResponse.error && (
-                <Button 
-                  type="button" 
+                <Button
+                  type="button"
                   onClick={goToNextStep}
                 >
                   Next: Map Fields
@@ -831,9 +833,9 @@ const AddCourierRevamped = () => {
                   </div>
 
                   <div className="flex justify-between space-x-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={goToPreviousStep}
                     >
                       Back
@@ -857,26 +859,26 @@ const AddCourierRevamped = () => {
                   </div>
                 </>
               )}
-              
-              {/* Success Message after JS file generation */}
-              {jsFileGenerated && (
+
+      {/* Success Message after JS file generation */}
+      {jsFileGenerated && (
                 <div className="p-4 border border-green-200 bg-green-50 rounded-md">
-                  <h3 className="text-lg font-medium text-green-800 mb-2">JS File Generated Successfully!</h3>
-                  <p className="text-green-700 mb-4">
-                    The JS file has been generated and saved. You can view it in the courier details page.
-                  </p>
-                  <div className="flex justify-end">
-                    <Link to="/">
-                      <Button variant="default">Return to Dashboard</Button>
-                    </Link>
-                  </div>
-                </div>
-              )}
+          <h3 className="text-lg font-medium text-green-800 mb-2">JS File Generated Successfully!</h3>
+          <p className="text-green-700 mb-4">
+            The JS file has been generated and saved. You can view it in the courier details page.
+          </p>
+          <div className="flex justify-end">
+            <Link to="/">
+              <Button variant="default">Return to Dashboard</Button>
+            </Link>
+          </div>
+        </div>
+      )}
             </CardContent>
           </Card>
         )}
       </Form>
-      
+
       {/* Toast container for notifications */}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
