@@ -82,6 +82,8 @@ const AddCourierRevamped = () => {
   // Watch for auth type to conditionally show token generator
   const authType = formMethods.watch('auth.type');
   const authToken = formMethods.watch('auth.token');
+  // Watch for courier name to validate navigation
+  const courierName = formMethods.watch('courier_name');
 
   // We're using formMethods directly in the components, so we don't need to destructure here
 
@@ -324,7 +326,7 @@ const AddCourierRevamped = () => {
   
   // Check if the courier details are valid for moving to the next step
   const isCourierDetailsValid = () => {
-    const courierName = formMethods.getValues('courier_name');
+    // Use the watched value instead of getValues to ensure reactivity
     console.log('Courier name validation:', {
       courierName,
       isEmpty: !courierName || courierName.trim() === '',
@@ -485,7 +487,11 @@ const AddCourierRevamped = () => {
                           // Force validation check after each change
                           formMethods.trigger('courier_name');
                           // Log the current value
-                          console.log('Input changed:', e.target.value);
+                          console.log('Input changed:', e.target.value, {
+                            isDirty: formMethods.formState.isDirty,
+                            dirtyFields: formMethods.formState.dirtyFields,
+                            courierName
+                          });
                         }}
                       />
                     </FormControl>
