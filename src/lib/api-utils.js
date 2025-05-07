@@ -118,219 +118,86 @@ export const testCourierApi = async (requestConfig) => {
       console.log('No headers found in request config');
     }
 
-    // Add authentication headers if not already set
-    if (requestConfig.auth) {
-      const hasAuthHeader = Object.keys(headers).some(
-        key => key.toLowerCase() === 'authorization'
-      );
-
-      if (!hasAuthHeader) {
-        // Handle different authentication types
-        switch (requestConfig.auth.type) {
-          case 'basic':
-            if (requestConfig.auth.username) {
-              const basicAuth = btoa(`${requestConfig.auth.username}:${requestConfig.auth.password || ''}`);
-              headers['Authorization'] = `Basic ${basicAuth}`;
-            }
-            break;
-
-          case 'bearer':
-            if (requestConfig.auth.token) {
-              headers['Authorization'] = `Bearer ${requestConfig.auth.token}`;
-            }
-            break;
-
-          case 'jwt':
-            if (requestConfig.auth.token) {
-              headers['Authorization'] = `Bearer ${requestConfig.auth.token}`;
-            }
-            break;
-
-          case 'jwt_auth':
-            // For JWT Token Auth, we'll handle token acquisition before making the main request
-            // This will be handled in a separate function
-            console.log('JWT Token Auth will be handled separately');
-            break;
-
-          case 'oauth':
-            // For OAuth, we'll handle token acquisition in the special handling section
-            // We'll need to make a separate request to get the token first
-            console.log('OAuth authentication will be handled separately');
-            break;
-
-          case 'apikey':
-            if (requestConfig.auth.apiKey) {
-              if (requestConfig.auth.apiKeyLocation === 'header') {
-                // Add API key as a header
-                headers[requestConfig.auth.apiKeyName || 'X-API-Key'] = requestConfig.auth.apiKey;
-              } else if (requestConfig.auth.apiKeyLocation === 'query') {
-                // API key as query parameter will be handled when building the URL
-                // We'll store it for now and add it to params later
-                if (!requestConfig.queryParams) {
-                  requestConfig.queryParams = [];
-                }
-                requestConfig.queryParams.push({
-                  key: requestConfig.auth.apiKeyName || 'api_key',
-                  value: requestConfig.auth.apiKey
-                });
-              }
-            }
-            break;
+    // Add auth headers based on auth type
+    switch (requestConfig.auth?.type) {
+      case 'bearer':
+        headers['Authorization'] = `${requestConfig.auth.token}`;
+        break;
+      case 'basic':
+        headers['Authorization'] = `Basic ${btoa(`${requestConfig.auth.username}:${requestConfig.auth.password}`)}`;
+        break;
+      case 'api_key':
+        if (requestConfig.auth.apiKeyLocation === 'header') {
+          headers[requestConfig.auth.apiKeyName || 'x-api-key'] = requestConfig.auth.apiKey;
         }
-      }
-    }
-
-    // Set default content type if not specified
-    if (!headers['Content-Type'] && !headers['content-type']) {
-      headers['Content-Type'] = 'application/json';
-    }
-
-    // Set default accept if not specified
-    if (!headers['Accept'] && !headers['accept']) {
-      headers['Accept'] = 'application/json';
-    }
-
-    // Prepare query parameters
-    const params = {};
-    if (requestConfig.queryParams && Array.isArray(requestConfig.queryParams)) {
-      requestConfig.queryParams.forEach(param => {
-        if (param.key && param.value !== undefined) {
-          params[param.key] = param.value;
-        }
-      });
+        break;
     }
 
     // Create axios request config
     const axiosConfig = {
       method: requestConfig.method || 'GET',
       url: requestConfig.url,
-      headers,
-      params: Object.keys(params).length > 0 ? params : undefined
+      headers: {
+        ...headers,
+        'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
+      },
+      // Add timeout
+      timeout: 30000, // 30 seconds
+      // Add validateStatus to handle all status codes
+      // eslint-disable-next-line no-unused-vars
+      validateStatus: function (status) {
+        return true; // Don't reject any status codes, we'll handle them in our code
+      }
     };
 
-    // Add request body for methods that support it
-    if (['POST', 'PUT', 'PATCH'].includes(axiosConfig.method.toUpperCase()) && requestConfig.body) {
-      axiosConfig.data = requestConfig.body;
+    // Handle query parameters
+    if (requestConfig.queryParams && Array.isArray(requestConfig.queryParams)) {
+      const params = new URLSearchParams();
+      requestConfig.queryParams.forEach(param => {
+        if (param.key && param.value !== undefined) {
+          params.append(param.key, param.value);
+        }
+      });
+      if (params.toString()) {
+        const separator = requestConfig.url.includes('?') ? '&' : '?';
+        axiosConfig.url = `${requestConfig.url}${separator}${params.toString()}`;
+      }
     }
 
-    // Special handling for API intents
-    if (requestConfig.apiIntent) {
-      switch (requestConfig.apiIntent) {
-        case 'generate_auth_token':
-          // For auth token requests, we might need to add standard OAuth fields
-          if (axiosConfig.method.toUpperCase() === 'POST') {
-            // Check if we need to create the data object
-            if (!axiosConfig.data || typeof axiosConfig.data !== 'object') {
-              axiosConfig.data = {};
-            }
-
-            // Add standard OAuth fields
-            axiosConfig.data.grant_type = 'client_credentials';
-
-            // Add any existing data
-            if (requestConfig.body && typeof requestConfig.body === 'object') {
-              axiosConfig.data = {
-                ...axiosConfig.data,
-                ...requestConfig.body
-              };
-            }
-
-            // Add client credentials based on auth type
-            if (requestConfig.auth?.type === 'basic') {
-              axiosConfig.data.client_id = requestConfig.auth.username;
-              axiosConfig.data.client_secret = requestConfig.auth.password;
-
-              // For Cognito/OAuth endpoints, also set up Basic Auth in the headers
-              // This is what Postman might be doing
-              // Use browser-compatible base64 encoding (btoa) instead of Buffer
-              const basicAuthValue = btoa(`${requestConfig.auth.username}:${requestConfig.auth.password}`);
-              axiosConfig.headers['Authorization'] = `Basic ${basicAuthValue}`;
-            } else if (requestConfig.auth?.type === 'oauth') {
-              axiosConfig.data.client_id = requestConfig.auth.clientId;
-              axiosConfig.data.client_secret = requestConfig.auth.clientSecret;
-
-              // Add scope if provided
-              if (requestConfig.auth.scope) {
-                axiosConfig.data.scope = requestConfig.auth.scope;
-              }
-
-              // Override URL if token endpoint is provided
-              if (requestConfig.auth.tokenEndpoint) {
-                axiosConfig.url = requestConfig.auth.tokenEndpoint;
-              }
-            }
-
-            // Check if we need to use form-urlencoded format instead of JSON
-            // This is common for OAuth token endpoints and might be what Postman is doing
-            const contentType = axiosConfig.headers['Content-Type'] || axiosConfig.headers['content-type'];
-
-            // Check if the request is marked as form-urlencoded or has the appropriate content type
-            if ((requestConfig.isFormUrlEncoded || (contentType && contentType.includes('x-www-form-urlencoded')))) {
-              // For Axios, we can use URLSearchParams for form data
-              const params = new URLSearchParams();
-              for (const key in axiosConfig.data) {
-                if (axiosConfig.data[key] !== undefined && axiosConfig.data[key] !== null) {
-                  params.append(key, axiosConfig.data[key]);
-                }
-              }
-              axiosConfig.data = params;
-
-              // Ensure the content type header is set
-              axiosConfig.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-            }
-          } else if (axiosConfig.method.toUpperCase() === 'GET') {
-            // For GET requests, add the parameters to the query string
-            if (!axiosConfig.params) {
-              axiosConfig.params = {};
-            }
-
-            axiosConfig.params.grant_type = 'client_credentials';
-
-            // Add client credentials based on auth type
-            if (requestConfig.auth?.type === 'basic') {
-              axiosConfig.params.client_id = requestConfig.auth.username;
-              axiosConfig.params.client_secret = requestConfig.auth.password;
-            } else if (requestConfig.auth?.type === 'oauth') {
-              axiosConfig.params.client_id = requestConfig.auth.clientId;
-              axiosConfig.params.client_secret = requestConfig.auth.clientSecret;
-
-              // Add scope if provided
-              if (requestConfig.auth.scope) {
-                axiosConfig.params.scope = requestConfig.auth.scope;
-              }
-
-              // Override URL if token endpoint is provided
-              if (requestConfig.auth.tokenEndpoint) {
-                axiosConfig.url = requestConfig.auth.tokenEndpoint;
-              }
-            }
-          }
-          break;
-
-        case 'track_shipment':
-          // For tracking, add the tracking number to the URL if it's a GET request
-          // and the tracking number is in the body
-          if (axiosConfig.method.toUpperCase() === 'GET' &&
-              requestConfig.testDocket &&
-              !requestConfig.url.includes(requestConfig.testDocket)) {
-
-            const separator = requestConfig.url.includes('?') ? '&' : '?';
-            axiosConfig.url = `${requestConfig.url}${separator}trackingNumber=${requestConfig.testDocket}`;
-          }
-
-          // For POST requests, ensure the tracking number is in the body
-          if (axiosConfig.method.toUpperCase() === 'POST' &&
-              requestConfig.testDocket &&
-              typeof axiosConfig.data === 'object') {
-
-            axiosConfig.data = {
-              ...axiosConfig.data,
-              trackingNumber: requestConfig.testDocket,
-              docNo: requestConfig.testDocket
-            };
-          }
-          break;
+    // Handle request body
+    if (['POST', 'PUT', 'PATCH'].includes(axiosConfig.method.toUpperCase())) {
+      if (requestConfig.isFormUrlEncoded) {
+        axiosConfig.data = new URLSearchParams(requestConfig.body).toString();
+      } else {
+        axiosConfig.data = requestConfig.body;
       }
+    }
+
+    // Special handling for different API intents
+    switch (requestConfig.apiIntent) {
+      case 'track_shipment':
+        // For tracking, add the tracking number to the URL if it's a GET request
+        // and the tracking number is in the body
+        if (axiosConfig.method.toUpperCase() === 'GET' &&
+            requestConfig.testDocket &&
+            !requestConfig.url.includes(requestConfig.testDocket)) {
+
+          const separator = requestConfig.url.includes('?') ? '&' : '?';
+          axiosConfig.url = `${requestConfig.url}${separator}trackingNumber=${requestConfig.testDocket}`;
+        }
+
+        // For POST requests, ensure the tracking number is in the body
+        if (axiosConfig.method.toUpperCase() === 'POST' &&
+            requestConfig.testDocket &&
+            typeof axiosConfig.data === 'object') {
+
+          axiosConfig.data = {
+            ...axiosConfig.data,
+            docNo: requestConfig.testDocket,
+            docType: "WB"  // Add docType for Safexpress
+          };
+        }
+        break;
     }
 
     // Make the request
@@ -340,6 +207,22 @@ export const testCourierApi = async (requestConfig) => {
     try {
       const response = await axios(axiosConfig);
       console.log('API response:', response);
+
+      // Check if the response indicates an error
+      if (response.status >= 400) {
+        return {
+          error: true,
+          status: response.status,
+          statusText: response.statusText,
+          message: response.data?.message || 'API request failed',
+          details: response.data,
+          url: requestConfig.url,
+          method: requestConfig.method,
+          apiIntent: requestConfig.apiIntent,
+          timestamp: new Date().toISOString()
+        };
+      }
+
       return response.data;
     } catch (axiosError) {
       console.error('Axios error details:', {
@@ -349,26 +232,23 @@ export const testCourierApi = async (requestConfig) => {
         request: axiosError.request,
         config: axiosError.config
       });
-      throw axiosError;
+
+      // Return a structured error response
+      return {
+        error: true,
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        message: axiosError.message,
+        details: axiosError.response?.data || {},
+        url: requestConfig.url,
+        method: requestConfig.method,
+        apiIntent: requestConfig.apiIntent,
+        timestamp: new Date().toISOString()
+      };
     }
   } catch (error) {
-    console.error('API call failed:', error);
-
-    // Provide detailed error information
-    const errorResponse = {
-      error: true,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      message: error.message,
-      details: error.response?.data || {},
-      url: requestConfig.url,
-      method: requestConfig.method,
-      apiIntent: requestConfig.apiIntent,
-      timestamp: new Date().toISOString()
-    };
-
-    // Return the error response without falling back to mock data
-    return errorResponse;
+    console.error('General error in testCourierApi:', error);
+    throw error;
   }
 };
 
