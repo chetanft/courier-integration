@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { getClientById, addCourier, linkClientsToCourier } from '../lib/supabase-service';
+import { getClientById, addCourier, linkClientsToCourier, getAvailableCouriersForClient } from '../lib/supabase-service';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths } from '../lib/field-extractor';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
@@ -38,6 +38,7 @@ const AddCourierToClient = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [tokenGenerated, setTokenGenerated] = useState(false);
   const [jsFileGenerated, setJsFileGenerated] = useState(false);
+  const [availableCouriers, setAvailableCouriers] = useState([]);
 
   // Define the steps for the stepper
   const steps = [
@@ -79,18 +80,45 @@ const AddCourierToClient = () => {
     }
   });
 
-  // Fetch client details on component mount
+  // Fetch client details and available couriers on component mount
   useEffect(() => {
-    const fetchClient = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
 
       try {
+        // Get client details
         const clientData = await getClientById(clientId);
         if (!clientData) {
           throw new Error('Client not found');
         }
         setClient(clientData);
+
+        // Check if client has an API URL
+        if (clientData.api_url) {
+          try {
+            // Get available couriers from the client's API
+            const availableCouriers = await getAvailableCouriersForClient(clientId, clientData.api_url);
+
+            if (availableCouriers && availableCouriers.length > 0) {
+              // Set the available couriers
+              setAvailableCouriers(availableCouriers);
+
+              // Pre-select the first courier
+              form.setValue('courier_name', availableCouriers[0].name);
+
+              // If the courier has an API URL, pre-fill it
+              if (availableCouriers[0].api_base_url) {
+                form.setValue('url', availableCouriers[0].api_base_url);
+              }
+            } else {
+              console.log('No available couriers found for this client');
+            }
+          } catch (apiError) {
+            console.error('Error fetching couriers from API:', apiError);
+            // Don't fail the whole component if API fetch fails
+          }
+        }
       } catch (err) {
         console.error('Error fetching client:', err);
         setError({
@@ -102,8 +130,8 @@ const AddCourierToClient = () => {
       }
     };
 
-    fetchClient();
-  }, [clientId]);
+    fetchData();
+  }, [clientId, form]);
 
   // Watch for auth type to conditionally show token generator
   const authType = form.watch('auth.type');
@@ -147,6 +175,47 @@ const AddCourierToClient = () => {
   // Check if the courier details are valid for moving to the next step
   const isCourierDetailsValid = () => {
     return courierName && courierName.trim() !== '';
+  };
+
+  // Handle refreshing the courier list
+  const handleRefreshCouriers = async () => {
+    if (!client || !client.api_url) {
+      toast.error('Client does not have an API URL configured');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Get available couriers from the client's API
+      const refreshedCouriers = await getAvailableCouriersForClient(clientId, client.api_url);
+
+      if (refreshedCouriers && refreshedCouriers.length > 0) {
+        setAvailableCouriers(refreshedCouriers);
+        toast.success(`Found ${refreshedCouriers.length} available couriers`);
+
+        // Pre-select the first courier
+        form.setValue('courier_name', refreshedCouriers[0].name);
+
+        // If the courier has an API URL, pre-fill it
+        if (refreshedCouriers[0].api_base_url) {
+          form.setValue('url', refreshedCouriers[0].api_base_url);
+        }
+      } else {
+        toast.warning('No available couriers found for this client');
+        setAvailableCouriers([]);
+      }
+    } catch (err) {
+      console.error('Error refreshing couriers:', err);
+      setError({
+        message: err.message || 'Failed to refresh couriers',
+        details: err
+      });
+      toast.error('Failed to refresh couriers: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Check if the auth details are valid for moving to the next step
@@ -424,41 +493,102 @@ const AddCourierToClient = () => {
           {currentStep === 1 && (
             <Card>
               <CardHeader>
-                <CardTitle>Courier Details</CardTitle>
+                <CardTitle>Select Courier</CardTitle>
+                {client?.api_url && (
+                  <p className="text-sm text-gray-500">
+                    Select a courier from the list of available couriers for {client.name}.
+                    These couriers were fetched from the client's API.
+                  </p>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="courier_name"
-                  rules={{ required: "Courier name is required" }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Courier Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter courier name"
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            // Force validation check after each change
-                            form.trigger('courier_name');
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {availableCouriers.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded border">
+                    <p className="text-gray-500 mb-4">No available couriers found for this client</p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      All couriers from the client's API may already be linked to this client.
+                    </p>
+                    <div className="flex justify-center space-x-4">
+                      <Button
+                        variant="outline"
+                        onClick={handleRefreshCouriers}
+                        disabled={loading || !client?.api_url}
+                      >
+                        {loading ? 'Refreshing...' : 'Refresh Couriers'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => navigate(`/client/${clientId}`)}
+                      >
+                        Return to Client
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="courier_name"
+                    rules={{ required: "Please select a courier" }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Courier</FormLabel>
+                        <FormControl>
+                          <select
+                            className="w-full border border-gray-300 rounded-md px-3 py-2"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              // Force validation check after each change
+                              form.trigger('courier_name');
 
-                <div className="flex justify-end space-x-4 mt-6">
-                  <Button
-                    type="button"
-                    onClick={goToNextStep}
-                    disabled={!isCourierDetailsValid()}
-                  >
-                    Next: Authentication
-                  </Button>
-                </div>
+                              // Auto-fill other fields based on selection
+                              const selectedCourier = availableCouriers.find(c => c.name === e.target.value);
+                              if (selectedCourier) {
+                                if (selectedCourier.api_base_url) {
+                                  form.setValue('url', selectedCourier.api_base_url);
+                                }
+                                if (selectedCourier.auth_type) {
+                                  form.setValue('auth.type', selectedCourier.auth_type);
+                                }
+                              }
+                            }}
+                          >
+                            <option value="">-- Select a Courier --</option>
+                            {availableCouriers.map((courier) => (
+                              <option key={courier.name} value={courier.name}>
+                                {courier.name} {courier.supportsPTL ? '(Supports PTL)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormDescription>
+                          Select a courier from the list to configure its integration.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {availableCouriers.length > 0 && (
+                  <div className="flex justify-between items-center space-x-4 mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRefreshCouriers}
+                      disabled={loading}
+                    >
+                      {loading ? 'Refreshing...' : 'Refresh Couriers'}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={goToNextStep}
+                      disabled={!isCourierDetailsValid()}
+                    >
+                      Next: Authentication
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

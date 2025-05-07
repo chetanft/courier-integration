@@ -78,6 +78,8 @@ export const addClient = async (clientData) => {
       .from('clients')
       .insert({
         name: clientData.name,
+        api_url: clientData.api_url,
+        last_api_fetch: null,
         created_at: new Date().toISOString()
       })
       .select()
@@ -286,6 +288,169 @@ export const getApiTestResults = async (courierId) => {
     return data;
   } catch (error) {
     handleApiError(error, 'getApiTestResults');
+  }
+};
+
+// Update client's last API fetch timestamp
+export const updateClientLastFetch = async (clientId) => {
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .update({
+        last_api_fetch: new Date().toISOString()
+      })
+      .eq('id', clientId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleApiError(error, 'updateClientLastFetch');
+  }
+};
+
+// Fetch and store courier data from client API
+export const fetchAndStoreCourierData = async (clientId, apiUrl) => {
+  try {
+    // Import the courier API service
+    const { fetchCourierData } = await import('./courier-api-service.js');
+
+    // Fetch data from the client's API
+    const couriers = await fetchCourierData(apiUrl);
+
+    if (!couriers || couriers.length === 0) {
+      console.warn('No couriers found in API response');
+      return [];
+    }
+
+    console.log(`Found ${couriers.length} couriers in API response`);
+
+    // Store each courier and link to the client
+    const results = [];
+
+    for (const courier of couriers) {
+      try {
+        // Check if courier already exists by name
+        const { data: existingCouriers, error: searchError } = await supabase
+          .from('couriers')
+          .select('id, name')
+          .eq('name', courier.name);
+
+        if (searchError) throw searchError;
+
+        let courierId;
+
+        if (existingCouriers && existingCouriers.length > 0) {
+          // Courier already exists, use its ID
+          courierId = existingCouriers[0].id;
+          console.log(`Courier "${courier.name}" already exists with ID ${courierId}`);
+        } else {
+          // Create new courier
+          const newCourier = await addCourier({
+            name: courier.name,
+            api_base_url: courier.api_base_url || '',
+            auth_type: courier.auth_type || 'none',
+            api_intent: 'track_shipment'
+          });
+
+          courierId = newCourier.id;
+          console.log(`Created new courier "${courier.name}" with ID ${courierId}`);
+        }
+
+        // Check if courier is already linked to this client
+        const { data: existingLinks, error: linkCheckError } = await supabase
+          .from('courier_clients')
+          .select('*')
+          .eq('courier_id', courierId)
+          .eq('client_id', clientId);
+
+        if (linkCheckError) throw linkCheckError;
+
+        if (!existingLinks || existingLinks.length === 0) {
+          // Link courier to client
+          await linkClientsToCourier(courierId, [clientId]);
+          console.log(`Linked courier "${courier.name}" to client ID ${clientId}`);
+        } else {
+          console.log(`Courier "${courier.name}" is already linked to client ID ${clientId}`);
+        }
+
+        results.push({
+          id: courierId,
+          name: courier.name,
+          isNew: !existingCouriers || existingCouriers.length === 0
+        });
+      } catch (courierError) {
+        console.error(`Error processing courier "${courier.name}":`, courierError);
+        // Continue with next courier
+      }
+    }
+
+    // Update last fetch timestamp
+    await updateClientLastFetch(clientId);
+
+    return results;
+  } catch (error) {
+    console.error('Error in fetchAndStoreCourierData:', error);
+    handleApiError(error, 'fetchAndStoreCourierData');
+  }
+};
+
+// Get available couriers for a client from API
+export const getAvailableCouriersForClient = async (clientId, apiUrl) => {
+  try {
+    // Import the courier API service
+    const { fetchCourierData } = await import('./courier-api-service.js');
+
+    // Get client details to ensure we have the API URL
+    if (!apiUrl) {
+      const client = await getClientById(clientId);
+      apiUrl = client.api_url;
+
+      if (!apiUrl) {
+        throw new Error('Client does not have an API URL configured');
+      }
+    }
+
+    // Fetch all couriers from the API
+    const allCouriers = await fetchCourierData(apiUrl);
+
+    // Get couriers already linked to this client
+    const linkedCouriers = await getCouriersByClientId(clientId);
+    const linkedCourierNames = linkedCouriers.map(c => c.name.toLowerCase());
+
+    // Filter out already linked couriers
+    const availableCouriers = allCouriers.filter(c =>
+      !linkedCourierNames.includes(c.name.toLowerCase())
+    );
+
+    return availableCouriers;
+  } catch (error) {
+    console.error('Error in getAvailableCouriersForClient:', error);
+    handleApiError(error, 'getAvailableCouriersForClient');
+  }
+};
+
+// Get courier by name
+export const getCourierByName = async (courierName) => {
+  try {
+    const { data, error } = await supabase
+      .from('couriers')
+      .select('*')
+      .eq('name', courierName)
+      .single();
+
+    if (error) {
+      // If no courier found, return null instead of throwing an error
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    handleApiError(error, 'getCourierByName');
   }
 };
 
