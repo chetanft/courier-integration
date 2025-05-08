@@ -56,8 +56,8 @@ const CourierModule = () => {
         // If not, redirect to the add courier form
         if (!courierData.js_file_generated && !courierData.js_file_url) {
           console.log('JS file not generated, redirecting to add courier form');
-          // Redirect to /add-courier with courier name as a query parameter
-          navigate(`/add-courier?courier=${encodeURIComponent(courierData.name)}`);
+          // Redirect to the client-specific add courier form
+          navigate(`/client/${clientId}/add-courier?courier=${encodeURIComponent(courierData.name)}`);
           return;
         }
 

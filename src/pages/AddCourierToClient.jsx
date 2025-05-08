@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { getClientById, addCourier, linkClientsToCourier, getCouriersByClientId } from '../lib/supabase-service';
@@ -27,6 +27,8 @@ import {
 const AddCourierToClient = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const courierParam = searchParams.get('courier');
 
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +98,12 @@ const AddCourierToClient = () => {
           throw new Error('Client not found');
         }
         setClient(clientData);
+
+        // If courier name is provided in the URL, set it in the form
+        if (courierParam) {
+          console.log(`Setting courier name from URL parameter: ${courierParam}`);
+          form.setValue('courier_name', courierParam);
+        }
 
         // Check if client has an API URL
         if (clientData.api_url) {
@@ -178,7 +186,7 @@ const AddCourierToClient = () => {
     };
 
     fetchData();
-  }, [clientId, form]);
+  }, [clientId, form, courierParam]);
 
   // Watch for auth type to conditionally show token generator
   const authType = form.watch('auth.type');
