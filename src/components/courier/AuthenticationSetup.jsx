@@ -67,13 +67,21 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       }
 
       // If auth type is form and token is not generated, check if we need to generate one
-      if (data.auth.type === 'form' && !tokenGenerated) {
+      if (data.auth.type === 'form') {
         if (!data.auth.url || data.auth.url.trim() === '') {
           toast.error('Please enter an auth URL');
           return;
         }
 
-        toast.error('Please generate a token first');
+        if (!tokenGenerated) {
+          toast.error('Please generate a token first');
+          return;
+        }
+
+        // Token is generated, proceed to next step
+        console.log('Token generated via form, proceeding to next step');
+        const courier = await createCourier(data);
+        onComplete(token);
         return;
       }
 
@@ -96,15 +104,6 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         console.log('No token found in parsed cURL, proceeding to next step');
         const courier = await createCourier(data);
         onComplete('');
-        return;
-      }
-
-      // If token is already generated, proceed to next step
-      if (tokenGenerated && token) {
-        console.log('Token already generated, proceeding to next step');
-        // Create courier in database
-        const courier = await createCourier(data);
-        onComplete(token);
         return;
       }
 
@@ -420,11 +419,20 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                   <FormItem>
                     <FormLabel>cURL Command</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="curl -X POST https://api.example.com/auth -H 'Content-Type: application/json' -d '{...}'"
-                        className="min-h-[100px]"
-                        {...field}
-                      />
+                      <div className="flex flex-col space-y-2">
+                        <Textarea
+                          placeholder="curl -X POST https://api.example.com/auth -H 'Content-Type: application/json' -d '{...}'"
+                          className="min-h-[100px]"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => handleCurlParse(field.value)}
+                          className="self-end"
+                        >
+                          Parse cURL Command
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormDescription>
                       Paste a complete cURL command including headers and body
@@ -434,69 +442,66 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                 )}
               />
 
-              {/* Parse cURL Button */}
-              <Button
-                type="button"
-                onClick={() => handleCurlParse(watch('auth.curlCommand'))}
-              >
-                Parse cURL Command
-              </Button>
-
               {/* Parsed Results */}
               {watch('auth.url') && (
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-4 border p-4 rounded-md bg-gray-50">
                   <h3 className="text-md font-medium">Parsed Results</h3>
 
-                  {/* URL */}
-                  <FormField
-                    control={control}
-                    name="auth.url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>API URL</FormLabel>
-                        <FormControl>
-                          <Input readOnly {...field} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* URL */}
+                    <FormField
+                      control={control}
+                      name="auth.url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>API URL</FormLabel>
+                          <FormControl>
+                            <Input value={field.value} readOnly />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
 
-                  {/* Method */}
-                  <FormField
-                    control={control}
-                    name="auth.method"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Method</FormLabel>
-                        <FormControl>
-                          <Input readOnly {...field} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                    {/* Method */}
+                    <FormField
+                      control={control}
+                      name="auth.method"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Method</FormLabel>
+                          <FormControl>
+                            <Input value={field.value} readOnly />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   {/* Headers */}
-                  <FormField
-                    control={control}
-                    name="auth.headers"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Headers</FormLabel>
-                        <FormControl>
-                          <KeyValueEditor
-                            value={field.value || []}
-                            onChange={field.onChange}
-                            keyPlaceholder="Header name"
-                            valuePlaceholder="Header value"
-                            readOnly
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                  {watch('auth.headers') && watch('auth.headers').length > 0 && (
+                    <FormField
+                      control={control}
+                      name="auth.headers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Headers</FormLabel>
+                          <FormControl>
+                            <div className="border rounded-md p-2 bg-white">
+                              {field.value.map((header, i) => (
+                                <div key={i} className="flex items-center space-x-2 mb-2">
+                                  <div className="font-medium text-sm">{header.key}:</div>
+                                  <div className="text-sm text-gray-600">{header.value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   {/* Body */}
-                  {watch('auth.method') === 'POST' && (
+                  {watch('auth.method') === 'POST' && watch('auth.body') && (
                     <FormField
                       control={control}
                       name="auth.body"
@@ -504,11 +509,11 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                         <FormItem>
                           <FormLabel>Request Body</FormLabel>
                           <FormControl>
-                            <JsonEditor
-                              value={field.value || {}}
-                              onChange={field.onChange}
-                              readOnly
-                            />
+                            <div className="border rounded-md p-2 bg-white">
+                              <pre className="text-xs overflow-auto max-h-[200px]">
+                                {JSON.stringify(field.value, null, 2)}
+                              </pre>
+                            </div>
                           </FormControl>
                         </FormItem>
                       )}

@@ -237,18 +237,19 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
                         <FormItem>
                           <FormLabel>cURL Command (Optional)</FormLabel>
                           <FormControl>
-                            <div className="flex space-x-2">
-                              <Input
-                                placeholder="Paste cURL command"
+                            <div className="flex flex-col space-y-2">
+                              <Textarea
+                                placeholder="curl -X GET 'https://api.example.com/tracking?id=123' -H 'Authorization: Bearer token'"
                                 {...field}
-                                className="flex-1"
+                                className="min-h-[80px]"
                               />
                               <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => handleCurlParse(field.value, index)}
+                                className="self-end"
                               >
-                                Parse
+                                Parse cURL
                               </Button>
                             </div>
                           </FormControl>
