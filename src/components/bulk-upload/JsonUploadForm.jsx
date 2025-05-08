@@ -7,10 +7,10 @@ import { Card, CardContent } from '../ui/card';
 import { Loader2, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import ProgressIndicator from './ProgressIndicator';
 import { addClientsInBulk, fetchAndStoreCourierData } from '../../lib/supabase-service';
-import { normalizeClientName, validateClientName, generateUniqueClientName } from '../../lib/client-name-utils';
+import { normalizeClientName, validateClientName } from '../../lib/client-name-utils';
 
 const JsonUploadForm = ({ onSubmit, loading }) => {
-  const [file, setFile] = useState(null);
+  const [, setFile] = useState(null);
   const [jsonText, setJsonText] = useState('');
   const [parsedData, setParsedData] = useState(null);
   const [validationErrors, setValidationErrors] = useState([]);
@@ -25,7 +25,7 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
-      
+
       // Read the file content
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -54,55 +54,109 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
     try {
       // Parse the JSON
       const data = JSON.parse(content);
-      
-      // Check if it has a clients array
-      if (!data.clients || !Array.isArray(data.clients)) {
-        setValidationErrors(['JSON must contain a "clients" array']);
+      console.log("Parsed JSON data:", data);
+
+      let clientsArray = [];
+
+      // Handle different JSON formats
+      if (Array.isArray(data)) {
+        // Format: Direct array of clients
+        console.log("Detected array format");
+        clientsArray = data;
+      } else if (data.clients && Array.isArray(data.clients)) {
+        // Format: Object with clients array
+        console.log("Detected object with clients array format");
+        clientsArray = data.clients;
+      } else {
+        // Neither format is valid
+        setValidationErrors(['JSON must be either an array of clients or contain a "clients" array']);
         setParsedData(null);
         return;
       }
-      
+
+      if (clientsArray.length === 0) {
+        setValidationErrors(['JSON contains no client data']);
+        setParsedData(null);
+        return;
+      }
+
       // Validate each client
       const errors = [];
-      const clients = data.clients.map((client, index) => {
+      const clients = clientsArray.map((client, index) => {
+        console.log(`Processing client ${index}:`, client);
+
+        // Extract client name from various possible fields
+        const name = client.name || client.client_name ||
+                    client.company_id || client.company_name ||
+                    client['Company ID'] || client['Company Name'];
+
+        console.log(`Client ${index} name:`, name);
+
         // Check required fields
-        if (!client.name) {
+        if (!name) {
           errors.push(`Client at index ${index} is missing a name`);
           return null;
         }
-        
+
         // Normalize the client name
-        const normalizedName = normalizeClientName(client.name);
+        const normalizedName = normalizeClientName(name);
         const validation = validateClientName(normalizedName);
-        
+
         if (!validation.isValid) {
-          errors.push(`Client "${client.name}": ${validation.message}`);
+          errors.push(`Client "${name}": ${validation.message}`);
           return null;
         }
-        
-        return {
+
+        // Create a normalized client object
+        const normalizedClient = {
           ...client,
           name: normalizedName
         };
+
+        // Add special handling for fields with spaces in keys
+        if (client['Company ID'] && !normalizedClient.company_id) {
+          normalizedClient.company_id = client['Company ID'];
+        }
+
+        if (client['Company Name'] && !normalizedClient.company_name) {
+          normalizedClient.company_name = client['Company Name'];
+        }
+
+        if (client['Old Company ID'] && !normalizedClient.old_company_id) {
+          normalizedClient.old_company_id = client['Old Company ID'];
+        }
+
+        if (client['Display ID'] && !normalizedClient.display_id) {
+          normalizedClient.display_id = client['Display ID'];
+        }
+
+        if (client['Types'] && !normalizedClient.types) {
+          normalizedClient.types = client['Types'];
+        }
+
+        console.log(`Normalized client ${index}:`, normalizedClient);
+        return normalizedClient;
       }).filter(Boolean);
-      
+
       // Check for duplicate names
       const names = clients.map(c => c.name);
       const uniqueNames = [...new Set(names)];
-      
+
       if (names.length !== uniqueNames.length) {
         errors.push('There are duplicate client names in the JSON');
       }
-      
+
       if (errors.length > 0) {
         setValidationErrors(errors);
         setParsedData(null);
       } else {
         setValidationErrors([]);
+        // Always use a consistent format for parsedData
         setParsedData({
           clients,
           count: clients.length
         });
+        console.log("Valid clients:", clients);
       }
     } catch (error) {
       setValidationErrors([`Invalid JSON: ${error.message}`]);
@@ -113,37 +167,37 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!parsedData || !parsedData.clients || parsedData.clients.length === 0) {
       setValidationErrors(['No valid clients to process']);
       return;
     }
-    
+
     setIsProcessing(true);
     setCurrentStep(1);
     setProgress(0);
     setProgressMessage('Preparing to add clients...');
-    
+
     try {
       // Step 1: Add clients to the database
       setCurrentStep(1);
       setProgressMessage('Adding clients to the database...');
-      
+
       const addedClients = await addClientsInBulk(parsedData.clients);
       setProgress(0.5);
       setProgressMessage(`Added ${addedClients.length} clients successfully`);
-      
+
       // Step 2: Fetch couriers for each client
       setCurrentStep(2);
       setProgressMessage('Fetching couriers for clients...');
-      
+
       const results = [];
       let processedCount = 0;
-      
+
       for (const client of addedClients) {
         try {
           setProgressMessage(`Fetching couriers for ${client.name}...`);
-          
+
           // Skip clients without API URL
           if (!client.api_url) {
             results.push({
@@ -159,17 +213,17 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
             let requestConfig = null;
             if (client.request_config) {
               try {
-                requestConfig = typeof client.request_config === 'string' 
-                  ? JSON.parse(client.request_config) 
+                requestConfig = typeof client.request_config === 'string'
+                  ? JSON.parse(client.request_config)
                   : client.request_config;
               } catch (parseError) {
                 console.warn(`Error parsing request_config for client ${client.name}:`, parseError);
               }
             }
-            
+
             // Fetch couriers for this client
             const couriers = await fetchAndStoreCourierData(client.id, client.api_url, requestConfig);
-            
+
             results.push({
               clientId: client.id,
               clientName: client.name,
@@ -188,14 +242,14 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
             details: error
           });
         }
-        
+
         processedCount++;
         setProgress(0.5 + (processedCount / addedClients.length) * 0.5);
       }
-      
+
       setProgressMessage('Processing complete!');
       setProgress(1);
-      
+
       // Call the onSubmit callback with the results
       onSubmit({
         clients: addedClients,
@@ -268,7 +322,7 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
                 id="json-text"
                 value={jsonText}
                 onChange={handleJsonTextChange}
-                placeholder='{"clients": [{"name": "Client 1", "api_url": "https://example.com/api"}]}'
+                placeholder={`// Format 1: Array of clients\n[\n  {\n    "Company ID": "COM-123",\n    "Company Name": "Client 1",\n    "Old Company ID": "OLD123",\n    "Display ID": "DISP123",\n    "Types": "CNR"\n  }\n]\n\n// Format 2: Object with clients array\n{\n  "clients": [\n    {\n      "Company ID": "COM-123",\n      "Company Name": "Client 1"\n    }\n  ]\n}`}
                 className="font-mono text-sm mt-1 min-h-[200px]"
               />
             </div>
