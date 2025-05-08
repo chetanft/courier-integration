@@ -9,6 +9,7 @@ import { parseCurl } from '../../lib/curl-parser';
 import { fetchCourierData } from '../../lib/courier-api-service';
 import { updateClientApiUrl, fetchAndStoreCourierData } from '../../lib/supabase-service';
 import ApiFilterOptions from './ApiFilterOptions';
+import { useToast } from '../ui/use-toast';
 import {
   Form,
   FormField,
@@ -25,6 +26,7 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
   const [couriersFound, setCouriersFound] = useState(null);
   const [error, setError] = useState(null);
   const [filterOptions, setFilterOptions] = useState({});
+  const { toast } = useToast();
 
   // Initialize form with react-hook-form
   const formMethods = useForm({
@@ -78,34 +80,34 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
       if (data.url.includes('freighttiger.com')) {
         console.log('Detected FreightTiger API, ensuring proper authentication');
 
-        // Make sure we're using Bearer token authentication
-        if (data.auth.type !== 'bearer') {
-          console.warn('FreightTiger API requires Bearer token authentication, but current type is:', data.auth.type);
-          setError({
-            message: 'FreightTiger API requires Bearer token authentication. Please select "Bearer Token" as the authentication type and provide your token.'
-          });
-          setLoading(false);
-          return;
-        }
-
-        // Make sure we have a token
-        if (!data.auth.token) {
-          console.warn('FreightTiger API requires a Bearer token, but none was provided');
-          setError({
-            message: 'FreightTiger API requires a Bearer token. Please provide your token in the Bearer Token field.'
-          });
-          setLoading(false);
-          return;
-        }
-
-        // Add Authorization header if not already present
+        // Check if we have an Authorization header
         const hasAuthHeader = requestConfig.headers.some(h => h.key.toLowerCase() === 'authorization');
-        if (!hasAuthHeader) {
-          requestConfig.headers.push({
-            key: 'Authorization',
-            value: `Bearer ${data.auth.token}`
+
+        // If we have auth data, use it
+        if (data.auth && data.auth.type === 'bearer' && data.auth.token) {
+          // Add Authorization header if not already present
+          if (!hasAuthHeader) {
+            requestConfig.headers.push({
+              key: 'Authorization',
+              value: `Bearer ${data.auth.token}`
+            });
+            console.log('Added Authorization header for FreightTiger API from auth.token');
+          }
+        }
+        // If we don't have auth data but have an Authorization header, that's fine too
+        else if (hasAuthHeader) {
+          console.log('Using existing Authorization header for FreightTiger API');
+        }
+        // If we have neither, add a warning but don't block the request
+        else {
+          console.warn('No Authorization header or Bearer token found for FreightTiger API. The request may fail.');
+          // Add a warning to the UI but don't block the request
+          toast({
+            title: "Authentication Warning",
+            description: "FreightTiger API typically requires authentication. Your request may fail without proper credentials.",
+            variant: "warning",
+            duration: 5000
           });
-          console.log('Added Authorization header for FreightTiger API');
         }
       }
 
