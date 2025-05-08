@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
@@ -35,11 +35,13 @@ import ResponseViewer from '../components/response-viewer';
 import TokenGenerator from '../components/token-generator';
 import { ToastContainer } from '../components/ui/toast';
 import { useToast } from '../components/ui/use-toast';
+import { ArrowLeft } from 'lucide-react';
 
 const AddCourierRevamped = () => {
   // Get search params to check if courier name is provided
   const [searchParams] = useSearchParams();
   const courierParam = searchParams.get('courier');
+  const navigate = useNavigate();
 
   // State variables
   const [loading, setLoading] = useState(false);
@@ -480,9 +482,14 @@ const AddCourierRevamped = () => {
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Add Courier</h1>
-        <Link to="/" className="px-4 py-2 border rounded hover:bg-gray-50">
-          Back to Dashboard
-        </Link>
+        <Button
+          variant="outline"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
       </div>
 
       {/* Stepper navigation */}
