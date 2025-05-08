@@ -16,12 +16,18 @@ const UploadResults = ({ results }) => {
     }));
   };
 
+  // Check if results is an array or an object with a results property
+  const resultsArray = Array.isArray(results) ? results : (results.results || []);
+
+  console.log('UploadResults component received:', results);
+  console.log('Using resultsArray:', resultsArray);
+
   // Calculate summary statistics
   const summary = {
-    total: results.length,
-    successful: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length,
-    couriersFound: results.reduce((sum, r) => sum + (r.couriers?.length || 0), 0)
+    total: resultsArray.length,
+    successful: resultsArray.filter(r => r.success).length,
+    failed: resultsArray.filter(r => !r.success).length,
+    couriersFound: resultsArray.reduce((sum, r) => sum + (r.couriers?.length || 0), 0)
   };
 
   return (
@@ -61,12 +67,12 @@ const UploadResults = ({ results }) => {
         {/* All Results */}
         <TabsContent value="all">
           <div className="space-y-4">
-            {results.map((result) => (
-              <ClientResultCard 
-                key={result.clientId || result.clientName} 
-                result={result} 
-                isExpanded={expandedClients[result.clientId]} 
-                toggleExpanded={() => toggleExpanded(result.clientId)} 
+            {resultsArray.map((result) => (
+              <ClientResultCard
+                key={result.clientId || result.clientName}
+                result={result}
+                isExpanded={expandedClients[result.clientId]}
+                toggleExpanded={() => toggleExpanded(result.clientId)}
               />
             ))}
           </div>
@@ -75,12 +81,12 @@ const UploadResults = ({ results }) => {
         {/* Successful Results */}
         <TabsContent value="successful">
           <div className="space-y-4">
-            {results.filter(r => r.success).map((result) => (
-              <ClientResultCard 
-                key={result.clientId || result.clientName} 
-                result={result} 
-                isExpanded={expandedClients[result.clientId]} 
-                toggleExpanded={() => toggleExpanded(result.clientId)} 
+            {resultsArray.filter(r => r.success).map((result) => (
+              <ClientResultCard
+                key={result.clientId || result.clientName}
+                result={result}
+                isExpanded={expandedClients[result.clientId]}
+                toggleExpanded={() => toggleExpanded(result.clientId)}
               />
             ))}
           </div>
@@ -89,12 +95,12 @@ const UploadResults = ({ results }) => {
         {/* Failed Results */}
         <TabsContent value="failed">
           <div className="space-y-4">
-            {results.filter(r => !r.success).map((result) => (
-              <ClientResultCard 
-                key={result.clientId || result.clientName} 
-                result={result} 
-                isExpanded={expandedClients[result.clientId]} 
-                toggleExpanded={() => toggleExpanded(result.clientId)} 
+            {resultsArray.filter(r => !r.success).map((result) => (
+              <ClientResultCard
+                key={result.clientId || result.clientName}
+                result={result}
+                isExpanded={expandedClients[result.clientId]}
+                toggleExpanded={() => toggleExpanded(result.clientId)}
               />
             ))}
           </div>
@@ -130,7 +136,7 @@ const ClientResultCard = ({ result, isExpanded, toggleExpanded }) => {
           </Button>
         </div>
       </CardHeader>
-      
+
       {isExpanded && (
         <CardContent className="pt-0 pb-4 px-4">
           {result.success ? (
