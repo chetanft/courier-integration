@@ -9,15 +9,15 @@
  */
 export const detectClientType = (name) => {
   if (!name) return 'STANDARD';
-  
+
   const upperName = name.toUpperCase();
-  
+
   if (upperName.includes('CNR+CEE')) {
     return 'CNR_CEE';
   } else if (upperName.includes('CNR')) {
     return 'CNR';
   }
-  
+
   return 'STANDARD';
 };
 
@@ -28,13 +28,13 @@ export const detectClientType = (name) => {
  */
 export const normalizeClientName = (name) => {
   if (!name) return '';
-  
+
   // Trim whitespace
   let normalized = name.trim();
-  
+
   // Remove any excessive whitespace between words
   normalized = normalized.replace(/\s+/g, ' ');
-  
+
   return normalized;
 };
 
@@ -45,7 +45,7 @@ export const normalizeClientName = (name) => {
  */
 export const extractClientName = (item) => {
   if (!item) return null;
-  
+
   // Common field names for client names in APIs
   const possibleNameFields = [
     'name',
@@ -58,21 +58,23 @@ export const extractClientName = (item) => {
     'customer_name',
     'customerName',
     'title',
-    'label'
+    'label',
+    'Company ID',
+    'Company Name'
   ];
-  
+
   // Try to find a field that contains the client name
   for (const field of possibleNameFields) {
     if (item[field] && typeof item[field] === 'string') {
       return item[field];
     }
   }
-  
+
   // If no name field is found, check if the item itself is a string
   if (typeof item === 'string') {
     return item;
   }
-  
+
   return null;
 };
 
@@ -88,21 +90,21 @@ export const validateClientName = (name) => {
       message: 'Client name is required'
     };
   }
-  
+
   if (name.length < 2) {
     return {
       isValid: false,
       message: 'Client name must be at least 2 characters long'
     };
   }
-  
+
   if (name.length > 100) {
     return {
       isValid: false,
       message: 'Client name must be at most 100 characters long'
     };
   }
-  
+
   return {
     isValid: true,
     message: ''
@@ -119,14 +121,14 @@ export const generateUniqueClientName = (name, existingNames) => {
   if (!existingNames || !existingNames.length) {
     return name;
   }
-  
+
   let uniqueName = name;
   let counter = 1;
-  
+
   while (existingNames.includes(uniqueName)) {
     uniqueName = `${name} (${counter})`;
     counter++;
   }
-  
+
   return uniqueName;
 };

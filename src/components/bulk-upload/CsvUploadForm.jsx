@@ -7,10 +7,10 @@ import { Card, CardContent } from '../ui/card';
 import { Loader2, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import ProgressIndicator from './ProgressIndicator';
 import { addClientsInBulk, fetchAndStoreCourierData } from '../../lib/supabase-service';
-import { normalizeClientName, validateClientName, generateUniqueClientName } from '../../lib/client-name-utils';
+import { normalizeClientName, validateClientName } from '../../lib/client-name-utils';
 
 const CsvUploadForm = ({ onSubmit, loading }) => {
-  const [file, setFile] = useState(null);
+  const [, setFile] = useState(null);
   const [csvText, setCsvText] = useState('');
   const [parsedData, setParsedData] = useState(null);
   const [validationErrors, setValidationErrors] = useState([]);
@@ -25,7 +25,7 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
-      
+
       // Read the file content
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -53,49 +53,50 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
   const parseCsv = (csvContent) => {
     // Split by lines and filter out empty lines
     const lines = csvContent.split(/\\r?\\n/).filter(line => line.trim());
-    
+
     if (lines.length === 0) {
       throw new Error('CSV is empty');
     }
-    
+
     // Parse header row
-    const headers = lines[0].split(',').map(header => 
+    const headerRow = lines[0].split(',').map(header =>
       header.trim().replace(/^["'](.*)["']$/, '$1') // Remove quotes if present
     );
-    
-    if (!headers.includes('name') && !headers.includes('client_name')) {
-      throw new Error('CSV must have a "name" or "client_name" column');
+
+    if (!headerRow.includes('name') && !headerRow.includes('client_name') &&
+        !headerRow.includes('Company ID') && !headerRow.includes('Company Name')) {
+      throw new Error('CSV must have a "Company ID" or "Company Name" column');
     }
-    
+
     // Parse data rows
     const data = [];
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
-      
-      if (values.length !== headers.length) {
-        throw new Error(`Line ${i + 1} has ${values.length} values, but header has ${headers.length} columns`);
+
+      if (values.length !== headerRow.length) {
+        throw new Error(`Line ${i + 1} has ${values.length} values, but header has ${headerRow.length} columns`);
       }
-      
+
       const row = {};
-      headers.forEach((header, index) => {
+      headerRow.forEach((header, index) => {
         row[header] = values[index];
       });
-      
+
       data.push(row);
     }
-    
-    return { headers, data };
+
+    return { headers: headerRow, data };
   };
-  
+
   // Parse a CSV line handling quoted values with commas
   const parseCSVLine = (line) => {
     const result = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"' && (i === 0 || line[i-1] !== '\\')) {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
@@ -105,7 +106,7 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
         current += char;
       }
     }
-    
+
     result.push(current.trim().replace(/^["'](.*)["']$/, '$1'));
     return result;
   };
@@ -114,38 +115,51 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
   const validateCsv = (content) => {
     try {
       // Parse the CSV
-      const { headers, data } = parseCsv(content);
-      
+      const { data } = parseCsv(content);
+
       // Validate each client
       const errors = [];
       const clients = data.map((row, index) => {
         // Get the client name from the appropriate column
-        const name = row.name || row.client_name;
-        
+        const name = row.name || row.client_name || row['Company ID'] || row['Company Name'];
+
         if (!name) {
           errors.push(`Client at row ${index + 2} is missing a name`);
           return null;
         }
-        
+
         // Normalize the client name
         const normalizedName = normalizeClientName(name);
         const validation = validateClientName(normalizedName);
-        
+
         if (!validation.isValid) {
           errors.push(`Client "${name}" at row ${index + 2}: ${validation.message}`);
           return null;
         }
-        
+
         // Create a client object
         const client = {
           name: normalizedName
         };
-        
+
+        // Add new fields if present
+        if (row['Old Company ID']) {
+          client.old_company_id = row['Old Company ID'];
+        }
+
+        if (row['Display ID']) {
+          client.display_id = row['Display ID'];
+        }
+
+        if (row['Types']) {
+          client.types = row['Types'];
+        }
+
         // Add API URL if present
         if (row.api_url) {
           client.api_url = row.api_url;
         }
-        
+
         // Add auth type and token if present
         if (row.auth_type) {
           const requestConfig = {
@@ -153,25 +167,25 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
               type: row.auth_type
             }
           };
-          
+
           if (row.auth_token) {
             requestConfig.auth.token = row.auth_token;
           }
-          
+
           client.request_config = requestConfig;
         }
-        
+
         return client;
       }).filter(Boolean);
-      
+
       // Check for duplicate names
       const names = clients.map(c => c.name);
       const uniqueNames = [...new Set(names)];
-      
+
       if (names.length !== uniqueNames.length) {
         errors.push('There are duplicate client names in the CSV');
       }
-      
+
       if (errors.length > 0) {
         setValidationErrors(errors);
         setParsedData(null);
@@ -191,37 +205,37 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!parsedData || !parsedData.clients || parsedData.clients.length === 0) {
       setValidationErrors(['No valid clients to process']);
       return;
     }
-    
+
     setIsProcessing(true);
     setCurrentStep(1);
     setProgress(0);
     setProgressMessage('Preparing to add clients...');
-    
+
     try {
       // Step 1: Add clients to the database
       setCurrentStep(1);
       setProgressMessage('Adding clients to the database...');
-      
+
       const addedClients = await addClientsInBulk(parsedData.clients);
       setProgress(0.5);
       setProgressMessage(`Added ${addedClients.length} clients successfully`);
-      
+
       // Step 2: Fetch couriers for each client
       setCurrentStep(2);
       setProgressMessage('Fetching couriers for clients...');
-      
+
       const results = [];
       let processedCount = 0;
-      
+
       for (const client of addedClients) {
         try {
           setProgressMessage(`Fetching couriers for ${client.name}...`);
-          
+
           // Skip clients without API URL
           if (!client.api_url) {
             results.push({
@@ -237,17 +251,17 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
             let requestConfig = null;
             if (client.request_config) {
               try {
-                requestConfig = typeof client.request_config === 'string' 
-                  ? JSON.parse(client.request_config) 
+                requestConfig = typeof client.request_config === 'string'
+                  ? JSON.parse(client.request_config)
                   : client.request_config;
               } catch (parseError) {
                 console.warn(`Error parsing request_config for client ${client.name}:`, parseError);
               }
             }
-            
+
             // Fetch couriers for this client
             const couriers = await fetchAndStoreCourierData(client.id, client.api_url, requestConfig);
-            
+
             results.push({
               clientId: client.id,
               clientName: client.name,
@@ -266,14 +280,14 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
             details: error
           });
         }
-        
+
         processedCount++;
         setProgress(0.5 + (processedCount / addedClients.length) * 0.5);
       }
-      
+
       setProgressMessage('Processing complete!');
       setProgress(1);
-      
+
       // Call the onSubmit callback with the results
       onSubmit({
         clients: addedClients,
@@ -346,11 +360,11 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
                 id="csv-text"
                 value={csvText}
                 onChange={handleCsvTextChange}
-                placeholder="name,api_url,auth_type,auth_token\nClient 1,https://example.com/api,bearer,token123"
+                placeholder="Company ID,Company Name,Old Company ID,Display ID,Types,api_url,auth_type,auth_token\nCLI001,Client 1,OLD001,DISP001,Type1,https://example.com/api,bearer,token123"
                 className="font-mono text-sm mt-1 min-h-[200px]"
               />
               <p className="text-sm text-gray-500 mt-1">
-                CSV must have a "name" or "client_name" column. Optional columns: api_url, auth_type, auth_token
+                CSV must have a "Company ID" or "Company Name" column. Optional columns: Old Company ID, Display ID, Types, api_url, auth_type, auth_token
               </p>
             </div>
 
