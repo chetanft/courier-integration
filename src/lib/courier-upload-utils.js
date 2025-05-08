@@ -11,38 +11,58 @@ export const parseAndValidateJsonCouriers = (jsonContent) => {
   try {
     // Parse the JSON
     const data = JSON.parse(jsonContent);
-    
-    // Check if it has a couriers array
-    if (!data.couriers || !Array.isArray(data.couriers)) {
+    console.log("Parsed JSON data:", data);
+
+    let couriersArray = [];
+
+    // Handle different JSON formats
+    if (Array.isArray(data)) {
+      // Format: Direct array of couriers
+      console.log("Detected array format");
+      couriersArray = data;
+    } else if (data.couriers && Array.isArray(data.couriers)) {
+      // Format: Object with couriers array
+      console.log("Detected object with couriers array format");
+      couriersArray = data.couriers;
+    } else {
+      // Neither format is valid
       return {
         isValid: false,
-        errors: ['JSON must contain a "couriers" array'],
+        errors: ['JSON must be either an array of couriers or contain a "couriers" array'],
         couriers: []
       };
     }
-    
+
+    if (couriersArray.length === 0) {
+      return {
+        isValid: false,
+        errors: ['JSON contains no courier data'],
+        couriers: []
+      };
+    }
+
     // Validate each courier
     const errors = [];
     const validCouriers = [];
-    
-    data.couriers.forEach((courier, index) => {
+
+    couriersArray.forEach((courier, index) => {
       const validationResult = validateCourier(courier, index);
-      
+
       if (validationResult.isValid) {
         validCouriers.push(validationResult.courier);
       } else {
         errors.push(...validationResult.errors);
       }
     });
-    
+
     // Check for duplicate names
     const names = validCouriers.map(c => c.name);
     const uniqueNames = [...new Set(names)];
-    
+
     if (names.length !== uniqueNames.length) {
       errors.push('There are duplicate courier names in the JSON');
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -67,8 +87,11 @@ export const parseAndValidateJsonCouriers = (jsonContent) => {
 export const parseAndValidateCsvCouriers = (csvContent) => {
   try {
     // Split by lines and filter out empty lines
-    const lines = csvContent.split(/\\r?\\n/).filter(line => line.trim());
-    
+    // Fix the incorrect escape sequence in the regex
+    const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+    console.log('Original CSV content length:', csvContent.length);
+    console.log('CSV lines count:', lines.length);
+
     if (lines.length === 0) {
       return {
         isValid: false,
@@ -77,12 +100,12 @@ export const parseAndValidateCsvCouriers = (csvContent) => {
         count: 0
       };
     }
-    
-    // Parse header row
-    const headers = lines[0].split(',').map(header => 
-      header.trim().replace(/^["'](.*)["']$/, '$1') // Remove quotes if present
-    );
-    
+
+    // Parse header row using the same parsing function as data rows
+    // This ensures consistent handling of quotes and special characters
+    const headers = parseCSVLine(lines[0]);
+    console.log('CSV headers:', headers);
+
     // Check required headers
     if (!headers.includes('name')) {
       return {
@@ -92,43 +115,43 @@ export const parseAndValidateCsvCouriers = (csvContent) => {
         count: 0
       };
     }
-    
+
     // Parse data rows
     const errors = [];
     const validCouriers = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
-      
+
       if (values.length !== headers.length) {
         errors.push(`Line ${i + 1} has ${values.length} values, but header has ${headers.length} columns`);
         continue;
       }
-      
+
       // Create courier object from CSV row
       const courier = {};
       headers.forEach((header, index) => {
         courier[header] = values[index];
       });
-      
+
       // Validate the courier
       const validationResult = validateCourier(courier, i);
-      
+
       if (validationResult.isValid) {
         validCouriers.push(validationResult.courier);
       } else {
         errors.push(...validationResult.errors);
       }
     }
-    
+
     // Check for duplicate names
     const names = validCouriers.map(c => c.name);
     const uniqueNames = [...new Set(names)];
-    
+
     if (names.length !== uniqueNames.length) {
       errors.push('There are duplicate courier names in the CSV');
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -151,24 +174,38 @@ export const parseAndValidateCsvCouriers = (csvContent) => {
  * @returns {Array} - Array of values from the CSV line
  */
 export const parseCSVLine = (line) => {
+  console.log('Parsing CSV line:', line);
+
+  // Handle empty line
+  if (!line || !line.trim()) {
+    console.log('Empty line detected');
+    return [];
+  }
+
   const result = [];
   let current = '';
   let inQuotes = false;
-  
+
   for (let i = 0; i < line.length; i++) {
     const char = line[i];
-    
+
     if (char === '"' && (i === 0 || line[i-1] !== '\\')) {
       inQuotes = !inQuotes;
     } else if (char === ',' && !inQuotes) {
-      result.push(current.trim().replace(/^["'](.*)["']$/, '$1'));
+      // Process the current field
+      const processedValue = current.trim().replace(/^["'](.*)["']$/, '$1');
+      result.push(processedValue);
       current = '';
     } else {
       current += char;
     }
   }
-  
-  result.push(current.trim().replace(/^["'](.*)["']$/, '$1'));
+
+  // Add the last field
+  const lastValue = current.trim().replace(/^["'](.*)["']$/, '$1');
+  result.push(lastValue);
+
+  console.log('Parsed line result:', result);
   return result;
 };
 
@@ -180,12 +217,12 @@ export const parseCSVLine = (line) => {
  */
 export const validateCourier = (courier, index) => {
   const errors = [];
-  
+
   // Check required fields
   if (!courier.name || courier.name.trim() === '') {
     errors.push(`Courier at index ${index} is missing a name`);
   }
-  
+
   // Normalize the courier object
   const normalizedCourier = {
     name: courier.name ? courier.name.trim() : '',
@@ -203,7 +240,7 @@ export const validateCourier = (courier, index) => {
     logo_url: courier.logo_url || courier.logoUrl || '',
     active: courier.active !== undefined ? courier.active : true
   };
-  
+
   // Convert services to array if it's a string
   if (typeof normalizedCourier.services === 'string') {
     normalizedCourier.services = normalizedCourier.services
@@ -211,7 +248,7 @@ export const validateCourier = (courier, index) => {
       .map(s => s.trim())
       .filter(Boolean);
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,

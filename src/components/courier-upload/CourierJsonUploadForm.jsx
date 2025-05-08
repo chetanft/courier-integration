@@ -46,14 +46,14 @@ const CourierJsonUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =
   // Validate JSON content
   const validateJson = (content) => {
     setIsProcessing(true);
-    
+
     try {
       const result = parseAndValidateJsonCouriers(content);
-      
+
       if (result.isValid) {
         setParsedData(result);
         setValidationErrors([]);
-        
+
         // If onParsedData is provided, call it with the parsed couriers
         if (onParsedData) {
           onParsedData(result.couriers);
@@ -73,12 +73,12 @@ const CourierJsonUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!parsedData || !parsedData.couriers || parsedData.couriers.length === 0) {
       setValidationErrors(['No valid couriers to process']);
       return;
     }
-    
+
     // If clientId is not provided, just call onSuccess with the parsed data
     if (!clientId) {
       if (onSuccess) {
@@ -86,20 +86,20 @@ const CourierJsonUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =
       }
       return;
     }
-    
+
     setIsUploading(true);
-    
+
     try {
       // Add couriers to the client
       const addedCouriers = await addCouriersToClient(clientId, parsedData.couriers);
-      
+
       if (onSuccess) {
         onSuccess(addedCouriers);
       }
     } catch (error) {
       console.error('Error adding couriers:', error);
       setValidationErrors([`Error adding couriers: ${error.message}`]);
-      
+
       if (onError) {
         onError(error);
       }
@@ -149,12 +149,12 @@ const CourierJsonUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =
             id="json-text"
             value={jsonText}
             onChange={handleJsonTextChange}
-            placeholder='{"couriers": [{"name": "Courier 1", "api_url": "https://example.com/api"}]}'
+            placeholder={`// Format 1: Array of couriers\n[\n  {\n    "name": "Courier 1",\n    "api_url": "https://example.com/api"\n  }\n]\n\n// Format 2: Object with couriers array\n{\n  "couriers": [\n    {\n      "name": "Courier 2",\n      "api_url": "https://example.com/api2"\n    }\n  ]\n}`}
             className="font-mono text-sm mt-1 min-h-[200px]"
             disabled={isProcessing || isUploading}
           />
           <p className="text-sm text-gray-500 mt-1">
-            JSON must have a "couriers" array with objects containing at least a "name" property.
+            JSON can be either an array of courier objects or an object with a "couriers" array. Each courier must have at least a "name" property.
           </p>
         </div>
 
@@ -200,9 +200,9 @@ const CourierJsonUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =
       </div>
 
       <div className="flex justify-end space-x-2">
-        <Button 
-          type="button" 
-          variant="outline" 
+        <Button
+          type="button"
+          variant="outline"
           onClick={handleReset}
           disabled={isProcessing || isUploading}
         >
