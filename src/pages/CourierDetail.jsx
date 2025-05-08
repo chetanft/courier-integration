@@ -25,7 +25,9 @@ import {
   DialogDescription
 } from '../components/ui/dialog';
 import { JsonViewer } from '../components/ui/json-viewer';
-import { Copy, Clipboard } from 'lucide-react';
+import { Copy, Clipboard, Loader2 } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { toast } from 'sonner';
 
 const CourierDetail = () => {
   const { id } = useParams();
@@ -48,6 +50,8 @@ const CourierDetail = () => {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteClientConfirmText, setDeleteClientConfirmText] = useState('');
 
   // Fetch courier details on component mount
   useEffect(() => {
@@ -285,13 +289,20 @@ const CourierDetail = () => {
 
   // Handle deleting a courier
   const handleDeleteCourier = async () => {
+    if (deleteConfirmText !== 'delete') {
+      toast.error('Please type "delete" to confirm');
+      return;
+    }
+
     try {
       setDeleteLoading(true);
       await deleteCourier(id);
+      toast.success(`Courier "${courier.name}" has been deleted`);
       setDeleteDialogOpen(false);
       navigate('/');
     } catch (error) {
       console.error('Error deleting courier:', error);
+      toast.error('Failed to delete courier: ' + (error.message || 'Unknown error'));
       setError({
         message: `Failed to delete courier: ${error.message || 'Unknown error'}`,
         details: error
@@ -305,6 +316,11 @@ const CourierDetail = () => {
   const handleDeleteClient = async () => {
     if (!clientToDelete) return;
 
+    if (deleteClientConfirmText !== 'delete') {
+      toast.error('Please type "delete" to confirm');
+      return;
+    }
+
     try {
       setDeleteLoading(true);
       await deleteClient(clientToDelete.id);
@@ -313,10 +329,13 @@ const CourierDetail = () => {
       const updatedClients = clients.filter(c => c.id !== clientToDelete.id);
       setClients(updatedClients);
 
+      toast.success(`Client "${clientToDelete.name}" has been deleted`);
       setDeleteClientDialogOpen(false);
       setClientToDelete(null);
+      setDeleteClientConfirmText('');
     } catch (error) {
       console.error('Error deleting client:', error);
+      toast.error('Failed to delete client: ' + (error.message || 'Unknown error'));
       setError({
         message: `Failed to delete client: ${error.message || 'Unknown error'}`,
         details: error
@@ -493,47 +512,97 @@ const CourierDetail = () => {
       </div>
 
       {/* Delete Courier Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) setDeleteConfirmText('');
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Delete Courier</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {courier.name}? This action cannot be undone.
+            <DialogDescription className="pt-4">
+              This action cannot be undone. This will permanently delete the courier
+              <span className="font-semibold"> {courier.name} </span>
+              and all associated data.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-sm text-gray-500 mb-4">
+              To confirm, type <span className="font-semibold">delete</span> in the field below:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type 'delete' to confirm"
+              className="mb-2"
+            />
+          </div>
+
           <DialogFooter className="flex space-x-2 justify-end">
             <Button
               variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteConfirmText('');
+              }}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteCourier}
-              disabled={deleteLoading}
+              disabled={deleteConfirmText !== 'delete' || deleteLoading}
             >
-              {deleteLoading ? 'Deleting...' : 'Delete Courier'}
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Courier'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Client Confirmation Dialog */}
-      <Dialog open={deleteClientDialogOpen} onOpenChange={setDeleteClientDialogOpen}>
+      <Dialog open={deleteClientDialogOpen} onOpenChange={(open) => {
+        setDeleteClientDialogOpen(open);
+        if (!open) {
+          setDeleteClientConfirmText('');
+          setClientToDelete(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Delete Client</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {clientToDelete ? clientToDelete.name : ''}? This action cannot be undone.
+            <DialogDescription className="pt-4">
+              This action cannot be undone. This will permanently delete the client
+              <span className="font-semibold"> {clientToDelete ? clientToDelete.name : ''} </span>
+              and all associated data.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-sm text-gray-500 mb-4">
+              To confirm, type <span className="font-semibold">delete</span> in the field below:
+            </p>
+            <Input
+              value={deleteClientConfirmText}
+              onChange={(e) => setDeleteClientConfirmText(e.target.value)}
+              placeholder="Type 'delete' to confirm"
+              className="mb-2"
+            />
+          </div>
+
           <DialogFooter className="flex space-x-2 justify-end">
             <Button
               variant="outline"
               onClick={() => {
                 setDeleteClientDialogOpen(false);
                 setClientToDelete(null);
+                setDeleteClientConfirmText('');
               }}
             >
               Cancel
@@ -541,9 +610,16 @@ const CourierDetail = () => {
             <Button
               variant="destructive"
               onClick={handleDeleteClient}
-              disabled={deleteLoading}
+              disabled={deleteClientConfirmText !== 'delete' || deleteLoading}
             >
-              {deleteLoading ? 'Deleting...' : 'Delete Client'}
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Client'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

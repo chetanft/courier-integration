@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getClientById, getCouriersByClientId, getCouriers, linkClientsToCourier } from '../lib/supabase-service';
+import { getClientById, getCouriersByClientId, getCouriers, linkClientsToCourier, deleteClient } from '../lib/supabase-service';
 import { Button } from '../components/ui/button';
-import { ArrowLeft, PlusCircle, Truck, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { ArrowLeft, PlusCircle, Truck, Loader2, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { SearchBar } from '../components/ui/search-bar';
@@ -11,6 +11,7 @@ import { FilterDropdown } from '../components/ui/filter-dropdown';
 import { SortDropdown } from '../components/ui/sort-dropdown';
 import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
+import { Input } from '../components/ui/input';
 
 const ClientDetails = () => {
   const { id: clientId } = useParams();
@@ -25,6 +26,11 @@ const ClientDetails = () => {
   const [availableCouriers, setAvailableCouriers] = useState([]);
   const [selectedCourier, setSelectedCourier] = useState('');
   const [addingCourier, setAddingCourier] = useState(false);
+
+  // Delete client dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Search, filter, and sort state
   const [searchQuery, setSearchQuery] = useState('');
@@ -158,6 +164,26 @@ const ClientDetails = () => {
     }
   };
 
+  // Handle deleting the client
+  const handleDeleteClient = async () => {
+    if (deleteConfirmText !== 'delete') {
+      toast.error('Please type "delete" to confirm');
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      await deleteClient(clientId);
+      toast.success(`Client "${client.name}" has been deleted`);
+      navigate('/');
+    } catch (err) {
+      console.error('Error deleting client:', err);
+      toast.error('Failed to delete client: ' + (err.message || 'Unknown error'));
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -184,12 +210,76 @@ const ClientDetails = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="flex items-center mb-6">
-        <Button variant="ghost" onClick={() => navigate('/')} className="mr-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Button variant="ghost" onClick={() => navigate('/')} className="mr-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">{client.name}</h1>
+        </div>
+
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setDeleteDialogOpen(true)}
+          className="ml-auto"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete Client
         </Button>
-        <h1 className="text-2xl font-bold">{client.name}</h1>
+
+        {/* Delete Client Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Client</DialogTitle>
+              <DialogDescription className="pt-4">
+                This action cannot be undone. This will permanently delete the client
+                <span className="font-semibold"> {client.name} </span>
+                and all associated data.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              <p className="text-sm text-gray-500 mb-4">
+                To confirm, type <span className="font-semibold">delete</span> in the field below:
+              </p>
+              <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="Type 'delete' to confirm"
+                className="mb-2"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setDeleteConfirmText('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteClient}
+                disabled={deleteConfirmText !== 'delete' || isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete Client'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex justify-between items-center mb-6">
