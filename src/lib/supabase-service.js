@@ -538,7 +538,7 @@ export const addCouriersToClient = async (clientId, couriers) => {
 };
 
 // Fetch and store courier data from client API
-export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig = null) => {
+export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig = null, options = {}) => {
   try {
     // Import the courier API service
     const { fetchCourierData } = await import('./courier-api-service.js');
@@ -560,7 +560,7 @@ export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig =
     console.log('Request config:', requestConfig);
 
     // Fetch data from the client's API
-    const couriers = await fetchCourierData(decodedUrl, requestConfig);
+    const couriers = await fetchCourierData(decodedUrl, requestConfig, options);
 
     console.log(`fetchAndStoreCourierData: API response received, couriers:`, couriers);
 
@@ -690,7 +690,7 @@ export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig =
 };
 
 // Get available couriers for a client from API
-export const getAvailableCouriersForClient = async (clientId, apiUrl, requestConfig = null) => {
+export const getAvailableCouriersForClient = async (clientId, apiUrl, requestConfig = null, options = {}) => {
   try {
     // Import the courier API service
     const { fetchCourierData } = await import('./courier-api-service.js');
@@ -742,7 +742,7 @@ export const getAvailableCouriersForClient = async (clientId, apiUrl, requestCon
     console.log('Request config:', requestConfig);
 
     // Fetch all couriers from the API
-    const allCouriers = await fetchCourierData(decodedUrl, requestConfig);
+    const allCouriers = await fetchCourierData(decodedUrl, requestConfig, options);
 
     console.log(`getAvailableCouriersForClient: API response received, couriers:`, allCouriers);
 

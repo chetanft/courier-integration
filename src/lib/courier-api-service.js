@@ -194,9 +194,12 @@ export const extractCouriersFromResponse = (data) => {
  *
  * @param {string} apiUrl - The client's API URL
  * @param {Object} requestConfig - Optional request configuration
+ * @param {Object} options - Additional options
+ * @param {Array} options.filterFields - Array of field paths to extract from the response
+ * @param {string} options.filterPath - Path to the array of items to filter (e.g., 'data.results')
  * @returns {Promise<Array>} - Promise resolving to an array of courier objects
  */
-export const fetchCourierData = async (apiUrl, requestConfig = null) => {
+export const fetchCourierData = async (apiUrl, requestConfig = null, options = {}) => {
   try {
     // Validate API URL
     if (!apiUrl) {
@@ -306,12 +309,21 @@ export const fetchCourierData = async (apiUrl, requestConfig = null) => {
       return [];
     }
 
-    // Extract couriers from the response
-    const couriers = extractCouriersFromResponse(data);
+    // Check if we need to filter the data
+    if (options.filterFields && options.filterFields.length > 0) {
+      console.log('Filtering data with fields:', options.filterFields);
 
-    console.log(`Found ${couriers.length} couriers in API response`);
+      // Apply the filter
+      const filteredData = filterApiResponse(data, options.filterFields, options.filterPath);
+      console.log('Filtered data:', filteredData);
 
-    return couriers;
+      return filteredData;
+    } else {
+      // Extract couriers from the response using the standard method
+      const couriers = extractCouriersFromResponse(data);
+      console.log(`Found ${couriers.length} couriers in API response`);
+      return couriers;
+    }
   } catch (error) {
     console.error('Error fetching courier data:', error);
 
@@ -350,6 +362,129 @@ export const fetchCourierData = async (apiUrl, requestConfig = null) => {
 
     // Throw the error to allow proper error handling by the caller
     throw errorDetails;
+  }
+};
+
+/**
+ * Filter API response to extract specific fields
+ *
+ * @param {Object} data - The API response data
+ * @param {Array} filterFields - Array of field paths to extract
+ * @param {string} filterPath - Optional path to the array of items to filter
+ * @returns {Array} - Filtered data
+ */
+export const filterApiResponse = (data, filterFields, filterPath = null) => {
+  try {
+    console.log('Filtering API response with fields:', filterFields);
+
+    // If filterPath is provided, navigate to that path in the data
+    let targetData = data;
+    if (filterPath) {
+      const pathParts = filterPath.split('.');
+      for (const part of pathParts) {
+        if (targetData && typeof targetData === 'object' && part in targetData) {
+          targetData = targetData[part];
+        } else {
+          console.warn(`Filter path "${filterPath}" not found in response`);
+          return [];
+        }
+      }
+    }
+
+    // If the target data is an array, filter each item
+    if (Array.isArray(targetData)) {
+      return targetData.map(item => {
+        const filteredItem = {};
+
+        // Extract each specified field
+        for (const fieldPath of filterFields) {
+          try {
+            const pathParts = fieldPath.split('.');
+            let value = item;
+
+            // Navigate the path to get the value
+            for (const part of pathParts) {
+              if (value && typeof value === 'object' && part in value) {
+                value = value[part];
+              } else {
+                // Field not found, skip it
+                value = undefined;
+                break;
+              }
+            }
+
+            // Only include the field if it has a value
+            if (value !== undefined) {
+              // Create nested structure based on the field path
+              let current = filteredItem;
+              for (let i = 0; i < pathParts.length - 1; i++) {
+                const part = pathParts[i];
+                if (!(part in current)) {
+                  current[part] = {};
+                }
+                current = current[part];
+              }
+
+              // Set the value at the final path part
+              current[pathParts[pathParts.length - 1]] = value;
+            }
+          } catch (error) {
+            console.warn(`Error extracting field "${fieldPath}":`, error);
+          }
+        }
+
+        return filteredItem;
+      });
+    } else if (targetData && typeof targetData === 'object') {
+      // If the target data is a single object, filter it
+      const filteredItem = {};
+
+      // Extract each specified field
+      for (const fieldPath of filterFields) {
+        try {
+          const pathParts = fieldPath.split('.');
+          let value = targetData;
+
+          // Navigate the path to get the value
+          for (const part of pathParts) {
+            if (value && typeof value === 'object' && part in value) {
+              value = value[part];
+            } else {
+              // Field not found, skip it
+              value = undefined;
+              break;
+            }
+          }
+
+          // Only include the field if it has a value
+          if (value !== undefined) {
+            // Create nested structure based on the field path
+            let current = filteredItem;
+            for (let i = 0; i < pathParts.length - 1; i++) {
+              const part = pathParts[i];
+              if (!(part in current)) {
+                current[part] = {};
+              }
+              current = current[part];
+            }
+
+            // Set the value at the final path part
+            current[pathParts[pathParts.length - 1]] = value;
+          }
+        } catch (error) {
+          console.warn(`Error extracting field "${fieldPath}":`, error);
+        }
+      }
+
+      return [filteredItem];
+    }
+
+    // If we couldn't filter the data, return an empty array
+    console.warn('Could not filter data, returning empty array');
+    return [];
+  } catch (error) {
+    console.error('Error filtering API response:', error);
+    return [];
   }
 };
 

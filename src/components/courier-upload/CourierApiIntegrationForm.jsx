@@ -8,6 +8,7 @@ import RequestBuilder from '../request-builder';
 import { parseCurl } from '../../lib/curl-parser';
 import { fetchCourierData } from '../../lib/courier-api-service';
 import { updateClientApiUrl, fetchAndStoreCourierData } from '../../lib/supabase-service';
+import ApiFilterOptions from './ApiFilterOptions';
 import {
   Form,
   FormField,
@@ -18,11 +19,12 @@ import {
   FormMessage,
 } from '../ui/form';
 
-const CourierApiIntegrationForm = ({ clientId, clientName, onSuccess, onError, onParsedData }) => {
+const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData }) => {
   const [loading, setLoading] = useState(false);
   const [fetchingCouriers, setFetchingCouriers] = useState(false);
   const [couriersFound, setCouriersFound] = useState(null);
   const [error, setError] = useState(null);
+  const [filterOptions, setFilterOptions] = useState({});
 
   // Initialize form with react-hook-form
   const formMethods = useForm({
@@ -114,13 +116,13 @@ const CourierApiIntegrationForm = ({ clientId, clientName, onSuccess, onError, o
       const url = data.url.trim();
 
       // Extract couriers from the response
-      const couriers = await fetchCourierData(url, requestConfig);
+      const couriers = await fetchCourierData(url, requestConfig, filterOptions);
 
       if (!couriers || couriers.length === 0) {
         setError({
           message: 'No couriers found in the API response'
         });
-        
+
         if (onError) {
           onError({
             message: 'No couriers found in the API response'
@@ -131,12 +133,12 @@ const CourierApiIntegrationForm = ({ clientId, clientName, onSuccess, onError, o
           count: couriers.length,
           couriers: couriers.map(c => c.name).join(', ')
         });
-        
+
         // If onParsedData is provided, call it with the parsed couriers
         if (onParsedData) {
           onParsedData(couriers);
         }
-        
+
         // If clientId is not provided, just call onSuccess with the couriers
         if (!clientId) {
           if (onSuccess) {
@@ -144,12 +146,12 @@ const CourierApiIntegrationForm = ({ clientId, clientName, onSuccess, onError, o
           }
           return;
         }
-        
+
         // Update client with API URL
         await updateClientApiUrl(clientId, url, requestConfig);
 
         // Store the courier data
-        await fetchAndStoreCourierData(clientId, url, requestConfig);
+        await fetchAndStoreCourierData(clientId, url, requestConfig, filterOptions);
 
         // Call onSuccess callback
         if (onSuccess) {
@@ -162,7 +164,7 @@ const CourierApiIntegrationForm = ({ clientId, clientName, onSuccess, onError, o
         message: err.message || 'Failed to fetch couriers from API',
         details: err
       });
-      
+
       if (onError) {
         onError({
           message: err.message || 'Failed to fetch couriers from API',
@@ -274,6 +276,11 @@ const CourierApiIntegrationForm = ({ clientId, clientName, onSuccess, onError, o
             </div>
           </CardContent>
         </Card>
+
+        {/* API Filter Options */}
+        <ApiFilterOptions
+          onChange={setFilterOptions}
+        />
 
         {/* Use the rest of the RequestBuilder component without name field */}
         <RequestBuilder
