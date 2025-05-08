@@ -49,9 +49,51 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
   // Handle form submission
   const onSubmit = async (data) => {
     try {
+      console.log('Submitting form with data:', data);
+
+      // Validate courier name
+      if (!data.courier_name || data.courier_name.trim() === '') {
+        toast.error('Please enter a courier name');
+        return;
+      }
+
       // If auth type is none, just proceed to next step
       if (data.auth.type === 'none') {
+        console.log('No auth required, proceeding to next step');
         // Create courier in database
+        const courier = await createCourier(data);
+        onComplete('');
+        return;
+      }
+
+      // If auth type is form and token is not generated, check if we need to generate one
+      if (data.auth.type === 'form' && !tokenGenerated) {
+        if (!data.auth.url || data.auth.url.trim() === '') {
+          toast.error('Please enter an auth URL');
+          return;
+        }
+
+        toast.error('Please generate a token first');
+        return;
+      }
+
+      // If auth type is curl, check if URL is parsed
+      if (data.auth.type === 'curl') {
+        if (!data.auth.url || data.auth.url.trim() === '') {
+          toast.error('Please parse a cURL command first');
+          return;
+        }
+
+        // If token is found in the parsed cURL, use it
+        if (token) {
+          console.log('Token found in parsed cURL, proceeding to next step');
+          const courier = await createCourier(data);
+          onComplete(token);
+          return;
+        }
+
+        // If no token is found but URL is parsed, proceed anyway
+        console.log('No token found in parsed cURL, proceeding to next step');
         const courier = await createCourier(data);
         onComplete('');
         return;
@@ -59,6 +101,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
 
       // If token is already generated, proceed to next step
       if (tokenGenerated && token) {
+        console.log('Token already generated, proceeding to next step');
         // Create courier in database
         const courier = await createCourier(data);
         onComplete(token);
@@ -66,17 +109,24 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       }
 
       // Otherwise, show error
-      toast.error('Please generate a token first');
+      toast.error('Please complete the authentication setup');
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast.error('Failed to proceed to next step');
+      toast.error('Failed to proceed to next step: ' + error.message);
     }
   };
 
   // Handle curl parsing
   const handleCurlParse = (curlCommand) => {
     try {
+      console.log('Parsing cURL command:', curlCommand);
+      if (!curlCommand || curlCommand.trim() === '') {
+        toast.error('Please enter a cURL command');
+        return;
+      }
+
       const parsed = parseCurl(curlCommand);
+      console.log('Parsed cURL result:', parsed);
 
       // Update form values with parsed data
       setValue('auth.method', parsed.method);
@@ -107,7 +157,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       toast.success('cURL command parsed successfully');
     } catch (error) {
       console.error('Error parsing cURL command:', error);
-      toast.error('Failed to parse cURL command');
+      toast.error('Failed to parse cURL command: ' + error.message);
     }
   };
 
@@ -179,7 +229,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Courier Name */}
+          {/* Courier Name - always show for now */}
           <FormField
             control={control}
             name="courier_name"
@@ -391,6 +441,81 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
               >
                 Parse cURL Command
               </Button>
+
+              {/* Parsed Results */}
+              {watch('auth.url') && (
+                <div className="mt-4 space-y-4">
+                  <h3 className="text-md font-medium">Parsed Results</h3>
+
+                  {/* URL */}
+                  <FormField
+                    control={control}
+                    name="auth.url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>API URL</FormLabel>
+                        <FormControl>
+                          <Input readOnly {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Method */}
+                  <FormField
+                    control={control}
+                    name="auth.method"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Method</FormLabel>
+                        <FormControl>
+                          <Input readOnly {...field} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Headers */}
+                  <FormField
+                    control={control}
+                    name="auth.headers"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Headers</FormLabel>
+                        <FormControl>
+                          <KeyValueEditor
+                            value={field.value || []}
+                            onChange={field.onChange}
+                            keyPlaceholder="Header name"
+                            valuePlaceholder="Header value"
+                            readOnly
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Body */}
+                  {watch('auth.method') === 'POST' && (
+                    <FormField
+                      control={control}
+                      name="auth.body"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Request Body</FormLabel>
+                          <FormControl>
+                            <JsonEditor
+                              value={field.value || {}}
+                              onChange={field.onChange}
+                              readOnly
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           )}
 

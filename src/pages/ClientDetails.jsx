@@ -296,61 +296,6 @@ const ClientDetails = () => {
         <h2 className="text-xl font-semibold">Couriers</h2>
 
         <div className="flex space-x-2">
-          {availableCouriers.length > 0 && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Link Existing Courier
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Link Existing Courier to {client.name}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label htmlFor="courier-select" className="text-sm font-medium">
-                        Select Courier
-                      </label>
-                      <Select
-                        value={selectedCourier}
-                        onValueChange={setSelectedCourier}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a courier" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCouriers.map((courier) => (
-                            <SelectItem key={courier.id} value={courier.id}>
-                              {courier.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleAddCourier}
-                    disabled={addingCourier || !selectedCourier}
-                  >
-                    {addingCourier ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Linking...
-                      </>
-                    ) : (
-                      'Link Courier'
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
-
           {/* Add Available Couriers Dialog */}
           <Button
             variant="outline"
@@ -372,15 +317,6 @@ const ClientDetails = () => {
               No available couriers found. Use "Add Available Couriers" to fetch couriers first.
             </div>
           )}
-
-          <Button
-            onClick={() => navigate(`/client/${clientId}/add-courier`)}
-            disabled={availableCouriers.length === 0}
-            title={availableCouriers.length === 0 ? "No available couriers to add" : "Add a new courier"}
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Courier
-          </Button>
         </div>
       </div>
 
@@ -424,29 +360,15 @@ const ClientDetails = () => {
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Couriers Found</h3>
-          <p className="text-gray-500 mb-4">Add a courier to this client to get started.</p>
+          <p className="text-gray-500 mb-4">Add available couriers to this client to get started.</p>
           <div className="flex flex-col items-center space-y-4">
             <div className="flex justify-center space-x-4">
-              {availableCouriers.length > 0 && (
-                <Button onClick={() => setDialogOpen(true)} variant="outline">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Link Existing Courier
-                </Button>
-              )}
               <Button
                 variant="outline"
                 onClick={() => setAddCouriersDialogOpen(true)}
               >
                 <Server className="mr-2 h-4 w-4" />
                 Add Available Couriers
-              </Button>
-              <Button
-                onClick={() => navigate(`/client/${clientId}/add-courier`)}
-                disabled={availableCouriers.length === 0}
-                title={availableCouriers.length === 0 ? "No available couriers to add" : "Add a new courier"}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add New Courier
               </Button>
             </div>
 
