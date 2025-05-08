@@ -52,7 +52,9 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
   // Parse CSV to array of objects
   const parseCsv = (csvContent) => {
     // Split by lines and filter out empty lines
-    const lines = csvContent.split(/\\r?\\n/).filter(line => line.trim());
+    // Fix the incorrect escape sequence in the regex
+    const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+    console.log('Original CSV content:', csvContent);
 
     console.log('CSV lines:', lines);
 
@@ -60,10 +62,9 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
       throw new Error('CSV is empty');
     }
 
-    // Parse header row
-    const headerRow = lines[0].split(',').map(header =>
-      header.trim().replace(/^["'](.*)["']$/, '$1') // Remove quotes if present
-    );
+    // Parse header row using the same parsing function as data rows
+    // This ensures consistent handling of quotes and special characters
+    const headerRow = parseCSVLine(lines[0]);
 
     console.log('CSV headers:', headerRow);
 
@@ -152,6 +153,14 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
 
   // Parse a CSV line handling quoted values with commas
   const parseCSVLine = (line) => {
+    console.log('Parsing CSV line:', line);
+
+    // Handle empty line
+    if (!line || !line.trim()) {
+      console.log('Empty line detected');
+      return [];
+    }
+
     const result = [];
     let current = '';
     let inQuotes = false;
@@ -162,24 +171,37 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
       if (char === '"' && (i === 0 || line[i-1] !== '\\')) {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
-        result.push(current.trim().replace(/^["'](.*)["']$/, '$1'));
+        // Process the current field
+        const processedValue = current.trim().replace(/^["'](.*)["']$/, '$1');
+        console.log(`Field value: "${processedValue}"`);
+        result.push(processedValue);
         current = '';
       } else {
         current += char;
       }
     }
 
-    result.push(current.trim().replace(/^["'](.*)["']$/, '$1'));
+    // Add the last field
+    const lastValue = current.trim().replace(/^["'](.*)["']$/, '$1');
+    console.log(`Last field value: "${lastValue}"`);
+    result.push(lastValue);
+
+    console.log('Parsed line result:', result);
     return result;
   };
 
   // Validate CSV content
   const validateCsv = (content) => {
     try {
+      console.log('Starting CSV validation');
+      console.log('CSV content type:', typeof content);
+      console.log('CSV content length:', content.length);
+
       // Parse the CSV
-      const { data } = parseCsv(content);
+      const { headers, data } = parseCsv(content);
 
       // Debug: Log the parsed data to see what we're working with
+      console.log('CSV Headers:', headers);
       console.log('Parsed CSV data:', data);
 
       if (data.length === 0) {
