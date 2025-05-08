@@ -291,6 +291,26 @@ const makeCourierApiCall = async (requestConfig) => {
       }
     }
 
+    // Special handling for FreightTiger API
+    if ((requestConfig.url && requestConfig.url.includes('freighttiger.com')) ||
+        requestConfig.isFreightTigerApi) {
+      console.log('Detected FreightTiger API, adding special handling');
+
+      // Check if we have credentials in environment variables
+      const ftToken = process.env.FREIGHTTIGER_TOKEN;
+
+      // If we don't have an Authorization header but have a token in env vars, use it
+      if (!headers['authorization'] && ftToken) {
+        console.log('Using FreightTiger token from environment variables');
+        headers['authorization'] = `Bearer ${ftToken}`;
+      }
+
+      // Add special headers for FreightTiger if needed
+      if (!headers['content-type']) {
+        headers['content-type'] = 'application/json';
+      }
+    }
+
     // Ensure URL is properly formatted
     let url = requestConfig.url;
     if (url) {
@@ -403,22 +423,41 @@ const makeCourierApiCall = async (requestConfig) => {
 
       // Add pagination parameters if they exist
       if (requestConfig.filterOptions.limit) {
+        // Convert to number if it's a string
+        const limit = typeof requestConfig.filterOptions.limit === 'string'
+          ? parseInt(requestConfig.filterOptions.limit, 10)
+          : requestConfig.filterOptions.limit;
+
         // Different APIs use different parameter names for pagination
         // Try common ones
-        filterParams.append('limit', requestConfig.filterOptions.limit);
-        filterParams.append('per_page', requestConfig.filterOptions.limit);
-        filterParams.append('pageSize', requestConfig.filterOptions.limit);
+        filterParams.append('limit', limit);
+        filterParams.append('per_page', limit);
+        filterParams.append('pageSize', limit);
       }
 
       // Add size parameter if it exists (required by some APIs along with page)
       if (requestConfig.filterOptions.size) {
-        filterParams.append('size', requestConfig.filterOptions.size);
+        // Convert to number if it's a string
+        const size = typeof requestConfig.filterOptions.size === 'string'
+          ? parseInt(requestConfig.filterOptions.size, 10)
+          : requestConfig.filterOptions.size;
+
+        filterParams.append('size', size);
       }
 
       if (requestConfig.filterOptions.page) {
-        filterParams.append('page', requestConfig.filterOptions.page);
-        filterParams.append('offset', (requestConfig.filterOptions.page - 1) *
-                                     (requestConfig.filterOptions.limit || 10));
+        // Convert to number if it's a string
+        const page = typeof requestConfig.filterOptions.page === 'string'
+          ? parseInt(requestConfig.filterOptions.page, 10)
+          : requestConfig.filterOptions.page;
+
+        filterParams.append('page', page);
+
+        const limit = typeof requestConfig.filterOptions.limit === 'string'
+          ? parseInt(requestConfig.filterOptions.limit, 10)
+          : (requestConfig.filterOptions.limit || 10);
+
+        filterParams.append('offset', (page - 1) * limit);
       }
 
       // Add fields parameter if it exists

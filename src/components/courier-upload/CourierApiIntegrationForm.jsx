@@ -108,6 +108,14 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
             variant: "warning",
             duration: 5000
           });
+
+          // For FreightTiger, we'll add a default auth type to help with proxy handling
+          if (!requestConfig.auth) {
+            requestConfig.auth = { type: 'bearer', token: '' };
+          }
+
+          // Add a special flag to indicate we're using FreightTiger API
+          requestConfig.isFreightTigerApi = true;
         }
       }
 
