@@ -98,6 +98,7 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
         method: parsed.method,
         url: parsed.url,
         headers: parsed.headers || [],
+        queryParams: parsed.queryParams || [],
         body: parsed.body || {}
       };
 
@@ -117,9 +118,24 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
 
       const api = watch(`apis.${index}`);
 
+      // Process URL and query parameters
+      let url = api.url;
+      const queryParams = api.queryParams || [];
+
+      // If we have query parameters, append them to the URL
+      if (queryParams.length > 0) {
+        // Check if URL already has query parameters
+        const hasQueryParams = url.includes('?');
+        const queryString = queryParams
+          .map(param => `${encodeURIComponent(param.key)}=${encodeURIComponent(param.value)}`)
+          .join('&');
+
+        url = hasQueryParams ? `${url}&${queryString}` : `${url}?${queryString}`;
+      }
+
       // Create request config
       const requestConfig = {
-        url: api.url,
+        url: url,
         method: api.method,
         apiIntent: 'test_api',
         headers: api.headers || [],
@@ -332,6 +348,29 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
                               valuePlaceholder="Header value"
                             />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Query Parameters */}
+                    <FormField
+                      control={control}
+                      name={`apis.${index}.queryParams`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Query Parameters</FormLabel>
+                          <FormControl>
+                            <KeyValueEditor
+                              value={field.value || []}
+                              onChange={field.onChange}
+                              keyPlaceholder="Parameter name"
+                              valuePlaceholder="Parameter value"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Query parameters will be appended to the URL
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

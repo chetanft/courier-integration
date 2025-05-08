@@ -136,6 +136,11 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         setValue('auth.headers', parsed.headers);
       }
 
+      // Set query parameters
+      if (parsed.queryParams && parsed.queryParams.length > 0) {
+        setValue('auth.queryParams', parsed.queryParams);
+      }
+
       // Set body
       if (parsed.body) {
         setValue('auth.body', parsed.body);
@@ -168,9 +173,24 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       const formData = watch();
       const { auth } = formData;
 
+      // Process URL and query parameters
+      let url = auth.url;
+      const queryParams = auth.queryParams || [];
+
+      // If we have query parameters, append them to the URL
+      if (queryParams.length > 0) {
+        // Check if URL already has query parameters
+        const hasQueryParams = url.includes('?');
+        const queryString = queryParams
+          .map(param => `${encodeURIComponent(param.key)}=${encodeURIComponent(param.value)}`)
+          .join('&');
+
+        url = hasQueryParams ? `${url}&${queryString}` : `${url}?${queryString}`;
+      }
+
       // Create request config
       const requestConfig = {
-        url: auth.url,
+        url: url,
         method: auth.method,
         apiIntent: 'generate_auth_token',
         headers: auth.headers,
@@ -491,6 +511,29 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                                 <div key={i} className="flex items-center space-x-2 mb-2">
                                   <div className="font-medium text-sm">{header.key}:</div>
                                   <div className="text-sm text-gray-600">{header.value}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Query Parameters */}
+                  {watch('auth.queryParams') && watch('auth.queryParams').length > 0 && (
+                    <FormField
+                      control={control}
+                      name="auth.queryParams"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Query Parameters</FormLabel>
+                          <FormControl>
+                            <div className="border rounded-md p-2 bg-white">
+                              {field.value.map((param, i) => (
+                                <div key={i} className="flex items-center space-x-2 mb-2">
+                                  <div className="font-medium text-sm">{param.key}=</div>
+                                  <div className="text-sm text-gray-600">{param.value}</div>
                                 </div>
                               ))}
                             </div>

@@ -24,6 +24,7 @@ export const parseCurl = (curlString) => {
     url: '',
     headers: [],
     body: null,
+    queryParams: [],
     isFormUrlEncoded: false,
     auth: {
       type: 'none',
@@ -279,6 +280,24 @@ export const parseCurl = (curlString) => {
 
     // Move to next part if we didn't handle this one
     i++;
+  }
+
+  // Extract query parameters from URL
+  try {
+    if (request.url && request.url.includes('?')) {
+      const urlObj = new URL(request.url.startsWith('http') ? request.url : `https://${request.url}`);
+      const searchParams = urlObj.searchParams;
+
+      // Convert URLSearchParams to array of key-value pairs
+      request.queryParams = Array.from(searchParams.entries()).map(([key, value]) => ({
+        key,
+        value
+      }));
+
+      console.log('Extracted query parameters:', request.queryParams);
+    }
+  } catch (error) {
+    console.error('Error extracting query parameters:', error);
   }
 
   // Create a sanitized version of the request for logging (without sensitive data)
