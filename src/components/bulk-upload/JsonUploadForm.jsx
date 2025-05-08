@@ -85,10 +85,10 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
       const clients = clientsArray.map((client, index) => {
         console.log(`Processing client ${index}:`, client);
 
-        // Extract client name from various possible fields
-        const name = client.name || client.client_name ||
-                    client.company_id || client.company_name ||
-                    client['Company ID'] || client['Company Name'];
+        // Extract client name from various possible fields - prioritize company_name over company_id
+        const name = client.company_name || client['Company Name'] ||
+                    client.name || client.client_name ||
+                    client.company_id || client['Company ID'];
 
         console.log(`Client ${index} name:`, name);
 
@@ -306,7 +306,7 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
                 className="mt-1"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Upload a JSON file containing client data
+                Upload a JSON file containing client data. Company Name is preferred over Company ID.
               </p>
             </div>
 
@@ -322,9 +322,12 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
                 id="json-text"
                 value={jsonText}
                 onChange={handleJsonTextChange}
-                placeholder={`// Format 1: Array of clients\n[\n  {\n    "Company ID": "COM-123",\n    "Company Name": "Client 1",\n    "Old Company ID": "OLD123",\n    "Display ID": "DISP123",\n    "Types": "CNR"\n  }\n]\n\n// Format 2: Object with clients array\n{\n  "clients": [\n    {\n      "Company ID": "COM-123",\n      "Company Name": "Client 1"\n    }\n  ]\n}`}
+                placeholder={`// Format 1: Array of clients\n[\n  {\n    "Company Name": "Client 1",\n    "Company ID": "COM-123",\n    "Old Company ID": "OLD123",\n    "Display ID": "DISP123",\n    "Types": "CNR"\n  }\n]\n\n// Format 2: Object with clients array\n{\n  "clients": [\n    {\n      "Company Name": "Client 1",\n      "Company ID": "COM-123"\n    }\n  ]\n}`}
                 className="font-mono text-sm mt-1 min-h-[200px]"
               />
+              <p className="text-sm text-gray-500 mt-1">
+                JSON must have "Company Name" or "Company ID" fields (Company Name is preferred).
+              </p>
             </div>
 
             {validationErrors.length > 0 && (
