@@ -19,6 +19,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
+  const [paginationProgress, setPaginationProgress] = useState(null);
 
   // Initialize form with react-hook-form
   const formMethods = useForm({
@@ -44,7 +45,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
   // State for API errors
   const [apiError, setApiError] = useState(null);
 
-  // Test the API connection
+  // Test the API connection with pagination support
   const testApiConnection = async () => {
     const formData = formMethods.getValues();
 
@@ -60,8 +61,8 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
     setApiError(null);
 
     try {
-      // Create request config from form data
-      const requestConfig = {
+      // Create base request config from form data
+      const baseRequestConfig = {
         url: formData.url.trim(),
         method: formData.method || 'GET',
         headers: formData.headers || [],
@@ -80,32 +81,45 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
 
       // Add authentication if provided
       if (formData.auth && formData.auth.type !== 'none') {
-        requestConfig.auth = {
+        baseRequestConfig.auth = {
           type: formData.auth.type
         };
 
         // Add auth details based on type
         switch (formData.auth.type) {
           case 'basic':
-            requestConfig.auth.username = formData.auth.username;
-            requestConfig.auth.password = formData.auth.password;
+            baseRequestConfig.auth.username = formData.auth.username;
+            baseRequestConfig.auth.password = formData.auth.password;
             break;
           case 'bearer':
           case 'jwt':
-            requestConfig.auth.token = formData.auth.token;
+            baseRequestConfig.auth.token = formData.auth.token;
             break;
           case 'apikey':
-            requestConfig.auth.apiKey = formData.auth.apiKey;
-            requestConfig.auth.apiKeyName = formData.auth.apiKeyName;
-            requestConfig.auth.apiKeyLocation = formData.auth.apiKeyLocation;
+            baseRequestConfig.auth.apiKey = formData.auth.apiKey;
+            baseRequestConfig.auth.apiKeyName = formData.auth.apiKeyName;
+            baseRequestConfig.auth.apiKeyLocation = formData.auth.apiKeyLocation;
             break;
           default:
             break;
         }
       }
 
-      // Make the API request
-      const response = await testCourierApi(requestConfig);
+      // Make the initial API request
+      let currentPage = 1;
+      const maxPages = 10; // Limit to 10 pages to prevent infinite loops
+      let allClients = [];
+
+      // Initialize pagination progress
+      setPaginationProgress({
+        currentPage: 1,
+        totalPages: '?',
+        status: 'Fetching first page...'
+      });
+
+      // Make the first API request
+      const firstRequestConfig = { ...baseRequestConfig };
+      const response = await testCourierApi(firstRequestConfig);
 
       // Check if the response contains an error
       if (response.error) {
@@ -128,17 +142,100 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         // Clear any previous errors
         setApiError(null);
 
+        // Set the first response for display
         setApiResponse(response);
 
-        // Try to extract clients from the response
+        // Extract clients from the first page
         const extractedClients = extractClientsFromResponse(response);
+        allClients = [...extractedClients];
 
-        if (extractedClients.length === 0) {
+        // Check if there are more pages
+        let hasMore = hasMorePages(response, currentPage);
+
+        // Try to determine total pages from the response
+        let totalPages = maxPages;
+        if (response.pagination?.total_pages) {
+          totalPages = response.pagination.total_pages;
+        } else if (response.pagination?.totalPages) {
+          totalPages = response.pagination.totalPages;
+        } else if (response.total_pages) {
+          totalPages = response.total_pages;
+        } else if (response.totalPages) {
+          totalPages = response.totalPages;
+        }
+
+        // Update pagination progress with total pages if available
+        setPaginationProgress({
+          currentPage: 1,
+          totalPages: totalPages !== maxPages ? totalPages : '?',
+          status: hasMore ? 'More pages available' : 'Complete'
+        });
+
+        // Fetch additional pages if available
+        while (hasMore && currentPage < maxPages) {
+          currentPage++;
+          console.log(`Fetching page ${currentPage}...`);
+
+          // Update progress message and pagination progress
+          setProgressMessage(`Fetching page ${currentPage}...`);
+          setPaginationProgress({
+            currentPage,
+            totalPages: totalPages !== maxPages ? totalPages : '?',
+            status: `Fetching page ${currentPage}...`
+          });
+
+          // Create a new request config for the next page
+          const nextPageConfig = {
+            ...baseRequestConfig,
+            filterOptions: {
+              ...baseRequestConfig.filterOptions,
+              page: currentPage
+            }
+          };
+
+          try {
+            // Make the API request for the next page
+            const nextPageResponse = await testCourierApi(nextPageConfig);
+
+            // Check if the response contains an error
+            if (nextPageResponse.error) {
+              console.error(`Error fetching page ${currentPage}:`, nextPageResponse);
+              break; // Stop pagination on error
+            }
+
+            // Extract clients from this page
+            const pageClients = extractClientsFromResponse(nextPageResponse);
+
+            // Add to the total clients
+            allClients = [...allClients, ...pageClients];
+
+            // Check if there are more pages
+            hasMore = hasMorePages(nextPageResponse, currentPage);
+
+            // If no more clients were found, stop pagination
+            if (pageClients.length === 0) {
+              hasMore = false;
+            }
+          } catch (pageError) {
+            console.error(`Error fetching page ${currentPage}:`, pageError);
+            break; // Stop pagination on error
+          }
+        }
+
+        // Update pagination progress to complete
+        setPaginationProgress({
+          currentPage,
+          totalPages: totalPages !== maxPages ? totalPages : currentPage,
+          status: 'Complete'
+        });
+
+        // Set the final results
+        if (allClients.length === 0) {
           setValidationErrors(['No clients found in the API response']);
         } else {
           setParsedClients({
-            clients: extractedClients,
-            count: extractedClients.length
+            clients: allClients,
+            count: allClients.length
           });
         }
       }
@@ -152,7 +249,64 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
       }
     } finally {
       setIsTesting(false);
+      // Reset pagination progress after a short delay to show completion
+      setTimeout(() => {
+        setPaginationProgress(null);
+      }, 2000);
     }
+  };
+
+  // Check if there are more pages available in the response
+  const hasMorePages = (data, currentPage) => {
+    // Common pagination metadata patterns
+    if (data.pagination) {
+      // Check if there's a total_pages or totalPages property
+      if (data.pagination.total_pages && currentPage < data.pagination.total_pages) {
+        return true;
+      }
+      if (data.pagination.totalPages && currentPage < data.pagination.totalPages) {
+        return true;
+      }
+      // Check if there's a next_page or hasNext property
+      if (data.pagination.next_page) {
+        return true;
+      }
+      if (data.pagination.hasNext === true) {
+        return true;
+      }
+    }
+
+    // Check for metadata at the root level
+    if (data.total_pages && currentPage < data.total_pages) {
+      return true;
+    }
+    if (data.totalPages && currentPage < data.totalPages) {
+      return true;
+    }
+    if (data.hasNext === true) {
+      return true;
+    }
+    if (data.next_page) {
+      return true;
+    }
+
+    // Check if there's a next_page_url
+    if (data.next_page_url) {
+      return true;
+    }
+
+    // If we have a content array and it's the same size as our page size, assume there might be more
+    const pageSize = formMethods.getValues().filterOptions?.size || 100;
+    if (Array.isArray(data.content) && data.content.length === pageSize) {
+      return true;
+    }
+
+    // If we have an array response and it's the same size as our page size, assume there might be more
+    if (Array.isArray(data) && data.length === pageSize) {
+      return true;
+    }
+
+    return false;
   };
 
   // Extract clients from API response
@@ -186,6 +340,13 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
       // Check if the response has a results array
       else if (data.results && Array.isArray(data.results)) {
         clients = data.results.map(item => ({
+          name: extractClientName(item) || 'Unknown Client',
+          api_url: formMethods.getValues().url.trim()
+        }));
+      }
+      // Check if the response has a content array (common in Spring Boot APIs)
+      else if (data.content && Array.isArray(data.content)) {
+        clients = data.content.map(item => ({
           name: extractClientName(item) || 'Unknown Client',
           api_url: formMethods.getValues().url.trim()
         }));
@@ -379,13 +540,39 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
               {isTesting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Testing...
+                  {paginationProgress ?
+                    `Fetching page ${paginationProgress.currentPage} of ${paginationProgress.totalPages}` :
+                    'Testing...'}
                 </>
               ) : (
                 'Test API Connection'
               )}
             </Button>
           </div>
+
+          {/* Pagination Progress */}
+          {isTesting && paginationProgress && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center mb-2">
+                <Info className="h-4 w-4 text-blue-500 mr-2" />
+                <h3 className="text-sm font-medium text-blue-800">Fetching Multiple Pages</h3>
+              </div>
+              <div className="flex items-center justify-between text-sm text-blue-700">
+                <span>Page {paginationProgress.currentPage} of {paginationProgress.totalPages}</span>
+                <span>{paginationProgress.status}</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: paginationProgress.totalPages !== '?' ?
+                      `${(paginationProgress.currentPage / paginationProgress.totalPages) * 100}%` :
+                      `${(paginationProgress.currentPage / 10) * 100}%`
+                  }}
+                ></div>
+              </div>
+            </div>
+          )}
 
           {/* Network errors */}
           {apiError && (apiError.status === 502 || apiError.isNetworkError) && (
