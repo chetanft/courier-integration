@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
@@ -37,6 +37,10 @@ import { ToastContainer } from '../components/ui/toast';
 import { useToast } from '../components/ui/use-toast';
 
 const AddCourierRevamped = () => {
+  // Get search params to check if courier name is provided
+  const [searchParams] = useSearchParams();
+  const courierParam = searchParams.get('courier');
+
   // State variables
   const [loading, setLoading] = useState(false);
   const [apiResponse, setApiResponse] = useState(null);
@@ -57,10 +61,10 @@ const AddCourierRevamped = () => {
     { label: "Map Fields", description: "Map fields & generate JS" }
   ];
 
-  // Initialize form
+  // Initialize form with courier name from query parameter if available
   const formMethods = useForm({
     defaultValues: {
-      courier_name: '',
+      courier_name: courierParam || '',
       method: 'GET',
       url: '',
       apiIntent: 'track_shipment',
