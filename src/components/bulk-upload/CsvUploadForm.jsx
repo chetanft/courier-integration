@@ -54,6 +54,8 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
     // Split by lines and filter out empty lines
     const lines = csvContent.split(/\\r?\\n/).filter(line => line.trim());
 
+    console.log('CSV lines:', lines);
+
     if (lines.length === 0) {
       throw new Error('CSV is empty');
     }
@@ -63,8 +65,25 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
       header.trim().replace(/^["'](.*)["']$/, '$1') // Remove quotes if present
     );
 
-    if (!headerRow.includes('name') && !headerRow.includes('client_name') &&
-        !headerRow.includes('Company ID') && !headerRow.includes('Company Name')) {
+    console.log('CSV headers:', headerRow);
+
+    // Check for BOM character in the first header
+    if (headerRow[0] && headerRow[0].charCodeAt(0) === 65279) {
+      console.warn('BOM character detected in CSV, removing it');
+      headerRow[0] = headerRow[0].slice(1);
+    }
+
+    // Check for valid headers with case-insensitive comparison
+    const validHeaderFound = headerRow.some(header => {
+      const lowerHeader = header.toLowerCase();
+      return lowerHeader === 'name' ||
+             lowerHeader === 'client_name' ||
+             lowerHeader === 'company id' ||
+             lowerHeader === 'company name';
+    });
+
+    if (!validHeaderFound) {
+      console.error('No valid header found in:', headerRow);
       throw new Error('CSV must have a "Company ID" or "Company Name" column');
     }
 
@@ -79,7 +98,14 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
 
       const row = {};
       headerRow.forEach((header, index) => {
+        // Store the value with the original header name
         row[header] = values[index];
+
+        // Also store with normalized header name for case-insensitive access
+        const normalizedHeader = header.toLowerCase().replace(/\s+/g, '_');
+        if (normalizedHeader !== header) {
+          row[normalizedHeader] = values[index];
+        }
       });
 
       data.push(row);
@@ -117,11 +143,27 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
       // Parse the CSV
       const { data } = parseCsv(content);
 
+      // Debug: Log the parsed data to see what we're working with
+      console.log('Parsed CSV data:', data);
+
+      if (data.length === 0) {
+        console.warn('CSV parsed successfully but contains no data rows');
+      }
+
       // Validate each client
       const errors = [];
       const clients = data.map((row, index) => {
+        // Debug: Log each row to see what fields are available
+        console.log(`Row ${index + 1}:`, row);
+
         // Get the client name from the appropriate column
-        const name = row.name || row.client_name || row['Company ID'] || row['Company Name'];
+        // Check for case variations and trim whitespace
+        const name = row.name || row.client_name ||
+                    row.company_id || row.company_name ||
+                    row['Company ID'] || row['company id'] || row['COMPANY ID'] ||
+                    row['Company Name'] || row['company name'] || row['COMPANY NAME'];
+
+        console.log(`Row ${index + 1} name:`, name);
 
         if (!name) {
           errors.push(`Client at row ${index + 2} is missing a name`);
@@ -142,17 +184,22 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
           name: normalizedName
         };
 
-        // Add new fields if present
-        if (row['Old Company ID']) {
-          client.old_company_id = row['Old Company ID'];
+        console.log(`Creating client object with name: ${normalizedName}`);
+
+        // Add new fields if present - check multiple variations of field names
+        if (row['Old Company ID'] || row.old_company_id) {
+          client.old_company_id = row['Old Company ID'] || row.old_company_id;
+          console.log(`Added old_company_id: ${client.old_company_id}`);
         }
 
-        if (row['Display ID']) {
-          client.display_id = row['Display ID'];
+        if (row['Display ID'] || row.display_id) {
+          client.display_id = row['Display ID'] || row.display_id;
+          console.log(`Added display_id: ${client.display_id}`);
         }
 
-        if (row['Types']) {
-          client.types = row['Types'];
+        if (row['Types'] || row.types) {
+          client.types = row['Types'] || row.types;
+          console.log(`Added types: ${client.types}`);
         }
 
         // Add API URL if present
@@ -182,14 +229,20 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
       const names = clients.map(c => c.name);
       const uniqueNames = [...new Set(names)];
 
+      console.log('Final valid clients:', clients);
+      console.log(`Found ${clients.length} valid clients`);
+
       if (names.length !== uniqueNames.length) {
+        console.warn('Duplicate client names detected');
         errors.push('There are duplicate client names in the CSV');
       }
 
       if (errors.length > 0) {
+        console.error('Validation errors:', errors);
         setValidationErrors(errors);
         setParsedData(null);
       } else {
+        console.log('CSV validation successful');
         setValidationErrors([]);
         setParsedData({
           clients,
