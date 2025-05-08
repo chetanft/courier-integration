@@ -101,6 +101,19 @@ export const addClient = async (clientData) => {
       }
     }
 
+    // Add new fields if provided
+    const additionalFields = ['company_id', 'company_name', 'old_company_id', 'display_id', 'types'];
+    additionalFields.forEach(field => {
+      if (clientData[field]) {
+        try {
+          clientObject[field] = clientData[field];
+        } catch (fieldError) {
+          // If the field doesn't exist in the database, log the error but continue
+          console.warn(`Could not add ${field} field, it might not exist in the database yet:`, fieldError);
+        }
+      }
+    });
+
     // Insert the client
     const { data, error } = await supabase
       .from('clients')
@@ -392,6 +405,12 @@ export const addClientsInBulk = async (clients) => {
       request_config: client.request_config ?
         (typeof client.request_config === 'string' ? client.request_config : JSON.stringify(client.request_config))
         : null,
+      // Add new fields if they exist
+      company_id: client.company_id || null,
+      company_name: client.company_name || null,
+      old_company_id: client.old_company_id || null,
+      display_id: client.display_id || null,
+      types: client.types || null,
       created_at: new Date().toISOString()
     }));
 

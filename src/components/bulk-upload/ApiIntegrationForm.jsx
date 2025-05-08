@@ -75,7 +75,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
           page: 1,    // Start with the first page
           size: 100,  // Add size parameter to work with APIs that require it
           // Add fields to extract if the API supports field filtering
-          fields: 'id,name,company_id,company_name' // Common fields for clients
+          fields: 'id,name,company_id,company_name,old_company_id,display_id,types' // All client fields
         }
       };
 
@@ -309,6 +309,38 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
     return false;
   };
 
+  // Extract additional fields from an item
+  const extractAdditionalFields = (item) => {
+    const fields = {};
+
+    // Extract Company ID
+    if (item.company_id || item['Company ID'] || item.companyId) {
+      fields.company_id = item.company_id || item['Company ID'] || item.companyId;
+    }
+
+    // Extract Company Name
+    if (item.company_name || item['Company Name'] || item.companyName) {
+      fields.company_name = item.company_name || item['Company Name'] || item.companyName;
+    }
+
+    // Extract Old Company ID
+    if (item.old_company_id || item['Old Company ID'] || item.oldCompanyId) {
+      fields.old_company_id = item.old_company_id || item['Old Company ID'] || item.oldCompanyId;
+    }
+
+    // Extract Display ID
+    if (item.display_id || item['Display ID'] || item.displayId) {
+      fields.display_id = item.display_id || item['Display ID'] || item.displayId;
+    }
+
+    // Extract Types
+    if (item.types || item['Types'] || item.type) {
+      fields.types = item.types || item['Types'] || item.type;
+    }
+
+    return fields;
+  };
+
   // Extract clients from API response
   const extractClientsFromResponse = (data) => {
     if (!data) return [];
@@ -320,35 +352,40 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
       if (Array.isArray(data)) {
         clients = data.map(item => ({
           name: extractClientName(item) || 'Unknown Client',
-          api_url: formMethods.getValues().url.trim()
+          api_url: formMethods.getValues().url.trim(),
+          ...extractAdditionalFields(item)
         }));
       }
       // Check if the response has a clients array
       else if (data.clients && Array.isArray(data.clients)) {
         clients = data.clients.map(item => ({
           name: extractClientName(item) || 'Unknown Client',
-          api_url: formMethods.getValues().url.trim()
+          api_url: formMethods.getValues().url.trim(),
+          ...extractAdditionalFields(item)
         }));
       }
       // Check if the response has a data array
       else if (data.data && Array.isArray(data.data)) {
         clients = data.data.map(item => ({
           name: extractClientName(item) || 'Unknown Client',
-          api_url: formMethods.getValues().url.trim()
+          api_url: formMethods.getValues().url.trim(),
+          ...extractAdditionalFields(item)
         }));
       }
       // Check if the response has a results array
       else if (data.results && Array.isArray(data.results)) {
         clients = data.results.map(item => ({
           name: extractClientName(item) || 'Unknown Client',
-          api_url: formMethods.getValues().url.trim()
+          api_url: formMethods.getValues().url.trim(),
+          ...extractAdditionalFields(item)
         }));
       }
       // Check if the response has a content array (common in Spring Boot APIs)
       else if (data.content && Array.isArray(data.content)) {
         clients = data.content.map(item => ({
           name: extractClientName(item) || 'Unknown Client',
-          api_url: formMethods.getValues().url.trim()
+          api_url: formMethods.getValues().url.trim(),
+          ...extractAdditionalFields(item)
         }));
       }
       // Try to extract from any array property in the response as a last resort
@@ -361,7 +398,8 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         if (arrayProps.length > 0) {
           clients = data[arrayProps[0]].map(item => ({
             name: extractClientName(item) || 'Unknown Client',
-            api_url: formMethods.getValues().url.trim()
+            api_url: formMethods.getValues().url.trim(),
+            ...extractAdditionalFields(item)
           }));
         }
       }
