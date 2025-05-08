@@ -73,14 +73,28 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
       headerRow[0] = headerRow[0].slice(1);
     }
 
-    // Check for valid headers with case-insensitive comparison
-    const validHeaderFound = headerRow.some(header => {
-      const lowerHeader = header.toLowerCase();
+    // Check for valid headers with case-insensitive comparison and handle spaces
+    let validHeaderFound = headerRow.some(header => {
+      const lowerHeader = header.toLowerCase().trim();
+      console.log(`Checking header: "${lowerHeader}"`);
       return lowerHeader === 'name' ||
              lowerHeader === 'client_name' ||
              lowerHeader === 'company id' ||
-             lowerHeader === 'company name';
+             lowerHeader === 'companyid' ||
+             lowerHeader === 'company name' ||
+             lowerHeader === 'companyname';
     });
+
+    // Special handling for your specific CSV format
+    if (!validHeaderFound && headerRow.length > 0) {
+      // Check if the first header might be "Company ID" with spaces
+      const firstHeader = headerRow[0].trim();
+      console.log(`First header: "${firstHeader}"`);
+      if (firstHeader.toLowerCase().includes('company') && firstHeader.toLowerCase().includes('id')) {
+        console.log('Found "Company ID" in the first header');
+        validHeaderFound = true;
+      }
+    }
 
     if (!validHeaderFound) {
       console.error('No valid header found in:', headerRow);
@@ -105,6 +119,28 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
         const normalizedHeader = header.toLowerCase().replace(/\s+/g, '_');
         if (normalizedHeader !== header) {
           row[normalizedHeader] = values[index];
+        }
+
+        // Special handling for your specific CSV format with spaces in headers
+        if (header.trim().toLowerCase() === 'company id') {
+          row['company_id'] = values[index];
+          console.log(`Mapped 'Company ID' to 'company_id': ${values[index]}`);
+        }
+        else if (header.trim().toLowerCase() === 'company name') {
+          row['company_name'] = values[index];
+          console.log(`Mapped 'Company Name' to 'company_name': ${values[index]}`);
+        }
+        else if (header.trim().toLowerCase() === 'old company id') {
+          row['old_company_id'] = values[index];
+          console.log(`Mapped 'Old Company ID' to 'old_company_id': ${values[index]}`);
+        }
+        else if (header.trim().toLowerCase() === 'display id') {
+          row['display_id'] = values[index];
+          console.log(`Mapped 'Display ID' to 'display_id': ${values[index]}`);
+        }
+        else if (header.trim().toLowerCase() === 'types') {
+          row['types'] = values[index];
+          console.log(`Mapped 'Types' to 'types': ${values[index]}`);
         }
       });
 
@@ -158,10 +194,36 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
 
         // Get the client name from the appropriate column
         // Check for case variations and trim whitespace
-        const name = row.name || row.client_name ||
-                    row.company_id || row.company_name ||
-                    row['Company ID'] || row['company id'] || row['COMPANY ID'] ||
-                    row['Company Name'] || row['company name'] || row['COMPANY NAME'];
+        let name = null;
+
+        // First try the normalized fields we created
+        if (row.company_id) {
+            name = row.company_id;
+            console.log(`Using company_id as name: ${name}`);
+        } else if (row.company_name) {
+            name = row.company_name;
+            console.log(`Using company_name as name: ${name}`);
+        } else if (row.name) {
+            name = row.name;
+            console.log(`Using name as name: ${name}`);
+        } else if (row.client_name) {
+            name = row.client_name;
+            console.log(`Using client_name as name: ${name}`);
+        }
+
+        // If still not found, try all possible variations with spaces
+        if (!name) {
+            // Try all possible variations of the field names
+            for (const key in row) {
+                console.log(`Checking key: ${key}`);
+                if (key.toLowerCase().includes('company') &&
+                    (key.toLowerCase().includes('id') || key.toLowerCase().includes('name'))) {
+                    name = row[key];
+                    console.log(`Found name in field ${key}: ${name}`);
+                    break;
+                }
+            }
+        }
 
         console.log(`Row ${index + 1} name:`, name);
 
