@@ -72,6 +72,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
           // If the API supports pagination, add pagination parameters
           limit: 100, // Limit to 100 items per page
           page: 1,    // Start with the first page
+          size: 100,  // Add size parameter to work with APIs that require it
           // Add fields to extract if the API supports field filtering
           fields: 'id,name,company_id,company_name' // Common fields for clients
         }

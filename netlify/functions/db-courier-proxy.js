@@ -410,6 +410,11 @@ const makeCourierApiCall = async (requestConfig) => {
         filterParams.append('pageSize', requestConfig.filterOptions.limit);
       }
 
+      // Add size parameter if it exists (required by some APIs along with page)
+      if (requestConfig.filterOptions.size) {
+        filterParams.append('size', requestConfig.filterOptions.size);
+      }
+
       if (requestConfig.filterOptions.page) {
         filterParams.append('page', requestConfig.filterOptions.page);
         filterParams.append('offset', (requestConfig.filterOptions.page - 1) *
