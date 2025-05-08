@@ -501,7 +501,7 @@ const ClientDetails = () => {
                       </p>
                     )}
 
-                    {/* FreightTiger fields */}
+                    {/* FreightTiger fields - only show if they exist */}
                     {courier.fteid && (
                       <p className="text-xs text-gray-500 truncate max-w-[200px]" title={courier.fteid}>
                         FT ID: {courier.fteid}
@@ -514,7 +514,7 @@ const ClientDetails = () => {
                       </p>
                     )}
 
-                    {courier.tags && courier.tags.length > 0 && (
+                    {courier.tags && Array.isArray(courier.tags) && courier.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {courier.tags.map((tag, index) => (
                           <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">

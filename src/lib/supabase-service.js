@@ -36,47 +36,50 @@ export const addCourier = async (courierData) => {
       created_at: new Date().toISOString()
     };
 
-    // Add FreightTiger specific fields if they exist
-    if (courierData.fteid) {
-      // Add all FreightTiger fields
-      courierInsertData.fteid = courierData.fteid;
-      courierInsertData.entity_type = courierData.entity_type;
-      courierInsertData.partner_type = courierData.partner_type;
-      courierInsertData.short_code = courierData.short_code;
-      courierInsertData.company_fteid = courierData.company_fteid;
-      courierInsertData.company_name = courierData.company_name;
-      courierInsertData.company_gstin = courierData.company_gstin;
-      courierInsertData.company_head_office = courierData.company_head_office;
-      courierInsertData.old_company_id = courierData.old_company_id;
-      courierInsertData.branch_fteid = courierData.branch_fteid;
-      courierInsertData.branch_name = courierData.branch_name;
-      courierInsertData.old_branch_id = courierData.old_branch_id;
-      courierInsertData.department_fteid = courierData.department_fteid;
-      courierInsertData.department_name = courierData.department_name;
-      courierInsertData.old_department_id = courierData.old_department_id;
-      courierInsertData.relation_types = courierData.relation_types;
-      courierInsertData.tags = courierData.tags;
-      courierInsertData.contact_user = courierData.contact_user;
-      courierInsertData.place_fteid = courierData.place_fteid;
-      courierInsertData.crm_type = courierData.crm_type;
-      courierInsertData.is_crm_supplier = courierData.is_crm_supplier;
-      courierInsertData.is_crm_transporter = courierData.is_crm_transporter;
-      courierInsertData.premium_from = courierData.premium_from;
-      courierInsertData.is_active = courierData.is_active !== undefined ? courierData.is_active : true;
-      courierInsertData.created_by = courierData.created_by;
-      courierInsertData.updated_by = courierData.updated_by;
-      courierInsertData.updated_at = courierData.updated_at || courierInsertData.created_at;
+    // Try to insert with just the basic fields first
+    try {
+      const { data, error } = await supabase
+        .from('couriers')
+        .insert(courierInsertData)
+        .select()
+        .single();
+
+      if (!error) {
+        console.log('Successfully added courier with basic fields:', data);
+        return data;
+      }
+
+      // If there's an error, it might be because of missing fields
+      console.warn('Error adding courier with basic fields:', error);
+    } catch (basicError) {
+      console.warn('Error in basic courier insert:', basicError);
+      // Continue to try with even more basic fields
     }
 
-    // Insert the courier data
-    const { data, error } = await supabase
-      .from('couriers')
-      .insert(courierInsertData)
-      .select()
-      .single();
+    // Try with minimal fields if the first attempt failed
+    try {
+      const minimalData = {
+        name: courierData.name,
+        created_at: new Date().toISOString()
+      };
 
-    if (error) throw error;
-    return data;
+      const { data, error } = await supabase
+        .from('couriers')
+        .insert(minimalData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding courier with minimal fields:', error);
+        throw error;
+      }
+
+      console.log('Successfully added courier with minimal fields:', data);
+      return data;
+    } catch (minimalError) {
+      console.error('Error in minimal courier insert:', minimalError);
+      handleApiError(minimalError, 'addCourier');
+    }
   } catch (error) {
     handleApiError(error, 'addCourier');
   }
@@ -232,47 +235,65 @@ export const getClientById = async (clientId) => {
 // Get all couriers
 export const getCouriers = async () => {
   try {
-    const { data, error } = await supabase
-      .from('couriers')
-      .select(`
-        id,
-        name,
-        api_base_url,
-        auth_type,
-        api_intent,
-        created_at,
-        fteid,
-        entity_type,
-        partner_type,
-        short_code,
-        company_fteid,
-        company_name,
-        company_gstin,
-        company_head_office,
-        old_company_id,
-        branch_fteid,
-        branch_name,
-        old_branch_id,
-        department_fteid,
-        department_name,
-        old_department_id,
-        relation_types,
-        tags,
-        contact_user,
-        place_fteid,
-        crm_type,
-        is_crm_supplier,
-        is_crm_transporter,
-        premium_from,
-        is_active,
-        created_by,
-        updated_by,
-        updated_at
-      `)
-      .order('name');
+    // First try with all fields
+    try {
+      const { data, error } = await supabase
+        .from('couriers')
+        .select(`
+          id,
+          name,
+          api_base_url,
+          auth_type,
+          api_intent,
+          created_at,
+          fteid,
+          entity_type,
+          partner_type,
+          short_code,
+          company_fteid,
+          company_name,
+          company_gstin,
+          company_head_office,
+          old_company_id,
+          branch_fteid,
+          branch_name,
+          old_branch_id,
+          department_fteid,
+          department_name,
+          old_department_id,
+          relation_types,
+          tags,
+          contact_user,
+          place_fteid,
+          crm_type,
+          is_crm_supplier,
+          is_crm_transporter,
+          premium_from,
+          is_active,
+          created_by,
+          updated_by,
+          updated_at
+        `)
+        .order('name');
 
-    if (error) throw error;
-    return data;
+      if (!error) {
+        return data;
+      }
+
+      // If there's an error, it might be because the columns don't exist
+      console.warn('Error fetching couriers with all fields:', error);
+      throw error;
+    } catch (error) {
+      // Fallback to basic fields if the detailed query fails
+      console.log('Falling back to basic courier fields:', error.message);
+      const { data, error: basicError } = await supabase
+        .from('couriers')
+        .select('id, name, api_base_url, auth_type, api_intent, created_at')
+        .order('name');
+
+      if (basicError) throw basicError;
+      return data;
+    }
   } catch (error) {
     handleApiError(error, 'getCouriers');
   }
@@ -328,53 +349,82 @@ export const getCourierClients = async (courierId) => {
 // Get couriers linked to a client
 export const getCouriersByClientId = async (clientId) => {
   try {
-    // Join courier_clients with couriers to get courier details
-    const { data, error } = await supabase
-      .from('courier_clients')
-      .select(`
-        courier_id,
-        couriers:courier_id (
-          id,
-          name,
-          api_base_url,
-          auth_type,
-          api_intent,
-          created_at,
-          fteid,
-          entity_type,
-          partner_type,
-          short_code,
-          company_fteid,
-          company_name,
-          company_gstin,
-          company_head_office,
-          old_company_id,
-          branch_fteid,
-          branch_name,
-          old_branch_id,
-          department_fteid,
-          department_name,
-          old_department_id,
-          relation_types,
-          tags,
-          contact_user,
-          place_fteid,
-          crm_type,
-          is_crm_supplier,
-          is_crm_transporter,
-          premium_from,
-          is_active,
-          created_by,
-          updated_by,
-          updated_at
-        )
-      `)
-      .eq('client_id', clientId);
+    // First try with all fields
+    try {
+      // Join courier_clients with couriers to get courier details
+      const { data, error } = await supabase
+        .from('courier_clients')
+        .select(`
+          courier_id,
+          couriers:courier_id (
+            id,
+            name,
+            api_base_url,
+            auth_type,
+            api_intent,
+            created_at,
+            fteid,
+            entity_type,
+            partner_type,
+            short_code,
+            company_fteid,
+            company_name,
+            company_gstin,
+            company_head_office,
+            old_company_id,
+            branch_fteid,
+            branch_name,
+            old_branch_id,
+            department_fteid,
+            department_name,
+            old_department_id,
+            relation_types,
+            tags,
+            contact_user,
+            place_fteid,
+            crm_type,
+            is_crm_supplier,
+            is_crm_transporter,
+            premium_from,
+            is_active,
+            created_by,
+            updated_by,
+            updated_at
+          )
+        `)
+        .eq('client_id', clientId);
 
-    if (error) throw error;
+      if (!error) {
+        // Transform the data to match the expected format
+        return data.map(item => item.couriers);
+      }
 
-    // Transform the data to match the expected format
-    return data.map(item => item.couriers);
+      // If there's an error, it might be because the columns don't exist
+      console.warn('Error fetching couriers with all fields:', error);
+      throw error;
+    } catch (error) {
+      // Fallback to basic fields if the detailed query fails
+      console.log('Falling back to basic courier fields for client', clientId, ':', error.message);
+      const { data, error: basicError } = await supabase
+        .from('courier_clients')
+        .select(`
+          courier_id,
+          couriers:courier_id (
+            id,
+            name,
+            api_base_url,
+            auth_type,
+            api_intent,
+            created_at
+          )
+        `)
+        .eq('client_id', clientId);
+
+      if (basicError) throw basicError;
+
+      // Transform the data to match the expected format
+      return data.map(item => item.couriers);
+    }
   } catch (error) {
     handleApiError(error, 'getCouriersByClientId');
   }
@@ -605,41 +655,12 @@ export const addCouriersToClient = async (clientId, couriers) => {
           // Create new courier
           console.log(`Creating new courier: ${courier.name}`);
 
-          // Prepare courier data with all fields
+          // Prepare courier data with basic fields
           const courierData = {
             name: courier.name,
             api_base_url: courier.api_url || courier.api_base_url || '',
             auth_type: courier.auth_type || 'none',
-            api_intent: 'track_shipment',
-            // Add FreightTiger specific fields if they exist
-            fteid: courier.fteid,
-            entity_type: courier.entity_type,
-            partner_type: courier.partner_type,
-            short_code: courier.short_code,
-            company_fteid: courier.company_fteid,
-            company_name: courier.company_name,
-            company_gstin: courier.company_gstin,
-            company_head_office: courier.company_head_office,
-            old_company_id: courier.old_company_id,
-            branch_fteid: courier.branch_fteid,
-            branch_name: courier.branch_name,
-            old_branch_id: courier.old_branch_id,
-            department_fteid: courier.department_fteid,
-            department_name: courier.department_name,
-            old_department_id: courier.old_department_id,
-            relation_types: courier.relation_types,
-            tags: courier.tags,
-            contact_user: courier.contact_user,
-            place_fteid: courier.place_fteid,
-            crm_type: courier.crm_type,
-            is_crm_supplier: courier.is_crm_supplier,
-            is_crm_transporter: courier.is_crm_transporter,
-            premium_from: courier.premium_from,
-            is_active: courier.is_active,
-            created_by: courier.created_by,
-            updated_by: courier.updated_by,
-            created_at: courier.created_at,
-            updated_at: courier.updated_at
+            api_intent: 'track_shipment'
           };
 
           const newCourier = await addCourier(courierData);
@@ -753,41 +774,12 @@ export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig =
           // Create new courier
           console.log(`Creating new courier: ${courier.name}`);
 
-          // Prepare courier data with all fields
+          // Prepare courier data with basic fields
           const courierData = {
             name: courier.name,
             api_base_url: courier.api_base_url || '',
             auth_type: courier.auth_type || 'none',
-            api_intent: 'track_shipment',
-            // Add FreightTiger specific fields if they exist
-            fteid: courier.fteid,
-            entity_type: courier.entity_type,
-            partner_type: courier.partner_type,
-            short_code: courier.short_code,
-            company_fteid: courier.company_fteid,
-            company_name: courier.company_name,
-            company_gstin: courier.company_gstin,
-            company_head_office: courier.company_head_office,
-            old_company_id: courier.old_company_id,
-            branch_fteid: courier.branch_fteid,
-            branch_name: courier.branch_name,
-            old_branch_id: courier.old_branch_id,
-            department_fteid: courier.department_fteid,
-            department_name: courier.department_name,
-            old_department_id: courier.old_department_id,
-            relation_types: courier.relation_types,
-            tags: courier.tags,
-            contact_user: courier.contact_user,
-            place_fteid: courier.place_fteid,
-            crm_type: courier.crm_type,
-            is_crm_supplier: courier.is_crm_supplier,
-            is_crm_transporter: courier.is_crm_transporter,
-            premium_from: courier.premium_from,
-            is_active: courier.is_active,
-            created_by: courier.created_by,
-            updated_by: courier.updated_by,
-            created_at: courier.created_at,
-            updated_at: courier.updated_at
+            api_intent: 'track_shipment'
           };
 
           const newCourier = await addCourier(courierData);
