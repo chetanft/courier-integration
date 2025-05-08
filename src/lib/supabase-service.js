@@ -1425,3 +1425,31 @@ export const getCourierCredentialsByName = async (courierName) => {
     return { success: false, error };
   }
 };
+
+/**
+ * Update courier JS file status
+ * @param {string} courierId - The ID of the courier
+ * @param {boolean} jsFileGenerated - Whether the JS file has been generated
+ * @param {string} jsFileUrl - The URL of the generated JS file
+ * @returns {Promise<Object>} The updated courier object
+ */
+export const updateCourierJsFileStatus = async (courierId, jsFileGenerated, jsFileUrl = null) => {
+  try {
+    const { data, error } = await supabase
+      .from('couriers')
+      .update({
+        js_file_generated: jsFileGenerated,
+        js_file_url: jsFileUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', courierId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error updating courier JS file status:', error);
+    return null;
+  }
+};

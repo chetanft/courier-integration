@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getClientById, getCourierById, getCourierMappings, getApiTestResults } from '../lib/supabase-service';
+import {
+  getClientById,
+  getCourierById,
+  getCourierMappings,
+  getApiTestResults,
+  updateCourierJsFileStatus
+} from '../lib/supabase-service';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { ArrowLeft, Settings, Code, FileText, Server, Loader2 } from 'lucide-react';
@@ -12,7 +18,7 @@ import CourierCredentialsForm from '../components/forms/CourierCredentialsForm';
 const CourierModule = () => {
   const { clientId, courierId } = useParams();
   const navigate = useNavigate();
-  
+
   const [client, setClient] = useState(null);
   const [courier, setCourier] = useState(null);
   const [mappings, setMappings] = useState([]);
@@ -41,9 +47,17 @@ const CourierModule = () => {
         if (!clientData) {
           throw new Error('Client not found');
         }
-        
+
         if (!courierData) {
           throw new Error('Courier not found');
+        }
+
+        // Check if the JS file has been generated
+        // If not, redirect to the add courier form
+        if (!courierData.js_file_generated && !courierData.js_file_url) {
+          console.log('JS file not generated, redirecting to add courier form');
+          navigate(`/client/${clientId}/add-courier`);
+          return;
         }
 
         setClient(clientData);
@@ -62,16 +76,28 @@ const CourierModule = () => {
     };
 
     fetchData();
-  }, [clientId, courierId]);
+  }, [clientId, courierId, navigate]);
 
   // Handle generating JS configuration
   const handleGenerateJs = async () => {
     setGeneratingJs(true);
-    
+
     try {
       // Generate JS configuration
       const config = await generateJsConfig(courier, mappings);
       setJsConfig(config);
+
+      // Update courier's JS file status
+      try {
+        const updatedCourier = await updateCourierJsFileStatus(courier.id, true);
+        if (updatedCourier) {
+          setCourier(updatedCourier);
+        }
+      } catch (updateErr) {
+        console.error('Error updating courier JS file status:', updateErr);
+        // Continue even if the update fails
+      }
+
       toast.success('JS configuration generated successfully');
     } catch (err) {
       console.error('Error generating JS config:', err);
@@ -114,9 +140,9 @@ const CourierModule = () => {
         </Button>
         <h1 className="text-2xl font-bold">{courier.name}</h1>
         <div className="ml-auto">
-          <Button 
-            variant="outline" 
-            onClick={handleGenerateJs} 
+          <Button
+            variant="outline"
+            onClick={handleGenerateJs}
             disabled={generatingJs || mappings.length === 0}
           >
             {generatingJs ? (
@@ -167,8 +193,8 @@ const CourierModule = () => {
               <CardTitle>API Configuration</CardTitle>
             </CardHeader>
             <CardContent>
-              <CourierCredentialsForm 
-                courierId={courier.id} 
+              <CourierCredentialsForm
+                courierId={courier.id}
                 courierName={courier.name}
                 onSuccess={() => toast.success('Credentials updated successfully')}
               />
@@ -281,9 +307,9 @@ const CourierModule = () => {
               {!jsConfig ? (
                 <div className="text-center py-8 bg-gray-50 rounded border">
                   <p className="text-gray-500">No JS configuration has been generated yet</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-4" 
+                  <Button
+                    variant="outline"
+                    className="mt-4"
                     onClick={handleGenerateJs}
                     disabled={generatingJs || mappings.length === 0}
                   >
@@ -297,15 +323,34 @@ const CourierModule = () => {
                       {jsConfig}
                     </pre>
                   </div>
-                  <div className="flex justify-end">
-                    <Button 
-                      variant="outline" 
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
                       onClick={() => {
                         navigator.clipboard.writeText(jsConfig);
                         toast.success('JS configuration copied to clipboard');
                       }}
                     >
                       Copy to Clipboard
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={async () => {
+                        try {
+                          // Here you would typically save the JS file to your storage
+                          // For now, we'll just update the courier's JS file status
+                          const updatedCourier = await updateCourierJsFileStatus(courier.id, true);
+                          if (updatedCourier) {
+                            setCourier(updatedCourier);
+                            toast.success('JS file status updated successfully');
+                          }
+                        } catch (err) {
+                          console.error('Error saving JS file:', err);
+                          toast.error('Failed to save JS file: ' + (err.message || 'Unknown error'));
+                        }
+                      }}
+                    >
+                      Save JS File
                     </Button>
                   </div>
                 </div>
