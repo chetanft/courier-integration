@@ -22,20 +22,56 @@ const handleApiError = (error, operation) => {
 // Add a new courier
 export const addCourier = async (courierData) => {
   try {
+    // Create base courier data
+    const courierInsertData = {
+      name: courierData.name,
+      api_base_url: courierData.api_base_url,
+      auth_type: courierData.auth_type,
+      api_key: courierData.api_key,
+      username: courierData.username,
+      password: courierData.password,
+      auth_endpoint: courierData.auth_endpoint,
+      auth_method: courierData.auth_method || 'POST',
+      api_intent: courierData.api_intent,
+      created_at: new Date().toISOString()
+    };
+
+    // Add FreightTiger specific fields if they exist
+    if (courierData.fteid) {
+      // Add all FreightTiger fields
+      courierInsertData.fteid = courierData.fteid;
+      courierInsertData.entity_type = courierData.entity_type;
+      courierInsertData.partner_type = courierData.partner_type;
+      courierInsertData.short_code = courierData.short_code;
+      courierInsertData.company_fteid = courierData.company_fteid;
+      courierInsertData.company_name = courierData.company_name;
+      courierInsertData.company_gstin = courierData.company_gstin;
+      courierInsertData.company_head_office = courierData.company_head_office;
+      courierInsertData.old_company_id = courierData.old_company_id;
+      courierInsertData.branch_fteid = courierData.branch_fteid;
+      courierInsertData.branch_name = courierData.branch_name;
+      courierInsertData.old_branch_id = courierData.old_branch_id;
+      courierInsertData.department_fteid = courierData.department_fteid;
+      courierInsertData.department_name = courierData.department_name;
+      courierInsertData.old_department_id = courierData.old_department_id;
+      courierInsertData.relation_types = courierData.relation_types;
+      courierInsertData.tags = courierData.tags;
+      courierInsertData.contact_user = courierData.contact_user;
+      courierInsertData.place_fteid = courierData.place_fteid;
+      courierInsertData.crm_type = courierData.crm_type;
+      courierInsertData.is_crm_supplier = courierData.is_crm_supplier;
+      courierInsertData.is_crm_transporter = courierData.is_crm_transporter;
+      courierInsertData.premium_from = courierData.premium_from;
+      courierInsertData.is_active = courierData.is_active !== undefined ? courierData.is_active : true;
+      courierInsertData.created_by = courierData.created_by;
+      courierInsertData.updated_by = courierData.updated_by;
+      courierInsertData.updated_at = courierData.updated_at || courierInsertData.created_at;
+    }
+
+    // Insert the courier data
     const { data, error } = await supabase
       .from('couriers')
-      .insert({
-        name: courierData.name,
-        api_base_url: courierData.api_base_url,
-        auth_type: courierData.auth_type,
-        api_key: courierData.api_key,
-        username: courierData.username,
-        password: courierData.password,
-        auth_endpoint: courierData.auth_endpoint,
-        auth_method: courierData.auth_method || 'POST',
-        api_intent: courierData.api_intent,
-        created_at: new Date().toISOString()
-      })
+      .insert(courierInsertData)
       .select()
       .single();
 
@@ -507,12 +543,45 @@ export const addCouriersToClient = async (clientId, couriers) => {
         } else {
           // Create new courier
           console.log(`Creating new courier: ${courier.name}`);
-          const newCourier = await addCourier({
+
+          // Prepare courier data with all fields
+          const courierData = {
             name: courier.name,
             api_base_url: courier.api_url || courier.api_base_url || '',
             auth_type: courier.auth_type || 'none',
-            api_intent: 'track_shipment'
-          });
+            api_intent: 'track_shipment',
+            // Add FreightTiger specific fields if they exist
+            fteid: courier.fteid,
+            entity_type: courier.entity_type,
+            partner_type: courier.partner_type,
+            short_code: courier.short_code,
+            company_fteid: courier.company_fteid,
+            company_name: courier.company_name,
+            company_gstin: courier.company_gstin,
+            company_head_office: courier.company_head_office,
+            old_company_id: courier.old_company_id,
+            branch_fteid: courier.branch_fteid,
+            branch_name: courier.branch_name,
+            old_branch_id: courier.old_branch_id,
+            department_fteid: courier.department_fteid,
+            department_name: courier.department_name,
+            old_department_id: courier.old_department_id,
+            relation_types: courier.relation_types,
+            tags: courier.tags,
+            contact_user: courier.contact_user,
+            place_fteid: courier.place_fteid,
+            crm_type: courier.crm_type,
+            is_crm_supplier: courier.is_crm_supplier,
+            is_crm_transporter: courier.is_crm_transporter,
+            premium_from: courier.premium_from,
+            is_active: courier.is_active,
+            created_by: courier.created_by,
+            updated_by: courier.updated_by,
+            created_at: courier.created_at,
+            updated_at: courier.updated_at
+          };
+
+          const newCourier = await addCourier(courierData);
 
           courierId = newCourier.id;
           console.log(`Created new courier "${courier.name}" with ID ${courierId}`);
@@ -622,12 +691,45 @@ export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig =
         } else {
           // Create new courier
           console.log(`Creating new courier: ${courier.name}`);
-          const newCourier = await addCourier({
+
+          // Prepare courier data with all fields
+          const courierData = {
             name: courier.name,
             api_base_url: courier.api_base_url || '',
             auth_type: courier.auth_type || 'none',
-            api_intent: 'track_shipment'
-          });
+            api_intent: 'track_shipment',
+            // Add FreightTiger specific fields if they exist
+            fteid: courier.fteid,
+            entity_type: courier.entity_type,
+            partner_type: courier.partner_type,
+            short_code: courier.short_code,
+            company_fteid: courier.company_fteid,
+            company_name: courier.company_name,
+            company_gstin: courier.company_gstin,
+            company_head_office: courier.company_head_office,
+            old_company_id: courier.old_company_id,
+            branch_fteid: courier.branch_fteid,
+            branch_name: courier.branch_name,
+            old_branch_id: courier.old_branch_id,
+            department_fteid: courier.department_fteid,
+            department_name: courier.department_name,
+            old_department_id: courier.old_department_id,
+            relation_types: courier.relation_types,
+            tags: courier.tags,
+            contact_user: courier.contact_user,
+            place_fteid: courier.place_fteid,
+            crm_type: courier.crm_type,
+            is_crm_supplier: courier.is_crm_supplier,
+            is_crm_transporter: courier.is_crm_transporter,
+            premium_from: courier.premium_from,
+            is_active: courier.is_active,
+            created_by: courier.created_by,
+            updated_by: courier.updated_by,
+            created_at: courier.created_at,
+            updated_at: courier.updated_at
+          };
+
+          const newCourier = await addCourier(courierData);
 
           courierId = newCourier.id;
           console.log(`Created new courier "${courier.name}" with ID ${courierId}`);

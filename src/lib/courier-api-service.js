@@ -30,6 +30,44 @@ export const extractCouriersFromResponse = (data) => {
 
     console.log('Extracting couriers from response data:', data);
 
+    // Helper function to extract FreightTiger specific fields
+    const extractFreightTigerFields = (courier) => {
+      // Check if this is a FreightTiger response by looking for fteid
+      if (courier.fteid) {
+        return {
+          fteid: courier.fteid,
+          entity_type: courier.entity_type,
+          partner_type: courier.partner_type,
+          short_code: courier.short_code,
+          company_fteid: courier.company_fteid,
+          company_name: courier.company_name,
+          company_gstin: courier.company_gstin,
+          company_head_office: courier.company_head_office,
+          old_company_id: courier.old_company_id,
+          branch_fteid: courier.branch_fteid,
+          branch_name: courier.branch_name,
+          old_branch_id: courier.old_branch_id,
+          department_fteid: courier.department_fteid,
+          department_name: courier.department_name,
+          old_department_id: courier.old_department_id,
+          relation_types: courier.relation_types,
+          tags: courier.tags,
+          contact_user: courier.contact_user,
+          place_fteid: courier.place_fteid,
+          crm_type: courier.crm_type,
+          is_crm_supplier: courier.is_crm_supplier,
+          is_crm_transporter: courier.is_crm_transporter,
+          premium_from: courier.premium_from,
+          is_active: courier.is_active,
+          created_at: courier.created_at,
+          updated_at: courier.updated_at,
+          created_by: courier.created_by,
+          updated_by: courier.updated_by
+        };
+      }
+      return {};
+    };
+
     // Check if the response has a standard format with courier_partners
     if (data.courier_partners && Array.isArray(data.courier_partners)) {
       console.log('Found courier_partners array in response');
@@ -42,7 +80,8 @@ export const extractCouriersFromResponse = (data) => {
           services: courier.services || [],
           api_base_url: courier.api_url || courier.api_base_url || null,
           auth_type: courier.auth_type || 'none',
-          description: courier.description || `${courier.name} integration for ${data.company_name}`
+          description: courier.description || `${courier.name} integration for ${data.company_name}`,
+          ...extractFreightTigerFields(courier)
         }));
       } else {
         couriers = data.courier_partners.map(courier => ({
@@ -50,7 +89,8 @@ export const extractCouriersFromResponse = (data) => {
           services: courier.services || [],
           api_base_url: courier.api_url || courier.api_base_url || null,
           auth_type: courier.auth_type || 'none',
-          description: courier.description || `${courier.name} integration`
+          description: courier.description || `${courier.name} integration`,
+          ...extractFreightTigerFields(courier)
         }));
       }
     }
@@ -62,7 +102,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name} integration`
+        description: courier.description || `${courier.name || courier.courier_name} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Check if the response has a couriers property that is an array
@@ -73,7 +114,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name} integration`
+        description: courier.description || `${courier.name || courier.courier_name} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Check if the response has a data property that is an array
@@ -84,7 +126,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name} integration`
+        description: courier.description || `${courier.name || courier.courier_name} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Check if the response has a results property that is an array
@@ -95,7 +138,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name} integration`
+        description: courier.description || `${courier.name || courier.courier_name} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Check if the response has a content property that is an array
@@ -106,7 +150,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name || courier.companyName} integration`
+        description: courier.description || `${courier.name || courier.courier_name || courier.companyName} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Check if the response has a partners property that is an array
@@ -117,7 +162,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name || courier.partnerName} integration`
+        description: courier.description || `${courier.name || courier.courier_name || courier.partnerName} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Check if the response has a items property that is an array
@@ -128,7 +174,8 @@ export const extractCouriersFromResponse = (data) => {
         services: courier.services || [],
         api_base_url: courier.api_url || courier.api_base_url || null,
         auth_type: courier.auth_type || 'none',
-        description: courier.description || `${courier.name || courier.courier_name || courier.companyName} integration`
+        description: courier.description || `${courier.name || courier.courier_name || courier.companyName} integration`,
+        ...extractFreightTigerFields(courier)
       }));
     }
     // Try to extract from any array property in the response as a last resort
@@ -155,7 +202,8 @@ export const extractCouriersFromResponse = (data) => {
               services: courier.services || [],
               api_base_url: courier.api_url || courier.api_base_url || null,
               auth_type: courier.auth_type || 'none',
-              description: courier.description || `${courier.name || courier.courier_name || courier.companyName || courier.partnerName} integration`
+              description: courier.description || `${courier.name || courier.courier_name || courier.companyName || courier.partnerName} integration`,
+              ...extractFreightTigerFields(courier)
             }));
             break;
           }

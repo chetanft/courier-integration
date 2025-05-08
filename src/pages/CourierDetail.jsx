@@ -24,8 +24,13 @@ import {
   DialogFooter,
   DialogDescription
 } from '../components/ui/dialog';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/ui/collapsible";
 import { JsonViewer } from '../components/ui/json-viewer';
-import { Copy, Clipboard, Loader2 } from 'lucide-react';
+import { Copy, Clipboard, Loader2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
 
@@ -546,6 +551,213 @@ const CourierDetail = () => {
                   <h3 className="text-sm font-medium text-gray-500">API Key</h3>
                   <p className="mt-1">••••••••{courier.apiKey.slice(-4)}</p>
                 </div>
+              )}
+
+              {/* FreightTiger specific fields */}
+              {courier.fteid && (
+                <>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">FreightTiger ID</h3>
+                    <p className="mt-1">{courier.fteid}</p>
+                  </div>
+
+                  {courier.entity_type && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Entity Type</h3>
+                      <p className="mt-1">{courier.entity_type}</p>
+                    </div>
+                  )}
+
+                  {courier.partner_type && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Partner Type</h3>
+                      <p className="mt-1">{courier.partner_type}</p>
+                    </div>
+                  )}
+
+                  {courier.short_code && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Short Code</h3>
+                      <p className="mt-1">{courier.short_code}</p>
+                    </div>
+                  )}
+
+                  {courier.company_name && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Company Name</h3>
+                      <p className="mt-1">{courier.company_name}</p>
+                    </div>
+                  )}
+
+                  {courier.old_company_id && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Old Company ID</h3>
+                      <p className="mt-1">{courier.old_company_id}</p>
+                    </div>
+                  )}
+
+                  {courier.tags && courier.tags.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Tags</h3>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {courier.tags.map((tag, index) => (
+                          <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {courier.relation_types && courier.relation_types.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Relation Types</h3>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {courier.relation_types.map((type, index) => (
+                          <span key={index} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                            {type}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {courier.is_active !== undefined && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                      <p className="mt-1">
+                        <span className={`px-2 py-1 text-xs rounded-full ${courier.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {courier.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Additional FreightTiger metadata in collapsible section */}
+                  <Collapsible className="mt-4 border rounded-md p-2">
+                    <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-medium text-gray-700 p-2 hover:bg-gray-50 rounded">
+                      <span>Additional FreightTiger Metadata</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="p-2 space-y-3 text-sm">
+                      {courier.company_fteid && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Company FTEID</h3>
+                          <p className="mt-1 text-xs">{courier.company_fteid}</p>
+                        </div>
+                      )}
+
+                      {courier.company_gstin && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Company GSTIN</h3>
+                          <p className="mt-1 text-xs">{courier.company_gstin}</p>
+                        </div>
+                      )}
+
+                      {courier.company_head_office && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Company Head Office</h3>
+                          <p className="mt-1 text-xs">{courier.company_head_office}</p>
+                        </div>
+                      )}
+
+                      {courier.branch_fteid && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Branch FTEID</h3>
+                          <p className="mt-1 text-xs">{courier.branch_fteid}</p>
+                        </div>
+                      )}
+
+                      {courier.branch_name && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Branch Name</h3>
+                          <p className="mt-1 text-xs">{courier.branch_name}</p>
+                        </div>
+                      )}
+
+                      {courier.old_branch_id && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Old Branch ID</h3>
+                          <p className="mt-1 text-xs">{courier.old_branch_id}</p>
+                        </div>
+                      )}
+
+                      {courier.department_fteid && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Department FTEID</h3>
+                          <p className="mt-1 text-xs">{courier.department_fteid}</p>
+                        </div>
+                      )}
+
+                      {courier.department_name && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Department Name</h3>
+                          <p className="mt-1 text-xs">{courier.department_name}</p>
+                        </div>
+                      )}
+
+                      {courier.old_department_id && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Old Department ID</h3>
+                          <p className="mt-1 text-xs">{courier.old_department_id}</p>
+                        </div>
+                      )}
+
+                      {courier.place_fteid && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Place FTEID</h3>
+                          <p className="mt-1 text-xs">{courier.place_fteid}</p>
+                        </div>
+                      )}
+
+                      {courier.crm_type && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">CRM Type</h3>
+                          <p className="mt-1 text-xs">{courier.crm_type}</p>
+                        </div>
+                      )}
+
+                      {courier.is_crm_supplier !== undefined && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Is CRM Supplier</h3>
+                          <p className="mt-1 text-xs">{courier.is_crm_supplier ? 'Yes' : 'No'}</p>
+                        </div>
+                      )}
+
+                      {courier.is_crm_transporter !== undefined && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Is CRM Transporter</h3>
+                          <p className="mt-1 text-xs">{courier.is_crm_transporter ? 'Yes' : 'No'}</p>
+                        </div>
+                      )}
+
+                      {courier.premium_from && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Premium From</h3>
+                          <p className="mt-1 text-xs">{new Date(courier.premium_from).toLocaleDateString()}</p>
+                        </div>
+                      )}
+
+                      {courier.created_by && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Created By</h3>
+                          <p className="mt-1 text-xs">
+                            {courier.created_by.firstname} {courier.created_by.lastname} ({courier.created_by.fteid})
+                          </p>
+                        </div>
+                      )}
+
+                      {courier.updated_by && (
+                        <div>
+                          <h3 className="text-xs font-medium text-gray-500">Updated By</h3>
+                          <p className="mt-1 text-xs">
+                            {courier.updated_by.firstname} {courier.updated_by.lastname} ({courier.updated_by.fteid})
+                          </p>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </>
               )}
 
               <div>
