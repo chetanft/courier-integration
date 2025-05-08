@@ -201,7 +201,7 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
         </div>
       )}
 
-      <form onSubmit={formMethods.handleSubmit(onSubmit)} className="space-y-6">
+      <div className="space-y-6">
         {/* cURL Input Section */}
         <Card>
           <CardHeader>
@@ -283,16 +283,42 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
         />
 
         {/* Use the rest of the RequestBuilder component without name field */}
-        <RequestBuilder
-          formMethods={formMethods}
-          onSubmit={onSubmit}
-          loading={loading || fetchingCouriers}
-          showCurlInput={false} // Hide the cURL input since we have our own
-          showApiIntents={false}
-          customSubmitLabel={fetchingCouriers ? "Fetching Couriers..." : "Fetch Couriers"}
-          showNameField={false} // Hide the name field since we're fetching multiple couriers
-        />
-      </form>
+        <div className="space-y-6">
+          <RequestBuilder
+            formMethods={formMethods}
+            onSubmit={() => {
+              // Prevent form submission
+              console.log('RequestBuilder submit button clicked, preventing form submission');
+            }}
+            loading={loading || fetchingCouriers}
+            showCurlInput={false} // Hide the cURL input since we have our own
+            showApiIntents={false}
+            customSubmitLabel="Configure Request"
+            showNameField={false} // Hide the name field since we're fetching multiple couriers
+          />
+
+          {/* Add a separate button for fetching couriers */}
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={() => {
+                const data = formMethods.getValues();
+                onSubmit(data);
+              }}
+              disabled={loading || fetchingCouriers}
+            >
+              {fetchingCouriers ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Fetching Couriers...
+                </>
+              ) : (
+                'Fetch Couriers'
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
