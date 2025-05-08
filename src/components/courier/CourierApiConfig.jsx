@@ -3,6 +3,7 @@ import { useFormContext } from 'react-hook-form';
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { KeyValueEditor } from '../ui/key-value-editor';
 import { JsonEditor } from '../ui/json-editor';
 import { JsonViewer } from '../ui/json-viewer';
