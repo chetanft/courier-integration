@@ -31,6 +31,25 @@ export const directFetch = async (url, options = {}) => {
       data: options.body
     };
 
+    // Special handling for FreightTiger API
+    if (url.includes('freighttiger.com')) {
+      console.log('Detected FreightTiger API in direct fetch, adding special handling');
+
+      // Check if we already have an Authorization header
+      const hasAuthHeader = Object.keys(requestConfig.headers)
+        .some(key => key.toLowerCase() === 'authorization');
+
+      if (!hasAuthHeader) {
+        // Check if we have auth options
+        if (options.auth && options.auth.token) {
+          requestConfig.headers['Authorization'] = `Bearer ${options.auth.token}`;
+          console.log('Added Authorization header to FreightTiger request');
+        } else {
+          console.warn('No Authorization token found for FreightTiger API');
+        }
+      }
+    }
+
     // Add timeout and validation options
     requestConfig.timeout = 30000; // 30 seconds
     requestConfig.validateStatus = function (status) {
@@ -97,6 +116,42 @@ export const proxyFetch = async (url, options = {}) => {
       queryParams: options.queryParams || [],
       body: options.body || {}
     };
+
+    // Special handling for FreightTiger API
+    if (url.includes('freighttiger.com')) {
+      console.log('Detected FreightTiger API in proxy fetch, adding special handling');
+
+      // Check if we have an Authorization header in options
+      const authHeader = options.headers &&
+        Object.entries(options.headers).find(([key]) =>
+          key.toLowerCase() === 'authorization');
+
+      if (authHeader) {
+        // Add the Authorization header to the request config
+        requestConfig.headers.push({
+          key: 'Authorization',
+          value: authHeader[1]
+        });
+        console.log('Added Authorization header from options to FreightTiger request');
+      } else if (options.auth && options.auth.token) {
+        // Add Authorization header from auth.token
+        requestConfig.headers.push({
+          key: 'Authorization',
+          value: `Bearer ${options.auth.token}`
+        });
+        console.log('Added Authorization header from auth.token to FreightTiger request');
+      } else {
+        console.warn('No Authorization header or token found for FreightTiger API');
+      }
+
+      // Add auth object to request config
+      if (!requestConfig.auth) {
+        requestConfig.auth = {
+          type: 'bearer',
+          token: options.auth?.token || ''
+        };
+      }
+    }
 
     // Add custom headers for better debugging
     requestConfig.headers.push({

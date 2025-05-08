@@ -270,7 +270,39 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
       // First try direct fetch
       try {
         console.log('Attempting direct fetch...');
-        data = await directFetch(decodedUrl);
+
+        // Create options for direct fetch with auth if available
+        const directFetchOptions = {
+          method: requestConfig?.method || 'GET',
+          headers: {}
+        };
+
+        // Add auth if available
+        if (requestConfig?.auth) {
+          directFetchOptions.auth = requestConfig.auth;
+
+          // Add Authorization header based on auth type
+          if (requestConfig.auth.type === 'bearer' && requestConfig.auth.token) {
+            directFetchOptions.headers['Authorization'] = `Bearer ${requestConfig.auth.token}`;
+          } else if (requestConfig.auth.type === 'basic' && requestConfig.auth.username && requestConfig.auth.password) {
+            const basicAuth = btoa(`${requestConfig.auth.username}:${requestConfig.auth.password}`);
+            directFetchOptions.headers['Authorization'] = `Basic ${basicAuth}`;
+          } else if (requestConfig.auth.type === 'apikey' && requestConfig.auth.apiKey) {
+            const keyName = requestConfig.auth.apiKeyName || 'X-API-Key';
+            directFetchOptions.headers[keyName] = requestConfig.auth.apiKey;
+          }
+        }
+
+        // Add any headers from requestConfig
+        if (requestConfig?.headers && Array.isArray(requestConfig.headers)) {
+          requestConfig.headers.forEach(header => {
+            if (header.key && header.value) {
+              directFetchOptions.headers[header.key] = header.value;
+            }
+          });
+        }
+
+        data = await directFetch(decodedUrl, directFetchOptions);
         console.log('Direct fetch successful, data received:', data);
       } catch (directError) {
         console.warn('Direct fetch failed, trying proxy:', directError);
@@ -279,7 +311,24 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
         // If direct fetch fails, try proxy fetch
         try {
           console.log('Attempting proxy fetch...');
-          data = await proxyFetch(decodedUrl);
+
+          // Create options for proxy fetch with auth if available
+          const proxyFetchOptions = {
+            method: requestConfig?.method || 'GET',
+            headers: {},
+            auth: requestConfig?.auth
+          };
+
+          // Add any headers from requestConfig
+          if (requestConfig?.headers && Array.isArray(requestConfig.headers)) {
+            requestConfig.headers.forEach(header => {
+              if (header.key && header.value) {
+                proxyFetchOptions.headers[header.key] = header.value;
+              }
+            });
+          }
+
+          data = await proxyFetch(decodedUrl, proxyFetchOptions);
           console.log('Proxy fetch successful, data received:', data);
         } catch (proxyError) {
           console.error('Proxy fetch also failed:', proxyError);

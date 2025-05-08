@@ -74,6 +74,41 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
         body: data.body || {}
       };
 
+      // Special handling for FreightTiger API
+      if (data.url.includes('freighttiger.com')) {
+        console.log('Detected FreightTiger API, ensuring proper authentication');
+
+        // Make sure we're using Bearer token authentication
+        if (data.auth.type !== 'bearer') {
+          console.warn('FreightTiger API requires Bearer token authentication, but current type is:', data.auth.type);
+          setError({
+            message: 'FreightTiger API requires Bearer token authentication. Please select "Bearer Token" as the authentication type and provide your token.'
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Make sure we have a token
+        if (!data.auth.token) {
+          console.warn('FreightTiger API requires a Bearer token, but none was provided');
+          setError({
+            message: 'FreightTiger API requires a Bearer token. Please provide your token in the Bearer Token field.'
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Add Authorization header if not already present
+        const hasAuthHeader = requestConfig.headers.some(h => h.key.toLowerCase() === 'authorization');
+        if (!hasAuthHeader) {
+          requestConfig.headers.push({
+            key: 'Authorization',
+            value: `Bearer ${data.auth.token}`
+          });
+          console.log('Added Authorization header for FreightTiger API');
+        }
+      }
+
       // Add authentication if provided
       if (data.auth && data.auth.type !== 'none') {
         requestConfig.auth = {
@@ -273,6 +308,75 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
                   </FormItem>
                 )}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* FreightTiger Authentication Helper */}
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>FreightTiger Authentication</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                FreightTiger API requires proper authentication. Make sure to set the authentication type to "Bearer Token" and provide your token.
+              </p>
+
+              <FormField
+                control={formMethods.control}
+                name="auth.type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Authentication Type</FormLabel>
+                    <FormControl>
+                      <select
+                        className="w-full border border-gray-300 rounded-md px-3 py-2"
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          formMethods.setValue('auth.type', e.target.value);
+                        }}
+                      >
+                        <option value="none">None</option>
+                        <option value="basic">Basic Auth</option>
+                        <option value="bearer">Bearer Token</option>
+                        <option value="apikey">API Key</option>
+                      </select>
+                    </FormControl>
+                    <FormDescription>
+                      Select "Bearer Token" for FreightTiger API
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+
+              {formMethods.watch('auth.type') === 'bearer' && (
+                <FormField
+                  control={formMethods.control}
+                  name="auth.token"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bearer Token</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter your FreightTiger API token"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        The token should be provided without the "Bearer" prefix
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
+                <p className="text-sm text-blue-700">
+                  <strong>Tip:</strong> If you're using Postman, copy the Authorization header value (without "Bearer ") and paste it in the token field above.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
