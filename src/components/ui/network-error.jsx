@@ -5,8 +5,8 @@ import { Button } from './button';
 /**
  * Component to display network errors in a user-friendly way
  */
-const NetworkError = ({ 
-  error, 
+const NetworkError = ({
+  error,
   onRetry,
   showDetails = false,
   className = ''
@@ -14,19 +14,26 @@ const NetworkError = ({
   // Determine the error type and message
   const is502Error = error?.status === 502;
   const isNetworkError = is502Error || error?.isNetworkError;
-  
+
+  // Check for response size too large error
+  const isResponseTooLarge = error?.details?.errorType === 'Function.ResponseSizeTooLarge' ||
+                            error?.details?.message?.includes('payload size exceeded') ||
+                            error?.message?.includes('payload size exceeded');
+
   // Get error code if available
-  const errorCode = error?.code || 
-                   (error?.details?.networkDetails?.errorCode) || 
-                   (error?.networkDetails?.errorCode);
-  
+  const errorCode = error?.code ||
+                   (error?.details?.networkDetails?.errorCode) ||
+                   (error?.networkDetails?.errorCode) ||
+                   (isResponseTooLarge ? 'RESPONSE_TOO_LARGE' : null);
+
   // Get hostname if available
-  const hostname = error?.details?.hostname || 
-                  error?.details?.url && new URL(error?.details?.url).hostname || 
+  const hostname = error?.details?.hostname ||
+                  error?.details?.url && new URL(error?.details?.url).hostname ||
                   error?.url && new URL(error?.url).hostname;
-  
+
   // Determine the icon to show
   const getIcon = () => {
+    if (errorCode === 'RESPONSE_TOO_LARGE') return Server;
     if (errorCode === 'ENOTFOUND') return Server;
     if (errorCode === 'ECONNREFUSED') return Server;
     if (errorCode === 'ETIMEDOUT') return RefreshCw;
@@ -34,22 +41,30 @@ const NetworkError = ({
     if (isNetworkError) return WifiOff;
     return AlertCircle;
   };
-  
+
   const Icon = getIcon();
-  
+
   // Determine the title to show
   const getTitle = () => {
+    if (isResponseTooLarge) return 'API Response Too Large';
     if (is502Error) return 'Cannot Connect to API Server';
     if (isNetworkError) return 'Network Connection Error';
     return 'API Request Failed';
   };
-  
+
   // Determine the message to show
   const getMessage = () => {
-    // Use the provided message if available
-    if (error?.message) return error.message;
-    
+    // Use the provided message if available and it's not a generic message
+    if (error?.message &&
+        !error.message.includes('Request failed with status code') &&
+        !error.message.includes('Network Error')) {
+      return error.message;
+    }
+
     // Otherwise, generate a message based on the error code
+    if (errorCode === 'RESPONSE_TOO_LARGE') {
+      return `The API response is too large for Netlify Functions to handle (exceeds 6MB limit). You need to filter or paginate the API response.`;
+    }
     if (errorCode === 'ENOTFOUND') {
       return `The hostname "${hostname || 'unknown'}" could not be resolved. Please check if the URL is correct.`;
     }
@@ -68,15 +83,21 @@ const NetworkError = ({
     if (isNetworkError) {
       return `Network error. Please check your internet connection and try again.`;
     }
-    
+
     return 'An unknown error occurred while making the API request.';
   };
-  
+
   // Get suggestions for fixing the error
   const getSuggestions = () => {
     const suggestions = [];
-    
-    if (errorCode === 'ENOTFOUND') {
+
+    if (errorCode === 'RESPONSE_TOO_LARGE') {
+      suggestions.push('Add filter parameters to your API request to reduce the response size');
+      suggestions.push('Use pagination to retrieve data in smaller chunks');
+      suggestions.push('Modify the API to return only essential fields');
+      suggestions.push('Consider using the API filtering feature in the form below');
+    }
+    else if (errorCode === 'ENOTFOUND') {
       suggestions.push('Check if the URL is spelled correctly');
       suggestions.push('Verify that the domain exists and is accessible');
     }
@@ -93,12 +114,12 @@ const NetworkError = ({
       suggestions.push('Check your internet connection');
       suggestions.push('Verify the API endpoint is accessible from Netlify');
     }
-    
+
     // Add any suggestions from the error object
     if (error?.details?.suggestion) {
       suggestions.push(error.details.suggestion);
     }
-    
+
     return suggestions;
   };
 
@@ -109,7 +130,7 @@ const NetworkError = ({
         <div className="flex-1">
           <h3 className="text-red-800 font-medium text-base">{getTitle()}</h3>
           <p className="text-red-700 mt-1">{getMessage()}</p>
-          
+
           {getSuggestions().length > 0 && (
             <div className="mt-3">
               <h4 className="text-red-800 font-medium text-sm">Suggestions:</h4>
@@ -120,12 +141,12 @@ const NetworkError = ({
               </ul>
             </div>
           )}
-          
+
           {onRetry && (
             <div className="mt-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={onRetry}
                 className="bg-white hover:bg-red-50 text-red-700 border-red-300"
               >
@@ -134,7 +155,7 @@ const NetworkError = ({
               </Button>
             </div>
           )}
-          
+
           {showDetails && error?.details && (
             <details className="mt-3">
               <summary className="text-sm text-red-700 cursor-pointer">Technical Details</summary>

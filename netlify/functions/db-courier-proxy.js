@@ -397,6 +397,41 @@ const makeCourierApiCall = async (requestConfig) => {
       }
     }
 
+    // Add filter options to limit response size if provided
+    if (requestConfig.filterOptions) {
+      const filterParams = new URLSearchParams();
+
+      // Add pagination parameters if they exist
+      if (requestConfig.filterOptions.limit) {
+        // Different APIs use different parameter names for pagination
+        // Try common ones
+        filterParams.append('limit', requestConfig.filterOptions.limit);
+        filterParams.append('per_page', requestConfig.filterOptions.limit);
+        filterParams.append('pageSize', requestConfig.filterOptions.limit);
+      }
+
+      if (requestConfig.filterOptions.page) {
+        filterParams.append('page', requestConfig.filterOptions.page);
+        filterParams.append('offset', (requestConfig.filterOptions.page - 1) *
+                                     (requestConfig.filterOptions.limit || 10));
+      }
+
+      // Add fields parameter if it exists
+      if (requestConfig.filterOptions.fields) {
+        // Different APIs use different parameter names for field filtering
+        filterParams.append('fields', requestConfig.filterOptions.fields);
+        filterParams.append('select', requestConfig.filterOptions.fields);
+        filterParams.append('_fields', requestConfig.filterOptions.fields);
+      }
+
+      // Add the filter params to the URL
+      if (filterParams.toString()) {
+        const separator = axiosConfig.url.includes('?') ? '&' : '?';
+        axiosConfig.url = `${axiosConfig.url}${separator}${filterParams.toString()}`;
+        console.log('Added filter parameters to URL:', filterParams.toString());
+      }
+    }
+
     // Handle request body
     if (['POST', 'PUT', 'PATCH'].includes(axiosConfig.method.toUpperCase())) {
       if (requestConfig.isFormUrlEncoded) {
@@ -468,6 +503,33 @@ const makeCourierApiCall = async (requestConfig) => {
       const response = await axios(axiosConfig);
       console.log('API response status:', response.status);
       console.log('API response headers:', response.headers);
+
+      // Check response size to avoid Netlify's 6MB limit
+      const responseSize = JSON.stringify(response.data).length;
+      console.log('API response size (bytes):', responseSize);
+
+      // If response is too large (over 5.5MB to be safe), return an error
+      const MAX_SAFE_RESPONSE_SIZE = 5.5 * 1024 * 1024; // 5.5MB
+      if (responseSize > MAX_SAFE_RESPONSE_SIZE) {
+        console.error('API response too large:', responseSize, 'bytes');
+        return {
+          error: true,
+          status: 502,
+          statusText: 'Response Too Large',
+          message: 'API response exceeds Netlify Function size limit',
+          details: {
+            errorType: 'Function.ResponseSizeTooLarge',
+            errorMessage: `Response payload size (${responseSize} bytes) exceeded maximum allowed payload size (6291556 bytes).`,
+            responseSize: responseSize,
+            maxSize: 6291556,
+            suggestion: 'Use filtering or pagination to reduce the response size'
+          },
+          url: axiosConfig.url,
+          method: axiosConfig.method,
+          apiIntent: requestConfig.apiIntent,
+          timestamp: new Date().toISOString()
+        };
+      }
 
       // Check if the response indicates an error
       if (response.status >= 400) {

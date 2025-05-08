@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
-import { Loader2, Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Upload, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import RequestBuilder from '../request-builder';
 import { useForm } from 'react-hook-form';
 import ProgressIndicator from './ProgressIndicator';
@@ -66,7 +66,15 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         method: formData.method || 'GET',
         headers: formData.headers || [],
         queryParams: formData.queryParams || [],
-        body: formData.body || {}
+        body: formData.body || {},
+        // Add filter options to limit response size
+        filterOptions: {
+          // If the API supports pagination, add pagination parameters
+          limit: 100, // Limit to 100 items per page
+          page: 1,    // Start with the first page
+          // Add fields to extract if the API supports field filtering
+          fields: 'id,name,company_id,company_name' // Common fields for clients
+        }
       };
 
       // Add authentication if provided
@@ -200,7 +208,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
       const validClients = [];
       const errors = [];
 
-      clients.forEach((client, index) => {
+      clients.forEach(client => {
         const normalizedName = normalizeClientName(client.name);
         const validation = validateClientName(normalizedName);
 
@@ -336,6 +344,20 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         </Card>
       ) : (
         <>
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-start">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
+              <div>
+                <h3 className="text-blue-700 font-medium text-sm">API Response Size Limit</h3>
+                <p className="text-sm text-blue-600 mt-1">
+                  Netlify Functions have a 6MB response size limit. If your API returns a large amount of data,
+                  you may need to filter or paginate the results. We've added some default filtering parameters
+                  to help reduce the response size.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <RequestBuilder
             formMethods={formMethods}
             onSubmit={handleSubmit}
