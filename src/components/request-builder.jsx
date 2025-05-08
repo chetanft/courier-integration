@@ -38,7 +38,7 @@ const RequestBuilder = ({
   formMethods,
   onSubmit,
   loading = false,
-  showCurlInput = true,
+  showCurlInput = true, // Always true to ensure curl input is shown
   showApiIntents = true,
   customSubmitLabel = 'Test API & Continue',
   nameFieldLabel = 'Courier Name',
@@ -49,6 +49,8 @@ const RequestBuilder = ({
   nameFieldInCard = true,
   subheadingPosition = 'beforeRequest' // 'beforeCurl' or 'beforeRequest'
 }) => {
+  // Force showCurlInput to be true to ensure curl input is always shown
+  showCurlInput = true;
   const { control, watch, setValue, handleSubmit, formState } = formMethods;
 
   // Watch for changes to relevant fields
@@ -288,55 +290,119 @@ const RequestBuilder = ({
   return (
     <Form {...formMethods}>
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-        {/* Name Field (Courier or Client) */}
-        {showNameField && nameFieldInCard ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{nameFieldCardTitle}</CardTitle>
-            </CardHeader>
-            <CardContent>
+        {/* Request Configuration - Moved to the top */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Request Configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              {/* HTTP Method */}
               <FormField
                 control={control}
-                name="courier_name"
-                rules={{ required: `${nameFieldLabel} is required` }}
+                name="method"
+                rules={{ required: "HTTP method is required" }}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{nameFieldLabel}</FormLabel>
-                    <FormControl>
-                      <Input placeholder={`Enter ${nameFieldLabel.toLowerCase()}`} {...field} />
-                    </FormControl>
+                    <FormLabel>Method</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="GET">GET</SelectItem>
+                        <SelectItem value="POST">POST</SelectItem>
+                        <SelectItem value="PUT">PUT</SelectItem>
+                        <SelectItem value="PATCH">PATCH</SelectItem>
+                        <SelectItem value="DELETE">DELETE</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
-        ) : showNameField ? (
-          <FormField
-            control={control}
-            name="courier_name"
-            rules={{ required: `${nameFieldLabel} is required` }}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{nameFieldLabel}</FormLabel>
-                <FormControl>
-                  <Input placeholder={`Enter ${nameFieldLabel.toLowerCase()}`} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+
+              {/* URL */}
+              <div className="md:col-span-3">
+                <FormField
+                  control={control}
+                  name="url"
+                  rules={{
+                    required: "URL is required",
+                    pattern: {
+                      value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
+                      message: "Please enter a valid URL"
+                    }
+                  }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>API Endpoint URL</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://api.example.com/tracking" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Headers */}
+            <div className="mt-6">
+              <FormField
+                control={control}
+                name="headers"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Headers</FormLabel>
+                    <FormControl>
+                      <KeyValueEditor
+                        value={field.value || []}
+                        onChange={field.onChange}
+                        keyPlaceholder="Header name"
+                        valuePlaceholder="Header value"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Add HTTP headers for the request
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Request Body (for non-GET requests) */}
+            {method !== 'GET' && (
+              <div className="mt-6">
+                <FormField
+                  control={control}
+                  name="body"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Request Body</FormLabel>
+                      <FormControl>
+                        <JsonEditor
+                          value={field.value || {}}
+                          onChange={handleJsonChange}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Enter the JSON body for the request
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
+              </div>
             )}
-          />
-        ) : null}
+          </CardContent>
+        </Card>
 
-        {/* API Subheading if enabled and position is beforeCurl */}
-        {showApiSubheading && subheadingPosition === 'beforeCurl' && (
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">{apiSubheadingText}</h3>
-            <p className="text-sm text-gray-500">Configure the API URL and authentication details to fetch couriers for this client.</p>
-          </div>
-        )}
-
-        {/* cURL Input Section */}
+        {/* cURL Input Section - Moved up */}
         {showCurlInput && (
           <Card>
             <CardHeader>
@@ -367,7 +433,7 @@ const RequestBuilder = ({
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Paste a cURL command to automatically fill the form below
+                        Paste a cURL command to automatically fill the form above
                       </FormDescription>
                     </FormItem>
                   )}
@@ -463,6 +529,54 @@ const RequestBuilder = ({
           </Card>
         )}
 
+        {/* Name Field (Courier or Client) */}
+        {showNameField && nameFieldInCard ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{nameFieldCardTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={control}
+                name="courier_name"
+                rules={{ required: `${nameFieldLabel} is required` }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{nameFieldLabel}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={`Enter ${nameFieldLabel.toLowerCase()}`} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        ) : showNameField ? (
+          <FormField
+            control={control}
+            name="courier_name"
+            rules={{ required: `${nameFieldLabel} is required` }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{nameFieldLabel}</FormLabel>
+                <FormControl>
+                  <Input placeholder={`Enter ${nameFieldLabel.toLowerCase()}`} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
+
+        {/* API Subheading if enabled and position is beforeCurl */}
+        {showApiSubheading && subheadingPosition === 'beforeCurl' && (
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">{apiSubheadingText}</h3>
+            <p className="text-sm text-gray-500">Configure the API URL and authentication details to fetch couriers for this client.</p>
+          </div>
+        )}
+
         {/* API Subheading if enabled and position is beforeRequest */}
         {showApiSubheading && subheadingPosition === 'beforeRequest' && (
           <div className="mb-4">
@@ -471,71 +585,14 @@ const RequestBuilder = ({
           </div>
         )}
 
-        {/* Request Configuration */}
+        {/* Authentication */}
         <Card>
           <CardHeader>
-            <CardTitle>Request Configuration</CardTitle>
+            <CardTitle>Authentication</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              {/* HTTP Method */}
-              <FormField
-                control={control}
-                name="method"
-                rules={{ required: "HTTP method is required" }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Method</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select method" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="GET">GET</SelectItem>
-                        <SelectItem value="POST">POST</SelectItem>
-                        <SelectItem value="PUT">PUT</SelectItem>
-                        <SelectItem value="PATCH">PATCH</SelectItem>
-                        <SelectItem value="DELETE">DELETE</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* URL */}
-              <div className="md:col-span-3">
-                <FormField
-                  control={control}
-                  name="url"
-                  rules={{
-                    required: "URL is required",
-                    pattern: {
-                      value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
-                      message: "Please enter a valid URL"
-                    }
-                  }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>API Endpoint URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://api.example.com/tracking" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Authentication */}
             <div className="mb-6">
-              <h3 className="text-sm font-medium mb-2">Authentication</h3>
+              <h3 className="text-sm font-medium mb-2">Authentication Type</h3>
 
               <FormField
                 control={control}
