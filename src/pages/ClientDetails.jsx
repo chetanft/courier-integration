@@ -501,6 +501,29 @@ const ClientDetails = () => {
                       </p>
                     )}
 
+                    {/* FreightTiger fields */}
+                    {courier.fteid && (
+                      <p className="text-xs text-gray-500 truncate max-w-[200px]" title={courier.fteid}>
+                        FT ID: {courier.fteid}
+                      </p>
+                    )}
+
+                    {courier.short_code && (
+                      <p className="text-xs text-gray-500">
+                        Code: {courier.short_code}
+                      </p>
+                    )}
+
+                    {courier.tags && courier.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {courier.tags.map((tag, index) => (
+                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                       <div className="text-xs text-gray-500">
                         {status === 'configured' ? (

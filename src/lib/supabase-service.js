@@ -234,7 +234,41 @@ export const getCouriers = async () => {
   try {
     const { data, error } = await supabase
       .from('couriers')
-      .select('*')
+      .select(`
+        id,
+        name,
+        api_base_url,
+        auth_type,
+        api_intent,
+        created_at,
+        fteid,
+        entity_type,
+        partner_type,
+        short_code,
+        company_fteid,
+        company_name,
+        company_gstin,
+        company_head_office,
+        old_company_id,
+        branch_fteid,
+        branch_name,
+        old_branch_id,
+        department_fteid,
+        department_name,
+        old_department_id,
+        relation_types,
+        tags,
+        contact_user,
+        place_fteid,
+        crm_type,
+        is_crm_supplier,
+        is_crm_transporter,
+        premium_from,
+        is_active,
+        created_by,
+        updated_by,
+        updated_at
+      `)
       .order('name');
 
     if (error) throw error;
@@ -305,7 +339,34 @@ export const getCouriersByClientId = async (clientId) => {
           api_base_url,
           auth_type,
           api_intent,
-          created_at
+          created_at,
+          fteid,
+          entity_type,
+          partner_type,
+          short_code,
+          company_fteid,
+          company_name,
+          company_gstin,
+          company_head_office,
+          old_company_id,
+          branch_fteid,
+          branch_name,
+          old_branch_id,
+          department_fteid,
+          department_name,
+          old_department_id,
+          relation_types,
+          tags,
+          contact_user,
+          place_fteid,
+          crm_type,
+          is_crm_supplier,
+          is_crm_transporter,
+          premium_from,
+          is_active,
+          created_by,
+          updated_by,
+          updated_at
         )
       `)
       .eq('client_id', clientId);
