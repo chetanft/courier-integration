@@ -40,7 +40,14 @@ const RequestBuilder = ({
   loading = false,
   showCurlInput = true,
   showApiIntents = true,
-  customSubmitLabel = 'Test API & Continue'
+  customSubmitLabel = 'Test API & Continue',
+  nameFieldLabel = 'Courier Name',
+  nameFieldCardTitle = 'Courier Information',
+  showNameField = true,
+  showApiSubheading = false,
+  apiSubheadingText = 'Add Available Couriers',
+  nameFieldInCard = true,
+  subheadingPosition = 'beforeRequest' // 'beforeCurl' or 'beforeRequest'
 }) => {
   const { control, watch, setValue, handleSubmit, formState } = formMethods;
 
@@ -281,28 +288,53 @@ const RequestBuilder = ({
   return (
     <Form {...formMethods}>
       <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-        {/* Courier Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Courier Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormField
-              control={control}
-              name="courier_name"
-              rules={{ required: "Courier name is required" }}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Courier Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter courier name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+        {/* Name Field (Courier or Client) */}
+        {showNameField && nameFieldInCard ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{nameFieldCardTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={control}
+                name="courier_name"
+                rules={{ required: `${nameFieldLabel} is required` }}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{nameFieldLabel}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={`Enter ${nameFieldLabel.toLowerCase()}`} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+        ) : showNameField ? (
+          <FormField
+            control={control}
+            name="courier_name"
+            rules={{ required: `${nameFieldLabel} is required` }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{nameFieldLabel}</FormLabel>
+                <FormControl>
+                  <Input placeholder={`Enter ${nameFieldLabel.toLowerCase()}`} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
+
+        {/* API Subheading if enabled and position is beforeCurl */}
+        {showApiSubheading && subheadingPosition === 'beforeCurl' && (
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">{apiSubheadingText}</h3>
+            <p className="text-sm text-gray-500">Configure the API URL and authentication details to fetch couriers for this client.</p>
+          </div>
+        )}
 
         {/* cURL Input Section */}
         {showCurlInput && (
@@ -429,6 +461,14 @@ const RequestBuilder = ({
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* API Subheading if enabled and position is beforeRequest */}
+        {showApiSubheading && subheadingPosition === 'beforeRequest' && (
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">{apiSubheadingText}</h3>
+            <p className="text-sm text-gray-500">Configure the API URL and authentication details to fetch couriers for this client.</p>
+          </div>
         )}
 
         {/* Request Configuration */}

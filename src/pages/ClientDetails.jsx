@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getClientById, getCouriersByClientId, getCouriers, linkClientsToCourier, deleteClient } from '../lib/supabase-service';
 import { Button } from '../components/ui/button';
-import { ArrowLeft, PlusCircle, Truck, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Truck, Loader2, Trash2, Server } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -12,6 +12,7 @@ import { SortDropdown } from '../components/ui/sort-dropdown';
 import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
 import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
+import AddAvailableCouriersDialog from '../components/dialogs/AddAvailableCouriersDialog';
 
 const ClientDetails = () => {
   const { id: clientId } = useParams();
@@ -30,6 +31,9 @@ const ClientDetails = () => {
   // Delete client dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Add Available Couriers dialog state
+  const [addCouriersDialogOpen, setAddCouriersDialogOpen] = useState(false);
 
   // Search, filter, and sort state
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,6 +182,37 @@ const ClientDetails = () => {
     }
   };
 
+  // Refresh data after couriers are added
+  const handleCouriersAdded = async () => {
+    setLoading(true);
+
+    try {
+      // Get client details again to refresh API URL
+      const clientData = await getClientById(clientId);
+      setClient(clientData);
+
+      // Get updated couriers for this client
+      const clientCouriers = await getCouriersByClientId(clientId);
+      setCouriers(clientCouriers || []);
+
+      // Get all couriers to determine which ones are available to add
+      const allCouriers = await getCouriers();
+
+      // Filter out couriers that are already linked to this client
+      const linkedCourierIds = clientCouriers.map(c => c.id);
+      const availableCouriersList = allCouriers.filter(c => !linkedCourierIds.includes(c.id));
+
+      setAvailableCouriers(availableCouriersList);
+
+      toast.success('Couriers refreshed successfully');
+    } catch (err) {
+      console.error('Error refreshing client data:', err);
+      toast.error('Failed to refresh data: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -294,6 +329,22 @@ const ClientDetails = () => {
             </Dialog>
           )}
 
+          {/* Add Available Couriers Dialog */}
+          <Button
+            variant="outline"
+            onClick={() => setAddCouriersDialogOpen(true)}
+          >
+            <Server className="mr-2 h-4 w-4" />
+            Add Available Couriers
+          </Button>
+
+          <AddAvailableCouriersDialog
+            open={addCouriersDialogOpen}
+            onOpenChange={setAddCouriersDialogOpen}
+            client={client}
+            onCouriersAdded={handleCouriersAdded}
+          />
+
           <Button onClick={() => navigate(`/client/${clientId}/add-courier`)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Courier
@@ -349,6 +400,13 @@ const ClientDetails = () => {
                 Link Existing Courier
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={() => setAddCouriersDialogOpen(true)}
+            >
+              <Server className="mr-2 h-4 w-4" />
+              Add Available Couriers
+            </Button>
             <Button onClick={() => navigate(`/client/${clientId}/add-courier`)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add New Courier

@@ -921,6 +921,46 @@ export const deleteClient = async (id) => {
   }
 };
 
+// Update a client's API URL
+export const updateClientApiUrl = async (clientId, apiUrl) => {
+  try {
+    console.log(`Updating API URL for client ${clientId} to ${apiUrl}`);
+
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update({
+          api_url: apiUrl,
+          last_api_fetch: null
+        })
+        .eq('id', clientId)
+        .select()
+        .single();
+
+      if (error) {
+        // If the error is related to the api_url field not existing, log and continue
+        if (error.message && (
+            error.message.includes('api_url') ||
+            error.message.includes('last_api_fetch') ||
+            error.message.includes('column')
+          )) {
+          console.warn('Could not update api_url, column might not exist:', error.message);
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (updateError) {
+      console.warn('Error updating client API URL:', updateError);
+      // Return null instead of throwing to allow the process to continue
+      return null;
+    }
+  } catch (error) {
+    handleApiError(error, 'updateClientApiUrl');
+  }
+};
+
 // Get couriers missing specific TMS field mappings
 export const getCouriersMissingFields = async () => {
   try {

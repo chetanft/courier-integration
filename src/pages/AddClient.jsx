@@ -10,6 +10,14 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import RequestBuilder from '../components/request-builder';
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from '../components/ui/form';
 
 const AddClient = () => {
   const [loading, setLoading] = useState(false);
@@ -418,15 +426,32 @@ const AddClient = () => {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Client Information</CardTitle>
+          <CardTitle>Add Client</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500 mb-4">
             Add a new client to the system. The client name will be used to identify the client in the system.
-            You can also configure the API URL and authentication details to fetch couriers for this client.
           </p>
 
-          {/* Use the RequestBuilder component */}
+          {/* Client Name Field */}
+          <div className="mb-6">
+            <FormField
+              control={formMethods.control}
+              name="courier_name"
+              rules={{ required: "Client name is required" }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter client name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Use the RequestBuilder component with correct labels and subheading */}
           <RequestBuilder
             formMethods={formMethods}
             onSubmit={onSubmit}
@@ -434,6 +459,10 @@ const AddClient = () => {
             showCurlInput={true}
             showApiIntents={false}
             customSubmitLabel="Save Client"
+            showNameField={false} // Hide the name field since we're showing it separately
+            showApiSubheading={true}
+            apiSubheadingText="Add Available Couriers"
+            subheadingPosition="beforeCurl" // Show subheading before cURL section
           />
 
           {/* Add a Test API button */}
