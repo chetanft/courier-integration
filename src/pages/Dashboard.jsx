@@ -124,6 +124,10 @@ const Dashboard = () => {
         <h1 className="text-2xl font-bold">Clients</h1>
 
         <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => navigate('/add-courier')}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Courier
+          </Button>
           <Button variant="outline" onClick={() => navigate('/bulk-upload-clients')}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Bulk Upload

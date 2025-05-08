@@ -9,6 +9,7 @@ import CourierModule from './pages/CourierModule';
 import AddCourierToClient from './pages/AddCourierToClient';
 import AddCourier from './pages/AddCourier';
 import AddCourierRevamped from './pages/AddCourierRevamped';
+import AddCourierNew from './pages/AddCourierNew';
 import AddClient from './pages/AddClient';
 import BulkUploadClients from './pages/BulkUploadClients';
 import CourierDetail from './pages/CourierDetail';
@@ -48,7 +49,8 @@ function App() {
             <Route path="/client/:clientId/add-courier" element={<AddCourierToClient />} />
 
             {/* Legacy routes */}
-            <Route path="/add-courier" element={<AddCourierRevamped />} />
+            <Route path="/add-courier" element={<AddCourierNew />} />
+            <Route path="/add-courier-revamped" element={<AddCourierRevamped />} />
             <Route path="/add-courier-legacy" element={<AddCourier />} />
             <Route path="/add-client" element={<AddClient />} />
             <Route path="/bulk-upload-clients" element={<BulkUploadClients />} />
