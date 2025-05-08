@@ -225,6 +225,7 @@ export const validateCourier = (courier, index) => {
 
   // Normalize the courier object
   const normalizedCourier = {
+    // Standard fields
     name: courier.name ? courier.name.trim() : '',
     api_url: courier.api_url || courier.apiUrl || courier.api_endpoint || '',
     auth_type: courier.auth_type || courier.authType || 'none',
@@ -238,7 +239,37 @@ export const validateCourier = (courier, index) => {
     services: courier.services || [],
     description: courier.description || '',
     logo_url: courier.logo_url || courier.logoUrl || '',
-    active: courier.active !== undefined ? courier.active : true
+    active: courier.active !== undefined ? courier.active : true,
+
+    // FreightTiger-specific fields
+    fteid: courier.fteid,
+    entity_type: courier.entity_type,
+    partner_type: courier.partner_type,
+    short_code: courier.short_code,
+    company_fteid: courier.company_fteid,
+    company_name: courier.company_name,
+    company_gstin: courier.company_gstin,
+    company_head_office: courier.company_head_office,
+    old_company_id: courier.old_company_id,
+    branch_fteid: courier.branch_fteid,
+    branch_name: courier.branch_name,
+    old_branch_id: courier.old_branch_id,
+    department_fteid: courier.department_fteid,
+    department_name: courier.department_name,
+    old_department_id: courier.old_department_id,
+    relation_types: courier.relation_types,
+    tags: courier.tags,
+    contact_user: courier.contact_user,
+    place_fteid: courier.place_fteid,
+    crm_type: courier.crm_type,
+    is_crm_supplier: courier.is_crm_supplier,
+    is_crm_transporter: courier.is_crm_transporter,
+    premium_from: courier.premium_from,
+    is_active: courier.is_active !== undefined ? courier.is_active : true,
+    created_at: courier.created_at,
+    updated_at: courier.updated_at,
+    created_by: courier.created_by,
+    updated_by: courier.updated_by
   };
 
   // Convert services to array if it's a string
@@ -247,6 +278,35 @@ export const validateCourier = (courier, index) => {
       .split(',')
       .map(s => s.trim())
       .filter(Boolean);
+  }
+
+  // Convert tags to array if it's a string
+  if (typeof normalizedCourier.tags === 'string') {
+    normalizedCourier.tags = normalizedCourier.tags
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  // Convert relation_types to array if it's a string
+  if (typeof normalizedCourier.relation_types === 'string') {
+    normalizedCourier.relation_types = normalizedCourier.relation_types
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+
+  // Convert boolean fields if they're strings
+  if (typeof normalizedCourier.is_active === 'string') {
+    normalizedCourier.is_active = normalizedCourier.is_active.toLowerCase() === 'true';
+  }
+
+  if (typeof normalizedCourier.is_crm_supplier === 'string') {
+    normalizedCourier.is_crm_supplier = normalizedCourier.is_crm_supplier.toLowerCase() === 'true';
+  }
+
+  if (typeof normalizedCourier.is_crm_transporter === 'string') {
+    normalizedCourier.is_crm_transporter = normalizedCourier.is_crm_transporter.toLowerCase() === 'true';
   }
 
   return {

@@ -46,14 +46,14 @@ const CourierCsvUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =>
   // Validate CSV content
   const validateCsv = (content) => {
     setIsProcessing(true);
-    
+
     try {
       const result = parseAndValidateCsvCouriers(content);
-      
+
       if (result.isValid) {
         setParsedData(result);
         setValidationErrors([]);
-        
+
         // If onParsedData is provided, call it with the parsed couriers
         if (onParsedData) {
           onParsedData(result.couriers);
@@ -73,12 +73,12 @@ const CourierCsvUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =>
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!parsedData || !parsedData.couriers || parsedData.couriers.length === 0) {
       setValidationErrors(['No valid couriers to process']);
       return;
     }
-    
+
     // If clientId is not provided, just call onSuccess with the parsed data
     if (!clientId) {
       if (onSuccess) {
@@ -86,20 +86,20 @@ const CourierCsvUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =>
       }
       return;
     }
-    
+
     setIsUploading(true);
-    
+
     try {
       // Add couriers to the client
       const addedCouriers = await addCouriersToClient(clientId, parsedData.couriers);
-      
+
       if (onSuccess) {
         onSuccess(addedCouriers);
       }
     } catch (error) {
       console.error('Error adding couriers:', error);
       setValidationErrors([`Error adding couriers: ${error.message}`]);
-      
+
       if (onError) {
         onError(error);
       }
@@ -149,12 +149,13 @@ const CourierCsvUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =>
             id="csv-text"
             value={csvText}
             onChange={handleCsvTextChange}
-            placeholder="name,api_url,auth_type,auth_token\nCourier 1,https://example.com/api,bearer,token123"
+            placeholder={`name,api_url,auth_type,auth_token,fteid,entity_type,partner_type,short_code,company_name,old_company_id,tags,relation_types,is_active
+Avikam Logistics Pvt Ltd,https://example.com/api,bearer,token123,COM-1b39a1d8-f63c-410f-9840-0791773ace44,CNR,TRN,A85910,Avikam Logistics Pvt Ltd,1320769,"PTL,FTL","contracted,non-contracted",true`}
             className="font-mono text-sm mt-1 min-h-[200px]"
             disabled={isProcessing || isUploading}
           />
           <p className="text-sm text-gray-500 mt-1">
-            CSV must have a "name" column. Optional columns: api_url, auth_type, auth_token, etc.
+            CSV must have a "name" column. Include FreightTiger fields like fteid, entity_type, partner_type, short_code, company_name, old_company_id, tags, relation_types, is_active, etc.
           </p>
         </div>
 
@@ -200,9 +201,9 @@ const CourierCsvUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =>
       </div>
 
       <div className="flex justify-end space-x-2">
-        <Button 
-          type="button" 
-          variant="outline" 
+        <Button
+          type="button"
+          variant="outline"
           onClick={handleReset}
           disabled={isProcessing || isUploading}
         >

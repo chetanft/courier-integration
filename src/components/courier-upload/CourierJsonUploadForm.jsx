@@ -149,12 +149,12 @@ const CourierJsonUploadForm = ({ clientId, onSuccess, onError, onParsedData }) =
             id="json-text"
             value={jsonText}
             onChange={handleJsonTextChange}
-            placeholder={`// Format 1: Array of couriers\n[\n  {\n    "name": "Courier 1",\n    "api_url": "https://example.com/api"\n  }\n]\n\n// Format 2: Object with couriers array\n{\n  "couriers": [\n    {\n      "name": "Courier 2",\n      "api_url": "https://example.com/api2"\n    }\n  ]\n}`}
+            placeholder={`// Format 1: Array of couriers\n[\n  {\n    "name": "Avikam Logistics Pvt Ltd",\n    "api_url": "https://example.com/api",\n    "fteid": "COM-1b39a1d8-f63c-410f-9840-0791773ace44",\n    "entity_type": "CNR",\n    "partner_type": "TRN",\n    "short_code": "A85910",\n    "company_name": "Avikam Logistics Pvt Ltd",\n    "old_company_id": 1320769,\n    "tags": ["PTL", "FTL"],\n    "relation_types": ["contracted", "non-contracted"],\n    "is_active": true\n  }\n]\n\n// Format 2: Object with couriers array\n{\n  "couriers": [\n    {\n      "name": "Avikam Logistics Pvt Ltd",\n      "api_url": "https://example.com/api2",\n      "fteid": "COM-1b39a1d8-f63c-410f-9840-0791773ace44",\n      "entity_type": "CNR",\n      "partner_type": "TRN",\n      "short_code": "A85910",\n      "company_name": "Avikam Logistics Pvt Ltd",\n      "old_company_id": 1320769,\n      "tags": ["PTL", "FTL"],\n      "relation_types": ["contracted", "non-contracted"],\n      "is_active": true\n    }\n  ]\n}`}
             className="font-mono text-sm mt-1 min-h-[200px]"
             disabled={isProcessing || isUploading}
           />
           <p className="text-sm text-gray-500 mt-1">
-            JSON can be either an array of courier objects or an object with a "couriers" array. Each courier must have at least a "name" property.
+            JSON can be either an array of courier objects or an object with a "couriers" array. Each courier must have at least a "name" property. Include FreightTiger fields like fteid, entity_type, partner_type, short_code, company_name, old_company_id, tags, relation_types, is_active, etc.
           </p>
         </div>
 
