@@ -53,6 +53,7 @@ const AddCourierRevamped = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [jsFileGenerated, setJsFileGenerated] = useState(false);
   const [tokenGenerated, setTokenGenerated] = useState(false);
+  const [tokenRefreshing, setTokenRefreshing] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   // Define the steps for the stepper (updated with token generation step)
@@ -183,7 +184,42 @@ const AddCourierRevamped = () => {
 
       // Test API connection with real API calls
       console.log('Making real API call for testing');
-      const response = await testCourierApi(requestConfig);
+
+      // Add a listener for token refresh events
+      const originalTestCourierApi = testCourierApi;
+      const patchedTestCourierApi = async (config) => {
+        try {
+          return await originalTestCourierApi(config);
+        } catch (error) {
+          // Check if this is an authentication error
+          const isAuthError = error.response?.status === 401 ||
+                             (error.response?.data?.error &&
+                              (error.response?.data?.message?.toLowerCase().includes('unauthorized') ||
+                               error.response?.data?.message?.toLowerCase().includes('token expired') ||
+                               error.response?.data?.message?.toLowerCase().includes('invalid token')));
+
+          if (isAuthError && config.auth?.jwtAuthEndpoint) {
+            setTokenRefreshing(true);
+            addToast('Token expired. Attempting to refresh...', 'info');
+
+            try {
+              // Let the original function handle the refresh
+              const result = await originalTestCourierApi(config);
+              setTokenRefreshing(false);
+              addToast('Token refreshed successfully', 'success');
+              return result;
+            } catch (refreshError) {
+              setTokenRefreshing(false);
+              addToast('Failed to refresh token', 'error');
+              throw refreshError;
+            }
+          }
+
+          throw error;
+        }
+      };
+
+      const response = await patchedTestCourierApi(requestConfig);
 
       // Check if the response contains an error
       if (response.error) {
@@ -1029,7 +1065,21 @@ const AddCourierRevamped = () => {
                     <div className="flex items-center justify-between">
                       <span className="text-green-700">
                         <span className="font-medium">Authentication Token:</span> Successfully generated in the previous step and automatically included in headers
+                        {tokenRefreshing && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Refreshing token...
+                          </span>
+                        )}
                       </span>
+                    </div>
+                    <div className="mt-2 text-xs text-green-600">
+                      <p>• The token has been added as an Authorization header</p>
+                      <p>• If the token expires during testing, the system will attempt to refresh it automatically</p>
+                      <p>• The token configuration will be saved in the generated JS file for future use</p>
                     </div>
                   </div>
                 )}
@@ -1099,7 +1149,7 @@ const AddCourierRevamped = () => {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Testing API...
+                          {tokenRefreshing ? 'Refreshing Token...' : 'Testing API...'}
                         </span>
                       ) : (
                         'Test API Connection'

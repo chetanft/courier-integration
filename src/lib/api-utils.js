@@ -3,6 +3,11 @@ import axios from 'axios';
 // Path to our Netlify Function proxy with Supabase credential support
 const COURIER_PROXY_URL = '/.netlify/functions/db-courier-proxy';
 
+// Determine if we're in development mode
+const isDevelopment = process.env.NODE_ENV === 'development' ||
+                      window.location.hostname === 'localhost' ||
+                      window.location.hostname === '127.0.0.1';
+
 /**
  * Generic function to make courier API requests through our proxy
  * @param {string} courier - Courier identifier (e.g., 'safexpress')
@@ -163,12 +168,55 @@ export const testCourierApi = async (requestConfig) => {
     return response.data;
   } catch (error) {
     console.error('Error calling courier API via proxy:', error);
-    console.error('Error details:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data
-    });
+    console.error('Error details:', error);
+
+    // Check if this is a 404 error for the Netlify function (common in development)
+    if (error.response?.status === 404 &&
+        error.config?.url?.includes('/.netlify/functions/')) {
+      console.warn('Netlify function not found. This is expected in development environment.');
+
+      return {
+        error: true,
+        status: 404,
+        statusText: 'Not Found',
+        message: 'Netlify function not available in development environment',
+        details: {
+          suggestion: 'This feature requires deployment to Netlify to work properly. In development mode, this functionality is limited.'
+        },
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    // Check if this is an authentication error (401 Unauthorized)
+    const isAuthError = error.response?.status === 401 ||
+                       (error.response?.data?.error &&
+                        (error.response?.data?.message?.toLowerCase().includes('unauthorized') ||
+                         error.response?.data?.message?.toLowerCase().includes('token expired') ||
+                         error.response?.data?.message?.toLowerCase().includes('invalid token')));
+
+    // If it's an auth error and we have JWT auth config, try to refresh the token
+    if (isAuthError &&
+        requestConfig.auth?.type === 'bearer' &&
+        requestConfig.auth?.jwtAuthEndpoint) {
+
+      try {
+        console.log('Detected expired token. Attempting to refresh...');
+
+        // Refresh the token
+        const newToken = await refreshAuthToken(requestConfig.auth);
+
+        // Update the token in the request config
+        requestConfig.auth.token = newToken;
+
+        console.log('Token refreshed successfully. Retrying the original request...');
+
+        // Retry the original request with the new token
+        return testCourierApi(requestConfig);
+      } catch (refreshError) {
+        console.error('Failed to refresh token:', refreshError);
+        // Continue with the original error
+      }
+    }
 
     // Check if it's a network error
     const isNetworkError = error.code === 'ECONNABORTED' ||
@@ -282,6 +330,94 @@ export const testSafexpressApi = async (trackingNumber, authToken, apiKey) => {
   };
 
   return testCourierApi(requestConfig);
+};
+
+/**
+ * Refreshes an authentication token using the provided configuration
+ * @param {Object} authConfig - The authentication configuration
+ * @param {string} authConfig.jwtAuthEndpoint - The endpoint to request a new token
+ * @param {string} authConfig.jwtAuthMethod - The HTTP method to use (default: POST)
+ * @param {Array} authConfig.jwtAuthHeaders - Headers to include in the request
+ * @param {Object} authConfig.jwtAuthBody - Body to include in the request
+ * @param {string} authConfig.jwtTokenPath - Path to the token in the response
+ * @returns {Promise<string>} The refreshed token
+ */
+export const refreshAuthToken = async (authConfig) => {
+  try {
+    console.log('Refreshing authentication token...');
+
+    // Validate required fields
+    if (!authConfig.jwtAuthEndpoint) {
+      throw new Error('Auth endpoint URL is required for token refresh');
+    }
+
+    // Define possible proxy endpoints to try
+    const proxyEndpoints = [
+      '/.netlify/functions/db-courier-proxy',  // Primary endpoint
+      '/.netlify/functions/courier-proxy',     // Fallback endpoint
+      '/.netlify/functions/api-proxy'          // Another fallback
+    ];
+
+    let response = null;
+    let lastError = null;
+
+    // Try each endpoint until one works
+    for (const endpoint of proxyEndpoints) {
+      try {
+        console.log(`Attempting to refresh token using proxy endpoint: ${endpoint}`);
+
+        // Create a request to the proxy
+        response = await axios.post(endpoint, {
+          url: authConfig.jwtAuthEndpoint,
+          method: authConfig.jwtAuthMethod || 'POST',
+          headers: authConfig.jwtAuthHeaders || [],
+          body: authConfig.jwtAuthBody || {},
+          apiIntent: 'generate_auth_token'
+        });
+
+        console.log(`Token refresh success with endpoint ${endpoint}`);
+        break;
+      } catch (error) {
+        console.error(`Error with endpoint ${endpoint}:`, error.message);
+        lastError = error;
+        // Continue to the next endpoint
+      }
+    }
+
+    // If all proxies failed
+    if (!response) {
+      throw new Error(`Token refresh failed across all proxy endpoints: ${lastError?.message}`);
+    }
+
+    // Process the response
+    if (response.data.error) {
+      throw new Error(response.data.message || 'Failed to refresh token');
+    }
+
+    // Extract the token using the provided path
+    const tokenPath = authConfig.jwtTokenPath || 'access_token';
+    let token = response.data;
+
+    // Use lodash-style get for nested paths
+    const pathParts = tokenPath.split('.');
+    for (const part of pathParts) {
+      if (token && typeof token === 'object' && part in token) {
+        token = token[part];
+      } else {
+        throw new Error(`Token path "${tokenPath}" not found in response`);
+      }
+    }
+
+    if (!token || typeof token !== 'string') {
+      throw new Error(`Token not found in response using path "${tokenPath}"`);
+    }
+
+    console.log('Token refreshed successfully');
+    return token;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    throw error;
+  }
 };
 
 // Add other courier-specific functions as needed

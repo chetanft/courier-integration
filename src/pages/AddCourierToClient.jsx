@@ -2,13 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { getClientById, addCourier, linkClientsToCourier, getCouriersByClientId } from '../lib/supabase-service';
+import { getClientById, addCourier, linkClientsToCourier, getCouriersByClientId, updateCourierJsFileStatus } from '../lib/supabase-service';
 import { fetchCourierData } from '../lib/courier-api-service';
 import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths } from '../lib/field-extractor';
+import { generateJsConfig } from '../lib/js-generator';
+import { parseCurl } from '../lib/curl-parser';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
+import { KeyValueEditor } from '../components/ui/key-value-editor';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../components/ui/select';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Stepper } from '../components/ui/stepper';
 import RequestBuilder from '../components/request-builder';
@@ -39,15 +50,18 @@ const AddCourierToClient = () => {
   // Courier state is set after successful API test and form submission
   const [, setCourier] = useState(null);
   const [fieldMappings, setFieldMappings] = useState([]);
+  // Start with Authentication step (step 1) since courier selection is skipped
   const [currentStep, setCurrentStep] = useState(1);
   const [tokenGenerated, setTokenGenerated] = useState(false);
+  const [tokenRefreshing, setTokenRefreshing] = useState(false);
   // jsFileGenerated is used in the UI to show success message after JS file generation
-  const [jsFileGenerated] = useState(false);
+  const [jsFileGenerated, setJsFileGenerated] = useState(false);
   const [availableCouriers, setAvailableCouriers] = useState([]);
+  // Track if the response is an auth token response
+  const [isAuthResponse, setIsAuthResponse] = useState(false);
 
-  // Define the steps for the stepper
+  // Define the steps for the stepper (removed first step since courier is pre-selected)
   const steps = [
-    { label: "Courier Details", description: "Basic information" },
     { label: "Authentication", description: "Configure authentication" },
     { label: "Test API", description: "Test connection" },
     { label: "Map Fields", description: "Map fields & generate JS" }
@@ -208,6 +222,9 @@ const AddCourierToClient = () => {
         { key: 'Authorization', value: `Bearer ${token}` }
       ];
       form.setValue('headers', updatedHeaders);
+
+      // Store the token in the form data for future use
+      form.setValue('auth.token', token);
     }
 
     toast.success('Token generated and applied to Authorization header');
@@ -353,9 +370,140 @@ const AddCourierToClient = () => {
     return true;
   };
 
+  // Check if the response contains an authentication token
+  const checkIfAuthResponse = (response) => {
+    if (!response || response.error) return false;
+
+    // Check for common token fields in the response
+    const tokenFields = ['token', 'access_token', 'id_token', 'jwt', 'auth_token', 'bearer_token'];
+
+    // Check if any of these fields exist in the response
+    for (const field of tokenFields) {
+      if (response[field] ||
+          (response.data && response.data[field]) ||
+          (typeof response === 'string' && response.includes(field))) {
+        return true;
+      }
+    }
+
+    // Check if the response is a string that looks like a JWT token
+    if (typeof response === 'string' &&
+        /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/.test(response)) {
+      return true;
+    }
+
+    // Check if the response has a data property that looks like a JWT token
+    if (response.data && typeof response.data === 'string' &&
+        /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/.test(response.data)) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Extract token from response
+  const extractTokenFromResponse = (response) => {
+    if (!response) return null;
+
+    // Common token field names
+    const tokenFields = ['token', 'access_token', 'id_token', 'jwt', 'auth_token', 'bearer_token'];
+
+    // Check direct properties
+    for (const field of tokenFields) {
+      if (response[field]) {
+        return response[field];
+      }
+    }
+
+    // Check nested data property
+    if (response.data) {
+      if (typeof response.data === 'string') {
+        // Check if data is a JWT token
+        if (/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/.test(response.data)) {
+          return response.data;
+        }
+      } else if (typeof response.data === 'object') {
+        // Check data object for token fields
+        for (const field of tokenFields) {
+          if (response.data[field]) {
+            return response.data[field];
+          }
+        }
+      }
+    }
+
+    // If response itself is a string and looks like a JWT token
+    if (typeof response === 'string' &&
+        /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/.test(response)) {
+      return response;
+    }
+
+    return null;
+  };
+
   // Handle field mapping changes
   const handleMappingChange = (newMappings) => {
     setFieldMappings(newMappings);
+  };
+
+  // Generate JS file
+  const generateJsFile = async () => {
+    try {
+      if (!courier) {
+        toast.error('No courier data available');
+        return;
+      }
+
+      // Filter out mappings without TMS fields
+      const validMappings = fieldMappings.filter(mapping =>
+        mapping.tms_field && mapping.tms_field !== ''
+      );
+
+      if (validMappings.length === 0) {
+        toast.warning('Please map at least one field before generating a JS file');
+        return;
+      }
+
+      setSubmitting(true);
+
+      // Generate JS code
+      const jsCode = generateJsConfig(courier, validMappings);
+      const fileName = `${courier.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_mapping.js`;
+
+      // Create download link
+      const blob = new Blob([jsCode], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Update courier status in database
+      await updateCourierJsFileStatus(courier.id, fileName, jsCode);
+
+      // Show success message with navigation option
+      toast.success(
+        'JS file generated and downloaded successfully!',
+        {
+          action: {
+            label: 'View Client',
+            onClick: () => navigate(`/client/${clientId}`)
+          },
+          duration: 5000
+        }
+      );
+
+      // Set a flag to show success message in the UI
+      setJsFileGenerated(true);
+    } catch (error) {
+      console.error('Error generating JS file:', error);
+      toast.error(`Error generating JS file: ${error.message}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Handle form submission
@@ -403,7 +551,41 @@ const AddCourierToClient = () => {
 
       // Test API connection with real API calls
       console.log('Making real API call for testing');
-      const response = await testCourierApi(requestConfig);
+
+      // Create a patched version of testCourierApi that handles token refreshing
+      const patchedTestCourierApi = async (config) => {
+        try {
+          return await testCourierApi(config);
+        } catch (error) {
+          // Check if this is an authentication error
+          const isAuthError = error.response?.status === 401 ||
+                             (error.response?.data?.error &&
+                              (error.response?.data?.message?.toLowerCase().includes('unauthorized') ||
+                               error.response?.data?.message?.toLowerCase().includes('token expired') ||
+                               error.response?.data?.message?.toLowerCase().includes('invalid token')));
+
+          if (isAuthError && config.auth?.jwtAuthEndpoint) {
+            setTokenRefreshing(true);
+            toast.info('Token expired. Attempting to refresh...');
+
+            try {
+              // Let the original function handle the refresh
+              const result = await testCourierApi(config);
+              setTokenRefreshing(false);
+              toast.success('Token refreshed successfully');
+              return result;
+            } catch (refreshError) {
+              setTokenRefreshing(false);
+              toast.error('Failed to refresh token');
+              throw refreshError;
+            }
+          }
+
+          throw error;
+        }
+      };
+
+      const response = await patchedTestCourierApi(requestConfig);
 
       // Check if the response contains an error
       if (response.error) {
@@ -514,7 +696,7 @@ const AddCourierToClient = () => {
         console.log(`Extracted ${mappings.length} field paths from response`);
 
         // Move to the next step
-        setCurrentStep(4); // Move to Field Mapping step
+        setCurrentStep(3); // Move to Field Mapping step (now step 3)
       } catch (extractError) {
         console.error('Error extracting field paths from response:', extractError);
         // If field extraction fails, still show success for the API test
@@ -571,7 +753,7 @@ const AddCourierToClient = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to {client.name}
         </Button>
-        <h1 className="text-2xl font-bold">Add Courier to {client.name}</h1>
+        <h1 className="text-2xl font-bold">Configure {courierParam || 'Courier'} for {client.name}</h1>
       </div>
 
       {error && (
@@ -588,268 +770,550 @@ const AddCourierToClient = () => {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {/* Step 1: Courier Details */}
+          {/* Step 1: Authentication (first step now) */}
           {currentStep === 1 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Select Courier</CardTitle>
-                {client?.api_url && (
-                  <p className="text-sm text-gray-500">
-                    Select a courier from the list of available couriers for {client.name}.
-                    These couriers were fetched from the client's API.
-                  </p>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {availableCouriers.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded border">
-                    <p className="text-gray-500 mb-4">No available couriers found for this client</p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      All couriers from the client's API may already be linked to this client.
-                    </p>
-                    <div className="flex justify-center space-x-4">
-                      <Button
-                        variant="outline"
-                        onClick={handleRefreshCouriers}
-                        disabled={loading || !client?.api_url}
-                      >
-                        {loading ? 'Refreshing...' : 'Refresh Couriers'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => navigate(`/client/${clientId}`)}
-                      >
-                        Return to Client
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <FormField
-                    control={form.control}
-                    name="courier_name"
-                    rules={{ required: "Please select a courier" }}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Courier</FormLabel>
-                        <FormControl>
-                          <select
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              // Force validation check after each change
-                              form.trigger('courier_name');
-
-                              // Auto-fill other fields based on selection
-                              const selectedCourier = availableCouriers.find(c => c.name === e.target.value);
-                              if (selectedCourier) {
-                                if (selectedCourier.api_base_url) {
-                                  form.setValue('url', selectedCourier.api_base_url);
-                                }
-                                if (selectedCourier.auth_type) {
-                                  form.setValue('auth.type', selectedCourier.auth_type);
-                                }
-                              }
-                            }}
-                          >
-                            <option value="">-- Select a Courier --</option>
-                            {availableCouriers.map((courier) => (
-                              <option key={courier.name} value={courier.name}>
-                                {courier.name} {courier.supportsPTL ? '(Supports PTL)' : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </FormControl>
-                        <FormDescription>
-                          Select a courier from the list to configure its integration.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {availableCouriers.length > 0 && (
-                  <div className="flex justify-between items-center space-x-4 mt-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleRefreshCouriers}
-                      disabled={loading}
-                    >
-                      {loading ? 'Refreshing...' : 'Refresh Couriers'}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={goToNextStep}
-                      disabled={!isCourierDetailsValid()}
-                    >
-                      Next: Authentication
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 2: Authentication */}
-          {currentStep === 2 && (
             <>
+              {/* API URL and cURL Command Card */}
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Authentication Details</CardTitle>
+                  <CardTitle>API Configuration</CardTitle>
                   <p className="text-sm text-gray-500">
-                    Select the authentication method required by the courier API.
-                    If no authentication is needed, select "No Authentication" or use the "Skip Authentication" button.
+                    Enter the API URL or paste a cURL command to configure the API request.
                   </p>
-                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-sm">
-                    <p className="text-blue-700">
-                      <strong>For token authentication:</strong> Select "JWT Authentication (Generate Token)"
-                      from the dropdown below, then enter the auth endpoint URL
-                      in the form that will appear. This will allow you to generate a token that will be used in the next step.
-                    </p>
-                  </div>
                 </CardHeader>
                 <CardContent>
-                  <FormField
-                    control={form.control}
-                    name="auth.type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Authentication Type</FormLabel>
-                        <FormControl>
-                          <select
-                            className="w-full border border-gray-300 rounded-md px-3 py-2"
-                            {...field}
-                          >
-                            <option value="none">No Authentication</option>
-                            <option value="basic">Basic Authentication</option>
-                            <option value="apikey">API Key</option>
-                            <option value="bearer">Bearer Token</option>
-                            <option value="jwt_auth">JWT Authentication (Generate Token)</option>
-                          </select>
-                        </FormControl>
-                      </FormItem>
+                  <div className="space-y-6">
+                    {/* URL and Method */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                      {/* HTTP Method */}
+                      <FormField
+                        control={form.control}
+                        name="method"
+                        rules={{ required: "HTTP method is required" }}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Method</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select method" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="GET">GET</SelectItem>
+                                <SelectItem value="POST">POST</SelectItem>
+                                <SelectItem value="PUT">PUT</SelectItem>
+                                <SelectItem value="PATCH">PATCH</SelectItem>
+                                <SelectItem value="DELETE">DELETE</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* URL */}
+                      <div className="md:col-span-3">
+                        <FormField
+                          control={form.control}
+                          name="url"
+                          rules={{
+                            required: "URL is required",
+                            pattern: {
+                              value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
+                              message: "Please enter a valid URL"
+                            }
+                          }}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>API Endpoint URL</FormLabel>
+                              <FormControl>
+                                <Input placeholder="https://api.example.com/tracking" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* cURL Command */}
+                    <FormField
+                      control={form.control}
+                      name="curlCommand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Paste cURL Command</FormLabel>
+                          <FormControl>
+                            <div className="flex gap-2">
+                              <Textarea
+                                placeholder="curl -X GET 'https://api.example.com/tracking?id=123' -H 'Authorization: Bearer token'"
+                                className="font-mono flex-1"
+                                {...field}
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  try {
+                                    if (!field.value.trim()) {
+                                      toast.warning('Empty cURL command, skipping parse');
+                                      return;
+                                    }
+
+                                    console.log('Raw cURL command:', field.value);
+
+                                    // Check for --header parameter
+                                    if (field.value.includes('--header')) {
+                                      console.log('Command contains --header parameter');
+                                    }
+
+                                    const parsed = parseCurl(field.value);
+                                    console.log('Successfully parsed cURL command:', parsed);
+
+                                    // Log detailed information for debugging
+                                    console.log('Parsed URL:', parsed.url);
+                                    console.log('Parsed method:', parsed.method);
+                                    console.log('Parsed headers:', parsed.headers);
+                                    console.log('Parsed auth:', parsed.auth);
+                                    console.log('Parsed body:', parsed.body);
+
+                                    // Update form values with parsed data
+                                    form.setValue('method', parsed.method);
+                                    form.setValue('url', parsed.url);
+
+                                    // Set auth type
+                                    form.setValue('auth.type', parsed.auth.type);
+
+                                    // Set auth credentials based on type
+                                    form.setValue('auth.username', parsed.auth.username);
+                                    form.setValue('auth.password', parsed.auth.password);
+                                    form.setValue('auth.token', parsed.auth.token);
+
+                                    // Set headers
+                                    if (parsed.headers && parsed.headers.length > 0) {
+                                      console.log('Setting headers in form:', parsed.headers);
+                                      form.setValue('headers', parsed.headers);
+
+                                      // Force a re-render of the headers section
+                                      setTimeout(() => {
+                                        const currentHeaders = form.getValues('headers');
+                                        console.log('Current headers after setting:', currentHeaders);
+                                      }, 100);
+                                    } else {
+                                      console.log('No headers found in parsed cURL');
+
+                                      // Check if we need to add a Content-Type header for form-urlencoded data
+                                      if (parsed.isFormUrlEncoded) {
+                                        console.log('Adding Content-Type header for form-urlencoded data');
+                                        form.setValue('headers', [
+                                          { key: 'Content-Type', value: 'application/x-www-form-urlencoded' }
+                                        ]);
+
+                                        setTimeout(() => {
+                                          const currentHeaders = form.getValues('headers');
+                                          console.log('Current headers after adding Content-Type:', currentHeaders);
+                                        }, 100);
+                                      }
+                                    }
+
+                                    // Set body for POST/PUT/PATCH
+                                    if (['POST', 'PUT', 'PATCH'].includes(parsed.method) && parsed.body) {
+                                      console.log('Setting body in form:', parsed.body);
+                                      form.setValue('body', parsed.body);
+
+                                      // If body is form-urlencoded, set the flag
+                                      if (parsed.isFormUrlEncoded) {
+                                        console.log('Setting isFormUrlEncoded to true');
+                                        form.setValue('isFormUrlEncoded', true);
+                                      }
+                                    }
+
+                                    toast.success('cURL command parsed successfully');
+                                  } catch (e) {
+                                    console.error('Error parsing cURL command:', e);
+                                    toast.error('Error parsing cURL command: ' + e.message);
+                                  }
+                                }}
+                                className="self-end"
+                              >
+                                Parse
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            Paste a cURL command to automatically fill the form
+                          </FormDescription>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Headers */}
+                    <FormField
+                      control={form.control}
+                      name="headers"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Headers</FormLabel>
+                          <FormControl>
+                            <KeyValueEditor
+                              value={field.value || []}
+                              onChange={field.onChange}
+                              keyPlaceholder="Header name"
+                              valuePlaceholder="Header value"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Add HTTP headers for the request
+                          </FormDescription>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Query Parameters */}
+                    <FormField
+                      control={form.control}
+                      name="queryParams"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Query Parameters</FormLabel>
+                          <FormControl>
+                            <KeyValueEditor
+                              value={field.value || []}
+                              onChange={field.onChange}
+                              keyPlaceholder="Parameter name"
+                              valuePlaceholder="Parameter value"
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Add query parameters for the request
+                          </FormDescription>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Request Body (for POST/PUT/PATCH) */}
+                    {['POST', 'PUT', 'PATCH'].includes(form.watch('method')) && (
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="isFormUrlEncoded"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                              <FormControl>
+                                <input
+                                  type="checkbox"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>Use form URL encoded</FormLabel>
+                                <FormDescription>
+                                  Send data as application/x-www-form-urlencoded instead of JSON
+                                </FormDescription>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+
+
+
+                        <FormField
+                          control={form.control}
+                          name="body"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Request Body</FormLabel>
+                              <FormControl>
+                                {form.watch('isFormUrlEncoded') ? (
+                                  <KeyValueEditor
+                                    value={Object.entries(field.value || {}).map(([key, value]) => ({ key, value }))}
+                                    onChange={(items) => {
+                                      const bodyObj = {};
+                                      items.forEach(item => {
+                                        if (item.key) bodyObj[item.key] = item.value;
+                                      });
+                                      field.onChange(bodyObj);
+                                    }}
+                                    keyPlaceholder="Field name"
+                                    valuePlaceholder="Field value"
+                                  />
+                                ) : (
+                                  <Textarea
+                                    placeholder='{"key": "value"}'
+                                    className="font-mono min-h-[150px]"
+                                    value={typeof field.value === 'object' ? JSON.stringify(field.value, null, 2) : field.value || ''}
+                                    onChange={(e) => {
+                                      try {
+                                        const value = e.target.value.trim() ? JSON.parse(e.target.value) : {};
+                                        field.onChange(value);
+                                      } catch (err) {
+                                        // Allow invalid JSON during typing
+                                        field.onChange(e.target.value);
+                                      }
+                                    }}
+                                  />
+                                )}
+                              </FormControl>
+                              <FormDescription>
+                                {form.watch('isFormUrlEncoded')
+                                  ? 'Add form fields to send in the request body'
+                                  : 'Enter JSON data to send in the request body'}
+                              </FormDescription>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     )}
-                  />
 
-                  {/* Render different auth fields based on selected type */}
-                  {authType === 'basic' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {/* API Intent (for tracking APIs) */}
+                    <FormField
+                      control={form.control}
+                      name="apiIntent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>API Intent</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select API intent" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="authentication">Authentication</SelectItem>
+                              <SelectItem value="track_shipment">Track Shipment</SelectItem>
+                              <SelectItem value="create_shipment">Create Shipment</SelectItem>
+                              <SelectItem value="cancel_shipment">Cancel Shipment</SelectItem>
+                              <SelectItem value="generate_label">Generate Label</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Select the purpose of this API call
+                          </FormDescription>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Test Docket Number (for tracking APIs) */}
+                    {form.watch('apiIntent') === 'track_shipment' && (
                       <FormField
                         control={form.control}
-                        name="auth.username"
-                        rules={{ required: "Username is required for Basic Auth" }}
+                        name="testDocket"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Username</FormLabel>
+                            <FormLabel>Test Docket/AWB Number</FormLabel>
                             <FormControl>
-                              <Input placeholder="Enter username" {...field} />
+                              <Input placeholder="Enter a test tracking number" {...field} />
                             </FormControl>
-                            <FormMessage />
+                            <FormDescription>
+                              This will be used to test the tracking API
+                            </FormDescription>
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name="auth.password"
-                        rules={{ required: "Password is required for Basic Auth" }}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="Enter password" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
+                    )}
 
-                  {authType === 'apikey' && (
-                    <div className="space-y-4 mt-4">
-                      <FormField
-                        control={form.control}
-                        name="auth.apiKey"
-                        rules={{ required: "API Key is required" }}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>API Key</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter API key" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {authType === 'bearer' && (
-                    <div className="mt-4">
-                      <FormField
-                        control={form.control}
-                        name="auth.token"
-                        rules={{ required: "Bearer token is required" }}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bearer Token</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Enter bearer token" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  {/* Show Token Generator for JWT auth inside the card */}
-                  {authType === 'jwt_auth' && (
-                    <div className="mt-6 mb-6 border-t border-gray-200 pt-6">
-                      <TokenGenerator
-                        formMethods={form}
-                        onTokenGenerated={handleTokenGenerated}
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex justify-between mt-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={goToPreviousStep}
-                    >
-                      Back
-                    </Button>
-                    <div className="space-x-2">
+                    {/* Test Button */}
+                    <div className="flex justify-end">
                       <Button
                         type="button"
-                        variant="outline"
                         onClick={() => {
-                          console.log('Skipping authentication step');
-                          setCurrentStep(3);  // Skip to Test API step
+                          // Create request config from form data
+                          const data = form.getValues();
+                          const requestConfig = {
+                            url: data.url,
+                            method: data.method,
+                            apiIntent: data.apiIntent,
+                            auth: data.auth,
+                            headers: data.headers,
+                            queryParams: data.queryParams,
+                            body: data.body,
+                            testDocket: data.testDocket,
+                            isFormUrlEncoded: data.isFormUrlEncoded
+                          };
+
+                          // Test the API
+                          setSubmitting(true);
+                          setApiError(null);
+
+                          testCourierApi(requestConfig)
+                            .then(response => {
+                              setApiResponse(response);
+
+                              // Check if this is an auth token response
+                              const isAuthResponse = checkIfAuthResponse(response);
+                              setIsAuthResponse(isAuthResponse);
+
+                              if (response.error) {
+                                setApiError(response);
+                                toast.error(`API test failed: ${response.message}`);
+                              } else {
+                                toast.success('API test successful!');
+                              }
+                            })
+                            .catch(error => {
+                              console.error('Error testing API:', error);
+                              toast.error(`Error testing API: ${error.message}`);
+                              setApiError({
+                                error: true,
+                                message: error.message,
+                                status: 'Error',
+                                timestamp: new Date().toISOString()
+                              });
+                            })
+                            .finally(() => {
+                              setSubmitting(false);
+                            });
                         }}
+                        disabled={submitting}
                       >
-                        Skip Authentication
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={goToNextStep}
-                        disabled={!isAuthValid()}
-                      >
-                        Next: Test API
+                        {submitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Testing...
+                          </>
+                        ) : (
+                          'Test API'
+                        )}
                       </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+
+              {/* API Response Card */}
+              {apiResponse && (
+                <Card className="mb-6">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>API Response</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Copy response to clipboard
+                        navigator.clipboard.writeText(JSON.stringify(apiResponse, null, 2))
+                          .then(() => toast.success('Response copied to clipboard'))
+                          .catch(err => toast.error('Failed to copy: ' + err.message));
+                      }}
+                    >
+                      Copy Response
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponseViewer apiResponse={apiResponse} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Navigation Buttons */}
+              {apiResponse && (
+                <div className="flex justify-between mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => navigate(`/client/${clientId}`)}
+                  >
+                    Back to Client
+                  </Button>
+                  <div className="space-x-2">
+                    {/* If it's an auth response, offer to add another API or move to field mapping */}
+                    {isAuthResponse ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            // Save the auth token for later use
+                            const token = extractTokenFromResponse(apiResponse);
+                            if (token) {
+                              form.setValue('auth.token', token);
+                              form.setValue('auth.type', 'bearer');
+
+                              // Add Authorization header if not already present
+                              const currentHeaders = form.getValues('headers') || [];
+                              const hasAuthHeader = currentHeaders.some(h => h.key.toLowerCase() === 'authorization');
+
+                              if (!hasAuthHeader) {
+                                const updatedHeaders = [
+                                  ...currentHeaders,
+                                  { key: 'Authorization', value: `Bearer ${token}` }
+                                ];
+                                form.setValue('headers', updatedHeaders);
+                              }
+
+                              // Clear the form for a new API request
+                              form.setValue('url', '');
+                              form.setValue('method', 'GET');
+                              form.setValue('curlCommand', '');
+                              setApiResponse(null);
+
+                              toast.success('Auth token saved and applied to headers');
+                            }
+                          }}
+                        >
+                          Use Token & Add Another API
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            // Clear the form for a new API request
+                            form.setValue('url', '');
+                            form.setValue('method', 'GET');
+                            form.setValue('curlCommand', '');
+                            setApiResponse(null);
+                          }}
+                        >
+                          Add Another API
+                        </Button>
+                      </>
+                    )}
+
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        // Extract field paths from response
+                        try {
+                          let paths = extractFieldPaths(apiResponse);
+
+                          // Create mapping objects
+                          const mappings = paths.map(path => ({
+                            api_field: path,
+                            tms_field: '',
+                            courier_id: null,
+                            api_type: form.getValues('apiIntent')
+                          }));
+
+                          setFieldMappings(mappings);
+                          setCurrentStep(3); // Skip to Field Mapping step
+                        } catch (error) {
+                          console.error('Error extracting field paths:', error);
+                          toast.error('Error extracting field paths: ' + error.message);
+                        }
+                      }}
+                    >
+                      Next: Map Fields
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
-          {/* Step 3: API Testing */}
-          {currentStep === 3 && (
+
+
+          {/* Step 2: API Testing */}
+          {currentStep === 2 && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -859,7 +1323,21 @@ const AddCourierToClient = () => {
                       <div className="flex items-center justify-between">
                         <span className="text-green-700">
                           <span className="font-medium">Authentication Token:</span> Successfully generated in the previous step and automatically included in headers
+                          {tokenRefreshing && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Refreshing token...
+                            </span>
+                          )}
                         </span>
+                      </div>
+                      <div className="mt-2 text-xs text-green-600">
+                        <p>• The token has been added as an Authorization header</p>
+                        <p>• If the token expires during testing, the system will attempt to refresh it automatically</p>
+                        <p>• The token configuration will be saved in the generated JS file for future use</p>
                       </div>
                     </div>
                   )}
@@ -881,7 +1359,7 @@ const AddCourierToClient = () => {
                     <CardTitle>API Response</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponseViewer response={apiResponse} />
+                    <ResponseViewer apiResponse={apiResponse} />
                   </CardContent>
                 </Card>
               )}
@@ -906,8 +1384,8 @@ const AddCourierToClient = () => {
             </div>
           )}
 
-          {/* Step 4: Field Mapping */}
-          {currentStep === 4 && (
+          {/* Step 3: Field Mapping */}
+          {currentStep === 3 && (
             <Card>
               <CardHeader>
                 <CardTitle>Field Mapping</CardTitle>
@@ -975,10 +1453,17 @@ const AddCourierToClient = () => {
                       </Button>
                       <div className="flex gap-2">
                         <Button
-                          variant="default"
+                          variant="outline"
                           onClick={() => navigate(`/client/${clientId}`)}
                         >
-                          Finish & Return to Client
+                          Return to Client
+                        </Button>
+                        <Button
+                          variant="default"
+                          onClick={generateJsFile}
+                          disabled={submitting || fieldMappings.filter(m => m.tms_field).length === 0}
+                        >
+                          {submitting ? 'Generating...' : 'Generate JS File'}
                         </Button>
                       </div>
                     </div>

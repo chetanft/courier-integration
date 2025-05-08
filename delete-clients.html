@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete All Clients</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #333;
+    }
+    .card {
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border-left: 4px solid #ffeeba;
+      padding: 12px;
+      margin-bottom: 20px;
+    }
+    button {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #c82333;
+    }
+    button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+    #results {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background-color: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      border-left: 4px solid #6c757d;
+      font-family: monospace;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .hidden {
+      display: none;
+    }
+    #confirmation {
+      margin-top: 10px;
+    }
+    #confirmText {
+      padding: 8px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Delete All Clients</h1>
+  
+  <div class="card">
+    <div class="warning">
+      <strong>Warning:</strong> This will permanently delete all clients from the database. This action cannot be undone.
+    </div>
+    
+    <div>
+      <label for="supabaseUrl">Supabase URL:</label>
+      <input type="text" id="supabaseUrl" style="width: 100%; padding: 8px; margin: 8px 0;" placeholder="https://your-project.supabase.co">
+    </div>
+    
+    <div>
+      <label for="supabaseKey">Supabase Anon Key:</label>
+      <input type="text" id="supabaseKey" style="width: 100%; padding: 8px; margin: 8px 0;" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+    </div>
+    
+    <button id="deleteBtn">Delete All Clients</button>
+    
+    <div id="confirmation" class="hidden">
+      <p>Type "delete" to confirm:</p>
+      <input type="text" id="confirmText">
+      <button id="confirmBtn" disabled>Confirm Delete</button>
+    </div>
+  </div>
+  
+  <div id="results" class="hidden"></div>
+  
+  <script>
+    let supabase;
+    const resultsDiv = document.getElementById('results');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const confirmDiv = document.getElementById('confirmation');
+    const confirmText = document.getElementById('confirmText');
+    const confirmBtn = document.getElementById('confirmBtn');
+    
+    // Initialize Supabase client when the button is clicked
+    deleteBtn.addEventListener('click', () => {
+      const supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+      const supabaseKey = document.getElementById('supabaseKey').value.trim();
+      
+      if (!supabaseUrl || !supabaseKey) {
+        alert('Please enter both Supabase URL and Anon Key');
+        return;
+      }
+      
+      // Initialize Supabase client
+      try {
+        supabase = supabase.createClient(supabaseUrl, supabaseKey);
+        confirmDiv.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error initializing Supabase client:', error);
+        showResult(`Error initializing Supabase client: ${error.message}`);
+      }
+    });
+    
+    // Enable confirm button only when "delete" is typed
+    confirmText.addEventListener('input', () => {
+      confirmBtn.disabled = confirmText.value.toLowerCase() !== 'delete';
+    });
+    
+    // Delete all clients when confirmed
+    confirmBtn.addEventListener('click', async () => {
+      if (confirmText.value.toLowerCase() !== 'delete') {
+        return;
+      }
+      
+      confirmBtn.disabled = true;
+      deleteBtn.disabled = true;
+      
+      resultsDiv.classList.remove('hidden');
+      resultsDiv.textContent = 'Starting deletion process...\n';
+      
+      try {
+        await deleteAllClients();
+      } catch (error) {
+        showResult(`Error: ${error.message}`);
+      } finally {
+        confirmBtn.disabled = false;
+        deleteBtn.disabled = false;
+      }
+    });
+    
+    // Function to delete all clients
+    async function deleteAllClients() {
+      try {
+        showResult('Fetching all clients...');
+        
+        // Get all clients
+        const { data: clients, error: fetchError } = await supabase
+          .from('clients')
+          .select('*');
+        
+        if (fetchError) {
+          showResult(`Error fetching clients: ${fetchError.message}`);
+          return;
+        }
+        
+        if (!clients || clients.length === 0) {
+          showResult('No clients found in the database.');
+          return;
+        }
+        
+        showResult(`Found ${clients.length} clients. Starting deletion...`);
+        
+        let successCount = 0;
+        let failureCount = 0;
+        
+        // Delete each client one by one
+        for (const client of clients) {
+          try {
+            showResult(`Deleting client: ${client.name} (${client.id})...`);
+            
+            const { error: deleteError } = await supabase
+              .from('clients')
+              .delete()
+              .eq('id', client.id);
+            
+            if (deleteError) {
+              showResult(`Failed to delete client ${client.name}: ${deleteError.message}`);
+              failureCount++;
+            } else {
+              showResult(`Successfully deleted client: ${client.name}`);
+              successCount++;
+            }
+          } catch (error) {
+            showResult(`Error deleting client ${client.name}: ${error.message}`);
+            failureCount++;
+          }
+        }
+        
+        showResult('\n--- Deletion Summary ---');
+        showResult(`Total clients: ${clients.length}`);
+        showResult(`Successfully deleted: ${successCount}`);
+        showResult(`Failed to delete: ${failureCount}`);
+        
+        if (successCount === clients.length) {
+          showResult('\nAll clients have been successfully deleted!');
+        } else {
+          showResult('\nSome clients could not be deleted. Check the logs for details.');
+        }
+      } catch (error) {
+        showResult(`Error during client deletion: ${error.message}`);
+      }
+    }
+    
+    // Helper function to show results
+    function showResult(message) {
+      console.log(message);
+      resultsDiv.textContent += message + '\n';
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>

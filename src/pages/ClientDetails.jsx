@@ -56,6 +56,14 @@ const ClientDetails = () => {
 
         // Get couriers for this client
         const clientCouriers = await getCouriersByClientId(clientId);
+
+        // Debug: Log all couriers to check their properties
+        console.log('All client couriers:', clientCouriers);
+
+        // Check if any couriers have js_file_path
+        const couriersWithJsFile = clientCouriers.filter(c => c.js_file_path);
+        console.log('Couriers with JS file:', couriersWithJsFile);
+
         setCouriers(clientCouriers || []);
 
         // Get all couriers to determine which ones are available to add
@@ -81,8 +89,22 @@ const ClientDetails = () => {
   }, [clientId]);
 
   // Handle courier card click
-  const handleCourierClick = (courierId) => {
-    navigate(`/client/${clientId}/courier/${courierId}`);
+  const handleCourierClick = (courier) => {
+    // Add debugging to see courier properties
+    console.log('Courier clicked:', courier);
+    console.log('Courier js_file_path:', courier.js_file_path);
+    console.log('Courier js_file_generated:', courier.js_file_generated);
+
+    // Check if JS file exists for this courier (check both fields for backward compatibility)
+    if (courier.js_file_path || courier.js_file_generated) {
+      // Navigate to courier detail page
+      console.log('Navigating to courier detail page:', `/courier-simple/${courier.id}`);
+      navigate(`/courier-simple/${courier.id}`);
+    } else {
+      // Navigate to add courier form with courier pre-selected
+      console.log('Navigating to add courier form:', `/client/${clientId}/add-courier?courier=${encodeURIComponent(courier.name)}`);
+      navigate(`/client/${clientId}/add-courier?courier=${encodeURIComponent(courier.name)}`);
+    }
   };
 
   // Get courier status based on API configuration
@@ -478,7 +500,7 @@ const ClientDetails = () => {
               <GradientCard
                 key={courier.id}
                 className="cursor-pointer"
-                onClick={() => handleCourierClick(courier.id)}
+                onClick={() => handleCourierClick(courier)}
                 theme={cardTheme}
                 glassmorphic={true}
               >

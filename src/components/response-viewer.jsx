@@ -69,7 +69,12 @@ const ResponseViewer = ({
           </TabsList>
 
           <TabsContent value="response">
-            {apiResponse.error ? (
+            {!apiResponse ? (
+              <div className="p-4 border border-gray-200 bg-gray-50 rounded-md">
+                <h3 className="text-lg font-medium text-gray-800 mb-2">No Response Data</h3>
+                <p className="text-gray-600 mb-2">No API response data is available yet.</p>
+              </div>
+            ) : apiResponse.error ? (
               <div className="p-4 border border-red-200 bg-red-50 rounded-md">
                 <h3 className="text-lg font-medium text-red-800 mb-2">Error</h3>
                 <p className="text-red-600 mb-2">{apiResponse.message}</p>

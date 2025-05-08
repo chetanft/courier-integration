@@ -122,7 +122,9 @@ const makeCourierApiCall = async (requestConfig) => {
     // Add auth headers based on auth type
     switch (requestConfig.auth?.type) {
       case 'bearer':
-        headers['Authorization'] = `${requestConfig.auth.token}`;
+        // Check if the token already starts with 'Bearer ' prefix
+        const token = requestConfig.auth.token;
+        headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
         break;
       case 'basic':
         // Use Buffer.from for base64 encoding in Node.js (instead of btoa which is browser-only)
@@ -278,7 +280,7 @@ exports.handler = async (event) => {
       // Load credentials from environment variables if requested
       if (requestConfig.auth.useEnvCredentials && requestConfig.courier) {
         const courier = requestConfig.courier.toUpperCase();
-        
+
         switch (requestConfig.auth.type) {
           case 'basic':
             requestConfig.auth.username = process.env[`${courier}_USERNAME`];
@@ -305,7 +307,7 @@ exports.handler = async (event) => {
     };
   } catch (error) {
     console.error('Error in courier-proxy:', error);
-    
+
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -315,4 +317,4 @@ exports.handler = async (event) => {
       })
     };
   }
-}; 
+};

@@ -24,6 +24,7 @@ export const parseCurl = (curlString) => {
     url: '',
     headers: [],
     body: null,
+    isFormUrlEncoded: false,
     auth: {
       type: 'none',
       username: '',
@@ -59,7 +60,14 @@ export const parseCurl = (curlString) => {
     if (part === '-H' || part === '--header') {
       if (i + 1 < parts.length) {
         // Remove surrounding quotes but keep internal quotes
-        const headerStr = parts[i + 1].replace(/^['"]|['"]$/g, '');
+        let headerStr = parts[i + 1];
+
+        // Remove outer quotes if present
+        if ((headerStr.startsWith('"') && headerStr.endsWith('"')) ||
+            (headerStr.startsWith("'") && headerStr.endsWith("'"))) {
+          headerStr = headerStr.substring(1, headerStr.length - 1);
+        }
+
         console.log('Processing header:', headerStr);
 
         // Find the first colon that's not inside quotes
@@ -89,6 +97,9 @@ export const parseCurl = (curlString) => {
         if (colonIndex > 0) {
           const key = headerStr.substring(0, colonIndex).trim();
           const value = headerStr.substring(colonIndex + 1).trim();
+
+          console.log(`Found header: "${key}: ${value}"`);
+
 
           // Check for Authorization header
           if (key.toLowerCase() === 'authorization') {
@@ -122,6 +133,11 @@ export const parseCurl = (curlString) => {
                 console.log('Detected regular bearer token format');
               }
             }
+          }
+
+          // Special handling for Cookie header
+          if (key.toLowerCase() === 'cookie') {
+            console.log('Found Cookie header:', value);
           }
 
           request.headers.push({ key, value });
@@ -299,7 +315,15 @@ function splitCurlCommand(command) {
   command = command.replace(/\s+/g, ' ')
                    .replace(/(['"]) -/g, '$1 -')
                    .replace(/ (['"]) /g, ' $1')
-                   .replace(/-([a-zA-Z]) /g, '-$1 ');
+                   .replace(/-([a-zA-Z]) /g, '-$1 ')
+                   // Fix common issues with header formatting
+                   .replace(/-H ([^"'])/g, '-H "$1')
+                   .replace(/-H "([^"]*[^"])$/g, '-H "$1"')
+                   .replace(/-H '([^']*[^'])$/g, "-H '$1'")
+                   // Also handle --header parameter (long form of -H)
+                   .replace(/--header ([^"'])/g, '--header "$1')
+                   .replace(/--header "([^"]*[^"])$/g, '--header "$1"')
+                   .replace(/--header '([^']*[^'])$/g, "--header '$1'");
 
   console.log('Normalized command:', command);
 
@@ -365,6 +389,7 @@ function splitCurlCommand(command) {
          current === '--data-urlencode' || current === '--data-raw' ||
          current === '--data-binary' ||
          current === '-u' || current === '--user')) {
+      console.log('Found flag:', current);
       parts.push(current);
       current = '';
       inFlag = false;

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f0f4f8;
+    }
+    .container {
+      max-width: 800px;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #2563eb;
+      margin-top: 0;
+    }
+    p {
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    .button {
+      display: inline-block;
+      background-color: #2563eb;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      text-decoration: none;
+      margin-top: 1rem;
+    }
+    .button:hover {
+      background-color: #1d4ed8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Test Page</h1>
+    <p>If you can see this page, your web server is working correctly.</p>
+    <p>This is a static HTML page to verify that the browser can render content.</p>
+    <p>Current time: <span id="time"></span></p>
+    <a href="/" class="button">Go to Main Application</a>
+  </div>
+
+  <script>
+    // Update the time every second
+    function updateTime() {
+      document.getElementById('time').textContent = new Date().toLocaleTimeString();
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+  </script>
+</body>
+</html>

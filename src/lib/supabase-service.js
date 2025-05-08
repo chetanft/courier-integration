@@ -1427,19 +1427,44 @@ export const getCourierCredentialsByName = async (courierName) => {
 };
 
 /**
- * Update courier JS file status
+ * Update courier JS file status and upload JS file
  * @param {string} courierId - The ID of the courier
- * @param {boolean} jsFileGenerated - Whether the JS file has been generated
- * @param {string} jsFileUrl - The URL of the generated JS file
+ * @param {string} fileName - The name of the JS file
+ * @param {string} jsContent - The content of the JS file
  * @returns {Promise<Object>} The updated courier object
  */
-export const updateCourierJsFileStatus = async (courierId, jsFileGenerated, jsFileUrl = null) => {
+export const updateCourierJsFileStatus = async (courierId, fileName, jsContent) => {
   try {
+    console.log(`Updating JS file status for courier ${courierId}`);
+
+    // First, upload the JS file to storage
+    const filePath = `${courierId}/${fileName}`;
+
+    // Convert JS content to a Blob
+    const jsBlob = new Blob([jsContent], { type: 'application/javascript' });
+
+    // Upload the file to storage
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('js_files')
+      .upload(filePath, jsBlob, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error('Error uploading JS file:', uploadError);
+      throw uploadError;
+    }
+
+    console.log('JS file uploaded successfully:', uploadData);
+
+    // Now update the courier record with the file path
     const { data, error } = await supabase
       .from('couriers')
       .update({
-        js_file_generated: jsFileGenerated,
-        js_file_url: jsFileUrl,
+        js_file_path: filePath,
+        js_file_generated: true, // For backward compatibility
         updated_at: new Date().toISOString()
       })
       .eq('id', courierId)
@@ -1447,9 +1472,29 @@ export const updateCourierJsFileStatus = async (courierId, jsFileGenerated, jsFi
       .single();
 
     if (error) throw error;
+
+    console.log('Courier record updated successfully:', data);
     return data;
   } catch (error) {
     console.error('Error updating courier JS file status:', error);
     return null;
+  }
+};
+
+// Get JS file content
+export const getJsFileContent = async (filePath) => {
+  try {
+    const { data, error } = await supabase
+      .storage
+      .from('js_files')
+      .download(filePath);
+
+    if (error) throw error;
+
+    // Convert blob to text
+    const text = await data.text();
+    return text;
+  } catch (error) {
+    handleApiError(error, 'getJsFileContent');
   }
 };
