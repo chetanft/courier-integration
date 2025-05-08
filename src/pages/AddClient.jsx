@@ -24,7 +24,12 @@ const AddClient = () => {
   // Initialize form with react-hook-form
   const formMethods = useForm({
     defaultValues: {
-      courier_name: '' // We'll use this for client name
+      courier_name: '', // We'll use this for client name
+      company_id: '',
+      company_name: '',
+      old_company_id: '',
+      display_id: '',
+      types: ''
     }
   });
 
@@ -46,9 +51,14 @@ const AddClient = () => {
     setError(null);
 
     try {
-      // Add the client
+      // Add the client with all fields
       const result = await addClient({
-        name: data.courier_name.trim()
+        name: data.courier_name.trim(),
+        company_id: data.company_id?.trim() || null,
+        company_name: data.company_name?.trim() || null,
+        old_company_id: data.old_company_id?.trim() || null,
+        display_id: data.display_id?.trim() || null,
+        types: data.types?.trim() || null
       });
 
       // If we have parsed couriers, add them to the new client
@@ -108,8 +118,9 @@ const AddClient = () => {
             Add a new client to the system. The client name will be used to identify the client in the system.
           </p>
 
-          {/* Client Name Field */}
-          <div className="mb-6">
+          {/* Client Information Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Client Name Field */}
             <FormField
               control={formMethods.control}
               name="courier_name"
@@ -119,6 +130,81 @@ const AddClient = () => {
                   <FormLabel>Client Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter client name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Company ID Field */}
+            <FormField
+              control={formMethods.control}
+              name="company_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company ID</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter company ID" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Company Name Field */}
+            <FormField
+              control={formMethods.control}
+              name="company_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter company name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Old Company ID Field */}
+            <FormField
+              control={formMethods.control}
+              name="old_company_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Old Company ID</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter old company ID" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Display ID Field */}
+            <FormField
+              control={formMethods.control}
+              name="display_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Display ID</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter display ID" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Types Field */}
+            <FormField
+              control={formMethods.control}
+              name="types"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Types</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter types (e.g., CNR, CNR_CEE)" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
