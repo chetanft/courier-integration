@@ -48,10 +48,34 @@ export const testCourierApi = async (requestConfig) => {
   try {
     console.log(`Sending request to proxy for ${requestConfig.url}`);
 
+    // Ensure URL is properly formatted
+    if (requestConfig.url) {
+      // Make sure URL has a protocol
+      if (!requestConfig.url.startsWith('http://') && !requestConfig.url.startsWith('https://')) {
+        console.log('URL does not have a protocol, adding https://');
+        requestConfig.url = 'https://' + requestConfig.url;
+      }
+
+      // Trim any whitespace
+      requestConfig.url = requestConfig.url.trim();
+
+      console.log('Formatted URL:', requestConfig.url);
+    }
+
     // Set flag to use database credentials if not explicitly provided
     if (requestConfig.auth && !requestConfig.auth.username && !requestConfig.auth.apiKey && !requestConfig.auth.token) {
       requestConfig.auth.useDbCredentials = true;
     }
+
+    // Log the full request config for debugging (excluding sensitive data)
+    const debugConfig = { ...requestConfig };
+    if (debugConfig.auth) {
+      // Redact sensitive information
+      if (debugConfig.auth.password) debugConfig.auth.password = '***REDACTED***';
+      if (debugConfig.auth.token) debugConfig.auth.token = '***REDACTED***';
+      if (debugConfig.auth.apiKey) debugConfig.auth.apiKey = '***REDACTED***';
+    }
+    console.log('Sending request config to proxy:', debugConfig);
 
     // Make API call through our Netlify proxy
     const response = await axios.post(COURIER_PROXY_URL, requestConfig);
@@ -60,6 +84,12 @@ export const testCourierApi = async (requestConfig) => {
     return response.data;
   } catch (error) {
     console.error('Error calling courier API via proxy:', error);
+    console.error('Error details:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    });
 
     // Return a structured error response
     return {

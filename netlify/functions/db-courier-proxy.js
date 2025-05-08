@@ -217,10 +217,28 @@ const makeCourierApiCall = async (requestConfig) => {
       }
     }
 
+    // Ensure URL is properly formatted
+    let url = requestConfig.url;
+    if (url) {
+      // Make sure URL has a protocol
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        console.log('URL does not have a protocol, adding https://');
+        url = 'https://' + url;
+      }
+
+      // Trim any whitespace
+      url = url.trim();
+
+      console.log('Formatted URL:', url);
+    } else {
+      console.error('No URL provided in request config');
+      throw new Error('No URL provided in request config');
+    }
+
     // Create axios request config
     const axiosConfig = {
       method: requestConfig.method || 'GET',
-      url: requestConfig.url,
+      url: url,
       headers: {
         ...headers,
         'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
@@ -308,19 +326,30 @@ const makeCourierApiCall = async (requestConfig) => {
     console.log('Headers being sent:', axiosConfig.headers);
 
     try {
+      console.log('Making API request with config:', {
+        method: axiosConfig.method,
+        url: axiosConfig.url,
+        headers: Object.keys(axiosConfig.headers),
+        hasData: !!axiosConfig.data
+      });
+
       const response = await axios(axiosConfig);
-      console.log('API response:', response.status);
+      console.log('API response status:', response.status);
+      console.log('API response headers:', response.headers);
 
       // Check if the response indicates an error
       if (response.status >= 400) {
+        console.error('API returned error status:', response.status);
+        console.error('API error response:', response.data);
+
         return {
           error: true,
           status: response.status,
           statusText: response.statusText,
           message: response.data?.message || 'API request failed',
           details: response.data,
-          url: requestConfig.url,
-          method: requestConfig.method,
+          url: axiosConfig.url,
+          method: axiosConfig.method,
           apiIntent: requestConfig.apiIntent,
           timestamp: new Date().toISOString()
         };
@@ -331,9 +360,10 @@ const makeCourierApiCall = async (requestConfig) => {
       console.error('Axios error details:', {
         message: axiosError.message,
         code: axiosError.code,
-        response: axiosError.response,
-        request: axiosError.request,
-        config: axiosError.config
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        responseData: axiosError.response?.data,
+        requestUrl: axiosError.config?.url
       });
 
       // Return a structured error response
@@ -343,8 +373,8 @@ const makeCourierApiCall = async (requestConfig) => {
         statusText: axiosError.response?.statusText,
         message: axiosError.message,
         details: axiosError.response?.data || {},
-        url: requestConfig.url,
-        method: requestConfig.method,
+        url: axiosConfig.url,
+        method: axiosConfig.method,
         apiIntent: requestConfig.apiIntent,
         timestamp: new Date().toISOString()
       };
@@ -369,7 +399,34 @@ exports.handler = async (event) => {
 
   try {
     // Parse the request body
-    const requestConfig = JSON.parse(event.body);
+    let requestConfig;
+    try {
+      requestConfig = JSON.parse(event.body);
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: true,
+          message: 'Invalid request body. Expected JSON.',
+          details: parseError.message,
+          timestamp: new Date().toISOString()
+        })
+      };
+    }
+
+    // Validate required fields
+    if (!requestConfig.url) {
+      console.error('Missing URL in request config');
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: true,
+          message: 'URL is required in request config',
+          timestamp: new Date().toISOString()
+        })
+      };
+    }
 
     // Process credentials from Supabase if needed
     if (requestConfig.auth && requestConfig.courier) {
@@ -457,11 +514,22 @@ exports.handler = async (event) => {
   } catch (error) {
     console.error('Error in courier-proxy:', error);
 
+    // Determine if this is a network error
+    const isNetworkError = error.code === 'ENOTFOUND' ||
+                          error.code === 'ECONNREFUSED' ||
+                          error.message.includes('getaddrinfo');
+
+    // Determine appropriate status code
+    const statusCode = isNetworkError ? 502 : 500;
+
     return {
-      statusCode: 500,
+      statusCode: statusCode,
       body: JSON.stringify({
         error: true,
         message: `Error in courier-proxy: ${error.message}`,
+        code: error.code,
+        type: isNetworkError ? 'NETWORK_ERROR' : 'SERVER_ERROR',
+        url: error.config?.url,
         timestamp: new Date().toISOString()
       })
     };
