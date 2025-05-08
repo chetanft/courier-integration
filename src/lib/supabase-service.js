@@ -378,6 +378,115 @@ export const updateClientLastFetch = async (clientId) => {
   }
 };
 
+// Update client's API URL and request config
+export const updateClientApiUrl = async (clientId, apiUrl, requestConfig = null) => {
+  try {
+    const updateData = {
+      api_url: apiUrl,
+      last_api_fetch: new Date().toISOString()
+    };
+
+    if (requestConfig) {
+      updateData.request_config = typeof requestConfig === 'string'
+        ? requestConfig
+        : JSON.stringify(requestConfig);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update(updateData)
+        .eq('id', clientId)
+        .select()
+        .single();
+
+      if (error) {
+        // If the error is related to fields not existing, just log and continue
+        if (error.message && (
+            error.message.includes('api_url') ||
+            error.message.includes('last_api_fetch') ||
+            error.message.includes('request_config') ||
+            error.message.includes('column')
+          )) {
+          console.warn('Could not update client API fields, columns might not exist:', error.message);
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (updateError) {
+      console.warn('Error updating client API URL:', updateError);
+      // Return null instead of throwing to allow the process to continue
+      return null;
+    }
+  } catch (error) {
+    handleApiError(error, 'updateClientApiUrl');
+  }
+};
+
+// Add multiple clients in bulk
+export const addClientsInBulk = async (clients) => {
+  try {
+    console.log(`Adding ${clients.length} clients in bulk`);
+
+    // Prepare clients for insertion
+    const clientsToInsert = clients.map(client => ({
+      name: client.name,
+      api_url: client.api_url || null,
+      request_config: client.request_config ?
+        (typeof client.request_config === 'string' ? client.request_config : JSON.stringify(client.request_config))
+        : null,
+      created_at: new Date().toISOString()
+    }));
+
+    // Insert all clients
+    const { data, error } = await supabase
+      .from('clients')
+      .insert(clientsToInsert)
+      .select();
+
+    if (error) {
+      // If the error is related to missing columns, try again with just the name
+      if (error.message && (
+          error.message.includes('api_url') ||
+          error.message.includes('last_api_fetch') ||
+          error.message.includes('request_config') ||
+          error.message.includes('column')
+        )) {
+        console.warn('Error might be related to missing columns, trying with only name field');
+
+        // Try again with just the name field
+        const simplifiedClients = clients.map(client => ({
+          name: client.name,
+          created_at: new Date().toISOString()
+        }));
+
+        const { data: retryData, error: retryError } = await supabase
+          .from('clients')
+          .insert(simplifiedClients)
+          .select();
+
+        if (retryError) {
+          console.error('Retry also failed:', retryError);
+          throw retryError;
+        }
+
+        console.log(`Successfully added ${retryData.length} clients on retry`);
+        return retryData;
+      }
+
+      console.error('Supabase error when adding clients in bulk:', error);
+      throw error;
+    }
+
+    console.log(`Successfully added ${data.length} clients`);
+    return data;
+  } catch (error) {
+    handleApiError(error, 'addClientsInBulk');
+  }
+};
+
 // Fetch and store courier data from client API
 export const fetchAndStoreCourierData = async (clientId, apiUrl, requestConfig = null) => {
   try {

@@ -377,3 +377,80 @@ export const courierSupportsPTL = (courier) => {
 
   return false;
 };
+
+/**
+ * Fetch couriers for multiple clients
+ *
+ * @param {Array} clients - Array of client objects with id, name, api_url, and request_config
+ * @param {Object} options - Options for batch processing
+ * @returns {Promise<Array>} - Promise resolving to an array of results
+ */
+export const fetchCouriersForMultipleClients = async (clients, options = {}) => {
+  const results = [];
+  const batchSize = options.batchSize || 5; // Process 5 clients at a time by default
+  const delay = options.delay || 1000; // 1 second delay between batches by default
+
+  // Process clients in batches
+  for (let i = 0; i < clients.length; i += batchSize) {
+    const batch = clients.slice(i, i + batchSize);
+    console.log(`Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(clients.length / batchSize)}`);
+
+    // Process each client in the batch concurrently
+    const batchPromises = batch.map(async (client) => {
+      try {
+        if (!client.api_url) {
+          return {
+            clientId: client.id,
+            clientName: client.name,
+            error: 'No API URL provided',
+            success: false,
+            couriers: []
+          };
+        }
+
+        // Parse request_config if it's a string
+        let requestConfig = null;
+        if (client.request_config) {
+          try {
+            requestConfig = typeof client.request_config === 'string'
+              ? JSON.parse(client.request_config)
+              : client.request_config;
+          } catch (parseError) {
+            console.warn(`Error parsing request_config for client ${client.name}:`, parseError);
+          }
+        }
+
+        // Fetch couriers for this client
+        const couriers = await fetchCourierData(client.api_url, requestConfig);
+
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          success: true,
+          couriers,
+          count: couriers.length
+        };
+      } catch (error) {
+        console.error(`Error fetching couriers for client ${client.name}:`, error);
+        return {
+          clientId: client.id,
+          clientName: client.name,
+          error: error.message || 'Unknown error',
+          success: false,
+          couriers: []
+        };
+      }
+    });
+
+    // Wait for all clients in this batch to be processed
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+
+    // Add a delay before processing the next batch (if not the last batch)
+    if (i + batchSize < clients.length) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  return results;
+};

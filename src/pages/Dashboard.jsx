@@ -123,10 +123,16 @@ const Dashboard = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Clients</h1>
 
-        <Button onClick={() => navigate('/add-client')}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Client
-        </Button>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => navigate('/bulk-upload-clients')}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Bulk Upload
+          </Button>
+          <Button onClick={() => navigate('/add-client')}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Client
+          </Button>
+        </div>
       </div>
 
       {/* Search, filter, and sort controls */}
