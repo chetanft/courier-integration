@@ -128,6 +128,80 @@ const fetchJwtToken = async (jwtConfig) => {
 };
 
 /**
+ * Checks if a hostname resolves to a private IP address
+ * @param {string} hostname - The hostname to check
+ * @returns {boolean} - True if it's a private IP, false otherwise
+ */
+const isPrivateIP = (hostname) => {
+  try {
+    // Check if it's already an IP address
+    const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const match = hostname.match(ipRegex);
+
+    if (match) {
+      const octets = match.slice(1).map(Number);
+
+      // Check for private IP ranges
+      // 10.0.0.0 - 10.255.255.255
+      if (octets[0] === 10) return true;
+
+      // 172.16.0.0 - 172.31.255.255
+      if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return true;
+
+      // 192.168.0.0 - 192.168.255.255
+      if (octets[0] === 192 && octets[1] === 168) return true;
+
+      // 127.0.0.0 - 127.255.255.255 (localhost)
+      if (octets[0] === 127) return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error checking if IP is private:', error);
+    return false;
+  }
+};
+
+/**
+ * Tests if a URL is reachable
+ * @param {string} url - The URL to test
+ * @returns {Promise<Object>} - Result of the test
+ */
+const testUrlReachability = async (url) => {
+  try {
+    console.log(`Testing reachability of URL: ${url}`);
+
+    // Create a simple HEAD request to test the URL
+    const response = await axios({
+      method: 'HEAD',
+      url: url,
+      timeout: 5000, // Short timeout for quick testing
+      validateStatus: () => true // Accept any status code
+    });
+
+    console.log(`URL test result: ${url} - Status: ${response.status}`);
+
+    return {
+      success: response.status < 500, // Consider it a success if not a server error
+      status: response.status,
+      statusText: response.statusText
+    };
+  } catch (error) {
+    console.error(`URL test failed for ${url}:`, error.message);
+
+    return {
+      success: false,
+      error: error.message,
+      code: error.code,
+      isNetworkError: error.code === 'ENOTFOUND' ||
+                      error.code === 'ECONNREFUSED' ||
+                      error.code === 'ETIMEDOUT' ||
+                      error.code === 'ECONNRESET'
+    };
+  }
+};
+
+/**
  * Makes an API call to courier endpoint
  * @param {Object} requestConfig - The complete request configuration
  * @returns {Promise<Object>} The API response
@@ -230,6 +304,55 @@ const makeCourierApiCall = async (requestConfig) => {
       url = url.trim();
 
       console.log('Formatted URL:', url);
+
+      // Check if the URL is pointing to a private IP address
+      try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname;
+
+        if (isPrivateIP(hostname)) {
+          console.error('URL points to a private IP address which Netlify functions cannot access:', hostname);
+          return {
+            error: true,
+            status: 502,
+            statusText: 'Bad Gateway',
+            message: 'Cannot connect to private IP address',
+            details: {
+              url: url,
+              hostname: hostname,
+              suggestion: "Netlify functions cannot access private IP addresses or localhost. Please use a public API endpoint."
+            },
+            timestamp: new Date().toISOString()
+          };
+        }
+      } catch (urlError) {
+        console.error('Error parsing URL:', urlError);
+      }
+
+      // Test if the URL is reachable
+      const urlTest = await testUrlReachability(url);
+      if (!urlTest.success) {
+        console.error('URL reachability test failed:', urlTest);
+
+        // If it's a network error, provide a more helpful error message
+        if (urlTest.isNetworkError) {
+          return {
+            error: true,
+            status: 502,
+            statusText: 'Bad Gateway',
+            message: `Cannot connect to API server: ${urlTest.error}`,
+            details: {
+              url: url,
+              errorCode: urlTest.code,
+              errorMessage: urlTest.error,
+              suggestion: "Please verify the API URL is correct and the server is accessible from Netlify's functions."
+            },
+            timestamp: new Date().toISOString()
+          };
+        }
+      } else {
+        console.log('URL reachability test passed:', urlTest);
+      }
     } else {
       console.error('No URL provided in request config');
       throw new Error('No URL provided in request config');
@@ -243,12 +366,21 @@ const makeCourierApiCall = async (requestConfig) => {
         ...headers,
         'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
       },
-      // Add timeout
-      timeout: 30000, // 30 seconds
+      // Add timeout - use custom timeout if provided, otherwise default to 30 seconds
+      timeout: requestConfig.timeout || 30000,
       // Add validateStatus to handle all status codes
       validateStatus: function () {
         return true; // Don't reject any status codes, we'll handle them in our code
-      }
+      },
+      // Add proxy configuration if provided
+      ...(requestConfig.proxy ? { proxy: requestConfig.proxy } : {}),
+      // Add max redirects
+      maxRedirects: requestConfig.maxRedirects || 5,
+      // Add retry configuration
+      ...(requestConfig.retry ? {
+        retry: requestConfig.retry,
+        retryDelay: requestConfig.retryDelay || 1000
+      } : {})
     };
 
     // Handle query parameters
@@ -517,10 +649,26 @@ exports.handler = async (event) => {
     // Determine if this is a network error
     const isNetworkError = error.code === 'ENOTFOUND' ||
                           error.code === 'ECONNREFUSED' ||
-                          error.message.includes('getaddrinfo');
+                          error.code === 'ETIMEDOUT' ||
+                          error.code === 'ECONNRESET' ||
+                          error.message.includes('getaddrinfo') ||
+                          error.message.includes('connect ETIMEDOUT') ||
+                          error.message.includes('network timeout') ||
+                          error.message.includes('network error');
 
     // Determine appropriate status code
     const statusCode = isNetworkError ? 502 : 500;
+
+    // Get more detailed information for network errors
+    let networkDetails = {};
+    if (isNetworkError) {
+      networkDetails = {
+        errorCode: error.code,
+        host: error.hostname || error.host || (error.config && new URL(error.config.url).hostname),
+        port: error.port,
+        syscall: error.syscall
+      };
+    }
 
     return {
       statusCode: statusCode,
@@ -530,6 +678,13 @@ exports.handler = async (event) => {
         code: error.code,
         type: isNetworkError ? 'NETWORK_ERROR' : 'SERVER_ERROR',
         url: error.config?.url,
+        networkDetails: isNetworkError ? networkDetails : undefined,
+        axiosDetails: error.isAxiosError ? {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers
+        } : undefined,
         timestamp: new Date().toISOString()
       })
     };

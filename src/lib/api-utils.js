@@ -60,11 +60,52 @@ export const testCourierApi = async (requestConfig) => {
       requestConfig.url = requestConfig.url.trim();
 
       console.log('Formatted URL:', requestConfig.url);
+
+      // Check if the URL is a private IP or localhost
+      try {
+        const urlObj = new URL(requestConfig.url);
+        const hostname = urlObj.hostname;
+
+        // Check for localhost or private IPs
+        if (hostname === 'localhost' ||
+            hostname === '127.0.0.1' ||
+            hostname.startsWith('192.168.') ||
+            hostname.startsWith('10.') ||
+            (hostname.startsWith('172.') && parseInt(hostname.split('.')[1]) >= 16 && parseInt(hostname.split('.')[1]) <= 31)) {
+
+          console.error('URL points to a private IP or localhost which Netlify functions cannot access:', hostname);
+          return {
+            error: true,
+            status: 502,
+            statusText: 'Bad Gateway',
+            message: 'Cannot connect to private IP address or localhost',
+            details: {
+              url: requestConfig.url,
+              hostname: hostname,
+              suggestion: "Netlify functions cannot access private IP addresses or localhost. Please use a public API endpoint."
+            },
+            timestamp: new Date().toISOString()
+          };
+        }
+      } catch (urlError) {
+        console.error('Error parsing URL:', urlError);
+      }
     }
 
     // Set flag to use database credentials if not explicitly provided
     if (requestConfig.auth && !requestConfig.auth.username && !requestConfig.auth.apiKey && !requestConfig.auth.token) {
       requestConfig.auth.useDbCredentials = true;
+    }
+
+    // Add timeout if not already set
+    if (!requestConfig.timeout) {
+      requestConfig.timeout = 30000; // 30 seconds default timeout
+    }
+
+    // Add retry configuration if not already set
+    if (!requestConfig.retry) {
+      requestConfig.retry = 2; // Default to 2 retries
+      requestConfig.retryDelay = 1000; // 1 second between retries
     }
 
     // Log the full request config for debugging (excluding sensitive data)
@@ -80,6 +121,44 @@ export const testCourierApi = async (requestConfig) => {
     // Make API call through our Netlify proxy
     const response = await axios.post(COURIER_PROXY_URL, requestConfig);
 
+    // Check if the response indicates an error
+    if (response.data && response.data.error) {
+      console.error('API proxy returned an error:', response.data);
+
+      // If it's a 502 Bad Gateway error, provide a more helpful message
+      if (response.data.status === 502) {
+        const details = response.data.details || {};
+        const networkDetails = response.data.networkDetails || {};
+
+        // Create a user-friendly error message
+        let errorMessage = 'Cannot connect to the API server. ';
+
+        if (networkDetails.errorCode === 'ENOTFOUND') {
+          errorMessage += 'The hostname could not be resolved. Please check if the URL is correct.';
+        } else if (networkDetails.errorCode === 'ECONNREFUSED') {
+          errorMessage += 'The connection was refused. The server might be down or not accepting connections.';
+        } else if (networkDetails.errorCode === 'ETIMEDOUT') {
+          errorMessage += 'The connection timed out. The server might be slow or unreachable.';
+        } else {
+          errorMessage += response.data.message || 'Please check if the API server is running and accessible.';
+        }
+
+        return {
+          error: true,
+          status: 502,
+          statusText: 'Bad Gateway',
+          message: errorMessage,
+          details: {
+            ...details,
+            networkDetails,
+            url: requestConfig.url,
+            suggestion: "Please verify the API URL is correct and the server is accessible from Netlify's functions."
+          },
+          timestamp: new Date().toISOString()
+        };
+      }
+    }
+
     // Return the response data, which comes pre-formatted from our proxy
     return response.data;
   } catch (error) {
@@ -91,16 +170,32 @@ export const testCourierApi = async (requestConfig) => {
       data: error.response?.data
     });
 
+    // Check if it's a network error
+    const isNetworkError = error.code === 'ECONNABORTED' ||
+                          error.message.includes('timeout') ||
+                          error.message.includes('Network Error');
+
+    // Create a user-friendly error message
+    let errorMessage = error.message;
+    if (isNetworkError) {
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        errorMessage = 'The request timed out. The API server might be slow or unreachable.';
+      } else {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      }
+    }
+
     // Return a structured error response
     return {
       error: true,
       status: error.response?.status,
       statusText: error.response?.statusText || error.message,
-      message: error.message,
+      message: errorMessage,
       details: error.response?.data || {},
       url: requestConfig.url,
       method: requestConfig.method,
       apiIntent: requestConfig.apiIntent,
+      isNetworkError,
       timestamp: new Date().toISOString()
     };
   }

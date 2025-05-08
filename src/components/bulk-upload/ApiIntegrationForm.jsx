@@ -8,10 +8,10 @@ import ProgressIndicator from './ProgressIndicator';
 import { addClientsInBulk } from '../../lib/supabase-service';
 import { extractClientName, normalizeClientName, validateClientName } from '../../lib/client-name-utils';
 import { testCourierApi } from '../../lib/api-utils';
-import { extractCouriersFromResponse } from '../../lib/courier-api-service';
+import NetworkError from '../ui/network-error';
 
 const ApiIntegrationForm = ({ onSubmit, loading }) => {
-  const [apiResponse, setApiResponse] = useState(null);
+  const [, setApiResponse] = useState(null);
   const [parsedClients, setParsedClients] = useState(null);
   const [validationErrors, setValidationErrors] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -19,7 +19,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
-  
+
   // Initialize form with react-hook-form
   const formMethods = useForm({
     defaultValues: {
@@ -41,20 +41,24 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
     }
   });
 
+  // State for API errors
+  const [apiError, setApiError] = useState(null);
+
   // Test the API connection
   const testApiConnection = async () => {
     const formData = formMethods.getValues();
-    
+
     if (!formData.url.trim()) {
       setValidationErrors(['Please enter an API URL']);
       return;
     }
-    
+
     setIsTesting(true);
     setValidationErrors([]);
     setApiResponse(null);
     setParsedClients(null);
-    
+    setApiError(null);
+
     try {
       // Create request config from form data
       const requestConfig = {
@@ -64,13 +68,13 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         queryParams: formData.queryParams || [],
         body: formData.body || {}
       };
-      
+
       // Add authentication if provided
       if (formData.auth && formData.auth.type !== 'none') {
         requestConfig.auth = {
           type: formData.auth.type
         };
-        
+
         // Add auth details based on type
         switch (formData.auth.type) {
           case 'basic':
@@ -90,47 +94,64 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
             break;
         }
       }
-      
+
       // Make the API request
       const response = await testCourierApi(requestConfig);
-      
+
       // Check if the response contains an error
       if (response.error) {
-        throw {
-          message: response.message || 'API request failed',
-          status: response.status,
-          statusText: response.statusText,
-          details: response.details
-        };
-      }
-      
-      setApiResponse(response);
-      
-      // Try to extract clients from the response
-      const extractedClients = extractClientsFromResponse(response);
-      
-      if (extractedClients.length === 0) {
-        setValidationErrors(['No clients found in the API response']);
+        // Store the error for display
+        setApiError(response);
+
+        // If it's a network error, just show the error and don't throw
+        if (response.status === 502 || response.isNetworkError) {
+          console.error('Network error testing API connection:', response);
+        } else {
+          // For other errors, throw to be caught below
+          throw {
+            message: response.message || 'API request failed',
+            status: response.status,
+            statusText: response.statusText,
+            details: response.details
+          };
+        }
       } else {
-        setParsedClients({
-          clients: extractedClients,
-          count: extractedClients.length
-        });
+        // Clear any previous errors
+        setApiError(null);
+
+        setApiResponse(response);
+
+        // Try to extract clients from the response
+        const extractedClients = extractClientsFromResponse(response);
+
+        if (extractedClients.length === 0) {
+          setValidationErrors(['No clients found in the API response']);
+        } else {
+          setParsedClients({
+            clients: extractedClients,
+            count: extractedClients.length
+          });
+        }
       }
     } catch (error) {
       console.error('Error testing API connection:', error);
-      setValidationErrors([`API request failed: ${error.message || 'Unknown error'}`]);
+
+      // Only set validation errors if we don't have a network error
+      // (network errors are handled by the NetworkError component)
+      if (!apiError) {
+        setValidationErrors([`API request failed: ${error.message || 'Unknown error'}`]);
+      }
     } finally {
       setIsTesting(false);
     }
   };
-  
+
   // Extract clients from API response
   const extractClientsFromResponse = (data) => {
     if (!data) return [];
-    
+
     let clients = [];
-    
+
     try {
       // Check if the response is an array
       if (Array.isArray(data)) {
@@ -166,7 +187,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         const arrayProps = Object.keys(data).filter(key =>
           Array.isArray(data[key]) && data[key].length > 0
         );
-        
+
         if (arrayProps.length > 0) {
           clients = data[arrayProps[0]].map(item => ({
             name: extractClientName(item) || 'Unknown Client',
@@ -174,15 +195,15 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
           }));
         }
       }
-      
+
       // Normalize client names and validate
       const validClients = [];
       const errors = [];
-      
+
       clients.forEach((client, index) => {
         const normalizedName = normalizeClientName(client.name);
         const validation = validateClientName(normalizedName);
-        
+
         if (validation.isValid) {
           validClients.push({
             ...client,
@@ -192,19 +213,19 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
           errors.push(`Client "${client.name}": ${validation.message}`);
         }
       });
-      
+
       // Check for duplicate names
       const names = validClients.map(c => c.name);
       const uniqueNames = [...new Set(names)];
-      
+
       if (names.length !== uniqueNames.length) {
         errors.push('There are duplicate client names in the API response');
       }
-      
+
       if (errors.length > 0) {
         setValidationErrors(errors);
       }
-      
+
       return validClients;
     } catch (error) {
       console.error('Error extracting clients from response:', error);
@@ -219,12 +240,12 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
       setValidationErrors(['No valid clients to process']);
       return;
     }
-    
+
     setIsProcessing(true);
     setCurrentStep(1);
     setProgress(0);
     setProgressMessage('Preparing to add clients...');
-    
+
     try {
       // Create request config from form data
       const requestConfig = {
@@ -234,13 +255,13 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
         queryParams: data.queryParams || [],
         body: data.body || {}
       };
-      
+
       // Add authentication if provided
       if (data.auth && data.auth.type !== 'none') {
         requestConfig.auth = {
           type: data.auth.type
         };
-        
+
         // Add auth details based on type
         switch (data.auth.type) {
           case 'basic':
@@ -260,21 +281,21 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
             break;
         }
       }
-      
+
       // Add request_config to each client
       const clientsWithConfig = parsedClients.clients.map(client => ({
         ...client,
         request_config: requestConfig
       }));
-      
+
       // Step 1: Add clients to the database
       setCurrentStep(1);
       setProgressMessage('Adding clients to the database...');
-      
+
       const addedClients = await addClientsInBulk(clientsWithConfig);
       setProgress(1);
       setProgressMessage(`Added ${addedClients.length} clients successfully`);
-      
+
       // Call the onSubmit callback with the results
       onSubmit({
         clients: addedClients,
@@ -324,7 +345,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
             showNameField={false}
             customSubmitLabel="Add Clients"
           />
-          
+
           <div className="flex justify-end space-x-2 mt-4">
             <Button
               type="button"
@@ -342,7 +363,18 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
               )}
             </Button>
           </div>
-          
+
+          {/* Network errors */}
+          {apiError && (apiError.status === 502 || apiError.isNetworkError) && (
+            <NetworkError
+              error={apiError}
+              onRetry={testApiConnection}
+              showDetails={true}
+              className="mt-4"
+            />
+          )}
+
+          {/* Validation errors */}
           {validationErrors.length > 0 && (
             <div className="bg-red-50 p-3 rounded-md border border-red-200 mt-4">
               <div className="flex items-center mb-2">
@@ -356,7 +388,7 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
               </ul>
             </div>
           )}
-          
+
           {parsedClients && (
             <div className="bg-green-50 p-3 rounded-md border border-green-200 mt-4">
               <div className="flex items-center mb-2">
@@ -368,10 +400,10 @@ const ApiIntegrationForm = ({ onSubmit, loading }) => {
               </p>
               <div className="bg-white p-2 rounded border border-green-100 max-h-40 overflow-auto">
                 <ul className="text-xs space-y-1">
-                  {parsedClients.clients.map((client, index) => (
-                    <li key={index} className="flex items-center">
+                  {parsedClients.clients.map((client, i) => (
+                    <li key={i} className="flex items-center">
                       <span className="w-4 h-4 inline-flex items-center justify-center bg-green-100 text-green-800 rounded-full text-xs mr-2">
-                        {index + 1}
+                        {i + 1}
                       </span>
                       {client.name}
                     </li>
