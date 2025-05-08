@@ -218,13 +218,13 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
         // Check for case variations and trim whitespace
         let name = null;
 
-        // First try the normalized fields we created
-        if (row.company_id) {
-            name = row.company_id;
-            console.log(`Using company_id as name: ${name}`);
-        } else if (row.company_name) {
+        // First try the normalized fields we created - prioritize company_name over company_id
+        if (row.company_name) {
             name = row.company_name;
             console.log(`Using company_name as name: ${name}`);
+        } else if (row.company_id) {
+            name = row.company_id;
+            console.log(`Using company_id as name: ${name}`);
         } else if (row.name) {
             name = row.name;
             console.log(`Using name as name: ${name}`);
@@ -235,14 +235,26 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
 
         // If still not found, try all possible variations with spaces
         if (!name) {
-            // Try all possible variations of the field names
+            // Try all possible variations of the field names - prioritize name fields over id fields
+            // First look for name fields
             for (const key in row) {
-                console.log(`Checking key: ${key}`);
-                if (key.toLowerCase().includes('company') &&
-                    (key.toLowerCase().includes('id') || key.toLowerCase().includes('name'))) {
+                console.log(`Checking key for name: ${key}`);
+                if (key.toLowerCase().includes('company') && key.toLowerCase().includes('name')) {
                     name = row[key];
-                    console.log(`Found name in field ${key}: ${name}`);
+                    console.log(`Found name in name field ${key}: ${name}`);
                     break;
+                }
+            }
+
+            // If still not found, look for id fields
+            if (!name) {
+                for (const key in row) {
+                    console.log(`Checking key for id: ${key}`);
+                    if (key.toLowerCase().includes('company') && key.toLowerCase().includes('id')) {
+                        name = row[key];
+                        console.log(`Found name in id field ${key}: ${name}`);
+                        break;
+                    }
                 }
             }
         }
@@ -497,11 +509,11 @@ const CsvUploadForm = ({ onSubmit, loading }) => {
                 id="csv-text"
                 value={csvText}
                 onChange={handleCsvTextChange}
-                placeholder="Company ID,Company Name,Old Company ID,Display ID,Types,api_url,auth_type,auth_token\nCLI001,Client 1,OLD001,DISP001,Type1,https://example.com/api,bearer,token123"
+                placeholder="Company Name,Company ID,Old Company ID,Display ID,Types,api_url,auth_type,auth_token\nClient 1,CLI001,OLD001,DISP001,Type1,https://example.com/api,bearer,token123"
                 className="font-mono text-sm mt-1 min-h-[200px]"
               />
               <p className="text-sm text-gray-500 mt-1">
-                CSV must have a "Company ID" or "Company Name" column. Optional columns: Old Company ID, Display ID, Types, api_url, auth_type, auth_token
+                CSV must have a "Company Name" or "Company ID" column (Company Name is preferred). Optional columns: Old Company ID, Display ID, Types, api_url, auth_type, auth_token
               </p>
             </div>
 
