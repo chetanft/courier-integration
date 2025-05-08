@@ -46,7 +46,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/client/:id" element={<ClientDetails />} />
             <Route path="/client/:clientId/courier/:courierId" element={<CourierModule />} />
-            <Route path="/client/:clientId/add-courier" element={<AddCourierToClient />} />
+            <Route path="/client/:clientId/add-courier" element={<AddCourierNew />} />
 
             {/* Legacy routes */}
             <Route path="/add-courier" element={<AddCourierNew />} />

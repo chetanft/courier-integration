@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -9,18 +9,23 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import AuthenticationSetup from '../components/courier/AuthenticationSetup';
 import CourierApiConfig from '../components/courier/CourierApiConfig';
 import ResponseFieldMapping from '../components/courier/ResponseFieldMapping';
-import { addCourier, addFieldMapping, uploadJsFile } from '../lib/supabase-service';
+import { addCourier, addFieldMapping, uploadJsFile, getClientById, linkClientsToCourier } from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator-enhanced';
 import { getTmsFields } from '../lib/edge-functions-service';
 
 const AddCourierNew = () => {
   const navigate = useNavigate();
+  const { clientId } = useParams();
   const [searchParams] = useSearchParams();
-  const clientId = searchParams.get('clientId');
+  const searchParamsClientId = searchParams.get('clientId');
+  const clientIdToUse = clientId || searchParamsClientId;
   const clientName = searchParams.get('clientName');
   // eslint-disable-next-line no-unused-vars
   const courierId = searchParams.get('courierId');
   const courierName = searchParams.get('courierName');
+
+  // Client state
+  const [client, setClient] = useState(null);
 
   // Form state
   const methods = useForm({
@@ -66,20 +71,31 @@ const AddCourierNew = () => {
     { label: "Field Mapping", description: "Map & generate JS" }
   ];
 
-  // Load TMS fields on component mount
+  // Load client data and TMS fields on component mount
   useEffect(() => {
-    const loadTmsFields = async () => {
+    const loadData = async () => {
       try {
+        // Load TMS fields
         const fields = await getTmsFields();
         setTmsFields(fields);
+
+        // Load client data if clientId is provided
+        if (clientIdToUse) {
+          const clientData = await getClientById(clientIdToUse);
+          if (!clientData) {
+            toast.error('Client not found');
+            return;
+          }
+          setClient(clientData);
+        }
       } catch (error) {
-        console.error('Error loading TMS fields:', error);
-        toast.error('Failed to load TMS fields');
+        console.error('Error loading data:', error);
+        toast.error('Failed to load required data');
       }
     };
 
-    loadTmsFields();
-  }, []);
+    loadData();
+  }, [clientIdToUse]);
 
   // Handle authentication completion
   const handleAuthComplete = (token) => {
@@ -165,8 +181,15 @@ const AddCourierNew = () => {
       const result = await addCourier(courierData);
 
       // If client ID is provided, link courier to client
-      if (clientId) {
-        // TODO: Implement linkClientsToCourier
+      if (clientIdToUse) {
+        try {
+          await linkClientsToCourier(result.id, [clientIdToUse]);
+          toast.success(`Courier linked to client successfully`);
+        } catch (linkError) {
+          console.error('Error linking courier to client:', linkError);
+          toast.error('Failed to link courier to client');
+          // Continue even if linking fails
+        }
       }
 
       setCourier(result);
@@ -186,14 +209,14 @@ const AddCourierNew = () => {
         <Button
           variant="ghost"
           className="mr-2"
-          onClick={() => navigate(-1)}
+          onClick={() => clientIdToUse ? navigate(`/client/${clientIdToUse}`) : navigate(-1)}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
+          {clientIdToUse ? 'Back to Client' : 'Back'}
         </Button>
         <h1 className="text-2xl font-bold">
           {courierName ? `Configure ${courierName}` : 'Add New Courier'}
-          {clientName && ` for ${clientName}`}
+          {clientName ? ` for ${clientName}` : client?.name ? ` for ${client.name}` : ''}
         </h1>
       </div>
 
@@ -237,9 +260,15 @@ const AddCourierNew = () => {
                   The JS file has been generated and saved. You can view it in the courier details page.
                 </p>
                 <div className="flex justify-end">
-                  <Link to="/">
-                    <Button variant="default">Return to Dashboard</Button>
-                  </Link>
+                  {clientIdToUse ? (
+                    <Link to={`/client/${clientIdToUse}`}>
+                      <Button variant="default">Return to Client</Button>
+                    </Link>
+                  ) : (
+                    <Link to="/">
+                      <Button variant="default">Return to Dashboard</Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </CardContent>
