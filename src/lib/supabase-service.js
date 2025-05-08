@@ -378,52 +378,7 @@ export const updateClientLastFetch = async (clientId) => {
   }
 };
 
-// Update client's API URL and request config
-export const updateClientApiUrl = async (clientId, apiUrl, requestConfig = null) => {
-  try {
-    const updateData = {
-      api_url: apiUrl,
-      last_api_fetch: new Date().toISOString()
-    };
 
-    if (requestConfig) {
-      updateData.request_config = typeof requestConfig === 'string'
-        ? requestConfig
-        : JSON.stringify(requestConfig);
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .update(updateData)
-        .eq('id', clientId)
-        .select()
-        .single();
-
-      if (error) {
-        // If the error is related to fields not existing, just log and continue
-        if (error.message && (
-            error.message.includes('api_url') ||
-            error.message.includes('last_api_fetch') ||
-            error.message.includes('request_config') ||
-            error.message.includes('column')
-          )) {
-          console.warn('Could not update client API fields, columns might not exist:', error.message);
-          return null;
-        }
-        throw error;
-      }
-
-      return data;
-    } catch (updateError) {
-      console.warn('Error updating client API URL:', updateError);
-      // Return null instead of throwing to allow the process to continue
-      return null;
-    }
-  } catch (error) {
-    handleApiError(error, 'updateClientApiUrl');
-  }
-};
 
 // Add multiple clients in bulk
 export const addClientsInBulk = async (clients) => {
@@ -484,6 +439,101 @@ export const addClientsInBulk = async (clients) => {
     return data;
   } catch (error) {
     handleApiError(error, 'addClientsInBulk');
+  }
+};
+
+// Add multiple couriers to a client
+export const addCouriersToClient = async (clientId, couriers) => {
+  try {
+    console.log(`Adding ${couriers.length} couriers to client ${clientId}`);
+
+    if (!clientId) {
+      throw new Error('Client ID is required');
+    }
+
+    if (!couriers || couriers.length === 0) {
+      console.warn('No couriers to add');
+      return [];
+    }
+
+    const results = [];
+
+    // Process each courier
+    for (const courier of couriers) {
+      try {
+        if (!courier.name) {
+          console.warn('Skipping courier without a name:', courier);
+          continue;
+        }
+
+        console.log(`Processing courier: ${courier.name}`);
+
+        // Check if courier already exists by name
+        const { data: existingCouriers, error: searchError } = await supabase
+          .from('couriers')
+          .select('id, name')
+          .eq('name', courier.name);
+
+        if (searchError) {
+          console.error('Error searching for existing courier:', searchError);
+          throw searchError;
+        }
+
+        let courierId;
+
+        if (existingCouriers && existingCouriers.length > 0) {
+          // Courier already exists, use its ID
+          courierId = existingCouriers[0].id;
+          console.log(`Courier "${courier.name}" already exists with ID ${courierId}`);
+        } else {
+          // Create new courier
+          console.log(`Creating new courier: ${courier.name}`);
+          const newCourier = await addCourier({
+            name: courier.name,
+            api_base_url: courier.api_url || courier.api_base_url || '',
+            auth_type: courier.auth_type || 'none',
+            api_intent: 'track_shipment'
+          });
+
+          courierId = newCourier.id;
+          console.log(`Created new courier "${courier.name}" with ID ${courierId}`);
+        }
+
+        // Check if courier is already linked to this client
+        const { data: existingLinks, error: linkCheckError } = await supabase
+          .from('courier_clients')
+          .select('*')
+          .eq('courier_id', courierId)
+          .eq('client_id', clientId);
+
+        if (linkCheckError) {
+          console.error('Error checking existing links:', linkCheckError);
+          throw linkCheckError;
+        }
+
+        if (!existingLinks || existingLinks.length === 0) {
+          // Link courier to client
+          console.log(`Linking courier "${courier.name}" to client ID ${clientId}`);
+          await linkClientsToCourier(courierId, [clientId]);
+          console.log(`Linked courier "${courier.name}" to client ID ${clientId}`);
+        } else {
+          console.log(`Courier "${courier.name}" is already linked to client ID ${clientId}`);
+        }
+
+        results.push({
+          id: courierId,
+          name: courier.name,
+          isNew: !existingCouriers || existingCouriers.length === 0
+        });
+      } catch (courierError) {
+        console.error(`Error processing courier "${courier.name}":`, courierError);
+        // Continue with next courier
+      }
+    }
+
+    return results;
+  } catch (error) {
+    handleApiError(error, 'addCouriersToClient');
   }
 };
 
