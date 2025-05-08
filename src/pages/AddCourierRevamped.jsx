@@ -6,15 +6,27 @@ import { extractFieldPaths } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
 import { getTmsFields } from '../lib/edge-functions-service';
 import { addCourier, addFieldMapping, saveApiTestResult, uploadJsFile } from '../lib/supabase-service';
+import { parseCurl } from '../lib/curl-parser';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import { Textarea } from '../components/ui/textarea';
+import { KeyValueEditor } from '../components/ui/key-value-editor';
+import { JsonEditor } from '../components/ui/json-editor';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../components/ui/select';
 import {
   Form,
   FormField,
   FormItem,
   FormLabel,
   FormControl,
+  FormDescription,
   FormMessage,
 } from '../components/ui/form';
 import { Stepper } from '../components/ui/stepper';
@@ -477,54 +489,334 @@ const AddCourierRevamped = () => {
       <Form formMethods={formMethods} onSubmit={onSubmit} className="space-y-8">
         {/* Step 1: Courier Details */}
         {currentStep === 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Courier Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={formMethods.control}
-                name="courier_name"
-                rules={{ required: "Courier name is required" }}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Courier Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter courier name"
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          // Force validation check after each change
-                          formMethods.trigger('courier_name');
-                          // Log the current value
-                          console.log('Input changed:', e.target.value, {
-                            isDirty: formMethods.formState.isDirty,
-                            dirtyFields: formMethods.formState.dirtyFields,
-                            courierName
-                          });
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Courier Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={formMethods.control}
+                  name="courier_name"
+                  rules={{ required: "Courier name is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Courier Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter courier name"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            // Force validation check after each change
+                            formMethods.trigger('courier_name');
+                            // Log the current value
+                            console.log('Input changed:', e.target.value, {
+                              isDirty: formMethods.formState.isDirty,
+                              dirtyFields: formMethods.formState.dirtyFields,
+                              courierName
+                            });
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-              <div className="flex justify-end space-x-4 mt-6">
-                <Button
-                  type="button"
-                  onClick={() => {
-                    console.log('Next button clicked, validation state:', isCourierDetailsValid());
-                    goToNextStep();
-                  }}
-                  disabled={!isCourierDetailsValid()}
-                >
-                  Next: Authentication
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {/* cURL Input Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>cURL Command</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <FormField
+                    control={formMethods.control}
+                    name="curlCommand"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Paste cURL Command</FormLabel>
+                        <FormControl>
+                          <div className="flex gap-2">
+                            <Textarea
+                              placeholder="curl -X GET 'https://api.example.com/tracking?id=123' -H 'Authorization: Bearer token'"
+                              className="font-mono flex-1"
+                              {...field}
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  if (!field.value.trim()) {
+                                    console.log('Empty cURL command, skipping parse');
+                                    return;
+                                  }
+                                  const parsed = parseCurl(field.value);
+                                  console.log('Parsed cURL:', parsed);
+
+                                  // Update form values with parsed data
+                                  formMethods.setValue('method', parsed.method);
+                                  formMethods.setValue('url', parsed.url);
+                                  formMethods.setValue('auth.type', parsed.auth.type);
+                                  formMethods.setValue('auth.username', parsed.auth.username);
+                                  formMethods.setValue('auth.password', parsed.auth.password);
+                                  formMethods.setValue('auth.token', parsed.auth.token);
+
+                                  // Set headers
+                                  if (parsed.headers && parsed.headers.length > 0) {
+                                    formMethods.setValue('headers', parsed.headers);
+                                  }
+
+                                  // Set body if present
+                                  if (parsed.body) {
+                                    formMethods.setValue('body', parsed.body);
+                                  }
+                                } catch (e) {
+                                  console.error('Error parsing cURL command:', e);
+                                  alert('Error parsing cURL command: ' + e.message);
+                                }
+                              }}
+                              className="self-end"
+                            >
+                              Parse
+                            </Button>
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          Paste a cURL command to automatically fill the form below
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* API Intent Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle>API Intent</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={formMethods.control}
+                  name="apiIntent"
+                  rules={{ required: "API intent is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>What are you trying to do?</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select API intent" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="generate_auth_token">Generate Auth Token</SelectItem>
+                          <SelectItem value="fetch_static_config">Fetch Static Config</SelectItem>
+                          <SelectItem value="fetch_api_schema">Fetch API Schema</SelectItem>
+                          <SelectItem value="track_shipment">Track Shipment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        This helps us optimize the request for specific use cases
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Conditional Test Docket Field */}
+                {formMethods.watch('apiIntent') === 'track_shipment' && (
+                  <FormField
+                    control={formMethods.control}
+                    name="testDocket"
+                    rules={{
+                      required: "Test docket number is required for shipment tracking"
+                    }}
+                    render={({ field }) => (
+                      <FormItem className="mt-4 p-4 rounded-md border border-gray-200">
+                        <FormLabel>Test Docket Number (Required)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="ABC123456"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter a tracking/docket number to test the shipment tracking API
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Request Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Request Configuration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                  {/* HTTP Method */}
+                  <FormField
+                    control={formMethods.control}
+                    name="method"
+                    rules={{ required: "HTTP method is required" }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Method</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select method" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="GET">GET</SelectItem>
+                            <SelectItem value="POST">POST</SelectItem>
+                            <SelectItem value="PUT">PUT</SelectItem>
+                            <SelectItem value="PATCH">PATCH</SelectItem>
+                            <SelectItem value="DELETE">DELETE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* URL */}
+                  <div className="md:col-span-3">
+                    <FormField
+                      control={formMethods.control}
+                      name="url"
+                      rules={{
+                        required: "URL is required",
+                        pattern: {
+                          value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
+                          message: "Please enter a valid URL"
+                        }
+                      }}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>API Endpoint URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://api.example.com/tracking" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Headers */}
+                <div className="mt-6">
+                  <FormField
+                    control={formMethods.control}
+                    name="headers"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Headers</FormLabel>
+                        <FormControl>
+                          <KeyValueEditor
+                            value={field.value || []}
+                            onChange={field.onChange}
+                            keyPlaceholder="Header name"
+                            valuePlaceholder="Header value"
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Add HTTP headers for the request
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Request Body (for non-GET requests) */}
+                {formMethods.watch('method') !== 'GET' && (
+                  <div className="mt-6">
+                    <FormField
+                      control={formMethods.control}
+                      name="body"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Request Body</FormLabel>
+                          <FormControl>
+                            <JsonEditor
+                              value={field.value || {}}
+                              onChange={(value) => {
+                                try {
+                                  // If it's a string, try to parse it
+                                  if (typeof value === 'string') {
+                                    if (value.trim()) {
+                                      JSON.parse(value); // This will throw if invalid
+                                    }
+                                  }
+                                  field.onChange(value);
+                                } catch (error) {
+                                  console.error('Invalid JSON:', error);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Enter the JSON body for the request
+                          </FormDescription>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Show API Response if available */}
+            {apiResponse && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>API Response</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponseViewer response={apiResponse} />
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="flex justify-end space-x-4 mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onSubmit(formMethods.getValues())}
+                disabled={loading || !formMethods.watch('url') || !isCourierDetailsValid()}
+              >
+                {loading ? 'Testing...' : 'Test API'}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  console.log('Next button clicked, validation state:', isCourierDetailsValid());
+                  goToNextStep();
+                }}
+                disabled={!isCourierDetailsValid()}
+              >
+                Next: Authentication
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Step 2: Authentication */}
@@ -732,13 +1024,78 @@ const AddCourierRevamped = () => {
                 )}
               </CardHeader>
               <CardContent>
-                <RequestBuilder
-                  formMethods={formMethods}
-                  onSubmit={onSubmit}
-                  loading={loading}
-                  showCurlInput={true}
-                  showApiIntents={true}
-                />
+                <div className="space-y-6">
+                  <div className="bg-gray-50 p-4 rounded border">
+                    <h3 className="text-md font-medium mb-2">API Configuration Summary</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Method:</p>
+                        <p className="font-mono">{formMethods.watch('method')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">URL:</p>
+                        <p className="font-mono text-xs break-all">{formMethods.watch('url')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">API Intent:</p>
+                        <p>{formMethods.watch('apiIntent')}</p>
+                      </div>
+                      {formMethods.watch('apiIntent') === 'track_shipment' && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Test Docket:</p>
+                          <p className="font-mono">{formMethods.watch('testDocket')}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Show headers summary */}
+                    {formMethods.watch('headers')?.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-500 mb-1">Headers:</p>
+                        <div className="bg-white p-2 rounded border text-xs font-mono">
+                          {formMethods.watch('headers').map((header, index) => (
+                            <div key={index} className="mb-1">
+                              {header.key}: {header.value}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show body summary for non-GET requests */}
+                    {formMethods.watch('method') !== 'GET' && formMethods.watch('body') && Object.keys(formMethods.watch('body')).length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-500 mb-1">Request Body:</p>
+                        <div className="bg-white p-2 rounded border overflow-auto max-h-40">
+                          <pre className="text-xs font-mono">
+                            {JSON.stringify(formMethods.watch('body'), null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      onClick={() => onSubmit(formMethods.getValues())}
+                      disabled={loading}
+                      className="w-full md:w-auto"
+                    >
+                      {loading ? (
+                        <span className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Testing API...
+                        </span>
+                      ) : (
+                        'Test API Connection'
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
