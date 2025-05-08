@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getClientById, getCouriersByClientId, getCouriers, linkClientsToCourier, deleteClient } from '../lib/supabase-service';
 import { Button } from '../components/ui/button';
 import { ArrowLeft, PlusCircle, Truck, Loader2, Trash2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { SearchBar } from '../components/ui/search-bar';
@@ -11,7 +11,7 @@ import { FilterDropdown } from '../components/ui/filter-dropdown';
 import { SortDropdown } from '../components/ui/sort-dropdown';
 import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
-import { Input } from '../components/ui/input';
+import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
 
 const ClientDetails = () => {
   const { id: clientId } = useParams();
@@ -29,7 +29,6 @@ const ClientDetails = () => {
 
   // Delete client dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Search, filter, and sort state
@@ -166,11 +165,6 @@ const ClientDetails = () => {
 
   // Handle deleting the client
   const handleDeleteClient = async () => {
-    if (deleteConfirmText !== 'delete') {
-      toast.error('Please type "delete" to confirm');
-      return;
-    }
-
     setIsDeleting(true);
 
     try {
@@ -230,56 +224,15 @@ const ClientDetails = () => {
         </Button>
 
         {/* Delete Client Confirmation Dialog */}
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Client</DialogTitle>
-              <DialogDescription className="pt-4">
-                This action cannot be undone. This will permanently delete the client
-                <span className="font-semibold"> {client.name} </span>
-                and all associated data.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="py-4">
-              <p className="text-sm text-gray-500 mb-4">
-                To confirm, type <span className="font-semibold">delete</span> in the field below:
-              </p>
-              <Input
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Type 'delete' to confirm"
-                className="mb-2"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDeleteDialogOpen(false);
-                  setDeleteConfirmText('');
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteClient}
-                disabled={deleteConfirmText !== 'delete' || isDeleting}
-              >
-                {isDeleting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  'Delete Client'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DeleteConfirmationDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          title="Delete Client"
+          entityName={client.name}
+          entityType="client"
+          onConfirm={handleDeleteClient}
+          isDeleting={isDeleting}
+        />
       </div>
 
       <div className="flex justify-between items-center mb-6">
