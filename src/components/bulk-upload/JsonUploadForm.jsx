@@ -4,16 +4,17 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Card, CardContent } from '../ui/card';
-import { Loader2, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Upload, FileText, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import ProgressIndicator from './ProgressIndicator';
 import { addClientsInBulk, fetchAndStoreCourierData } from '../../lib/supabase-service';
-import { normalizeClientName, validateClientName } from '../../lib/client-name-utils';
+import { normalizeClientName, validateClientName, generateUniqueClientName } from '../../lib/client-name-utils';
 
 const JsonUploadForm = ({ onSubmit, loading }) => {
   const [, setFile] = useState(null);
   const [jsonText, setJsonText] = useState('');
   const [parsedData, setParsedData] = useState(null);
   const [validationErrors, setValidationErrors] = useState([]);
+  const [successMessages, setSuccessMessages] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [progress, setProgress] = useState(0);
@@ -138,12 +139,49 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
         return normalizedClient;
       }).filter(Boolean);
 
-      // Check for duplicate names
+      // Check for duplicate names and make them unique
       const names = clients.map(c => c.name);
       const uniqueNames = [...new Set(names)];
 
       if (names.length !== uniqueNames.length) {
-        errors.push('There are duplicate client names in the JSON');
+        console.log('Found duplicate client names. Making them unique...');
+
+        // Create a map to track name occurrences
+        const nameOccurrences = {};
+        const renamedClients = [];
+
+        // Make duplicate names unique
+        for (let i = 0; i < clients.length; i++) {
+          const name = clients[i].name;
+
+          // If this name has been seen before, make it unique
+          if (nameOccurrences[name]) {
+            const existingNames = clients.slice(0, i).map(c => c.name);
+            const newName = generateUniqueClientName(name, existingNames);
+            clients[i].name = newName;
+            console.log(`Renamed duplicate "${name}" to "${newName}"`);
+            renamedClients.push({ original: name, new: newName });
+          }
+
+          // Mark this name as seen
+          nameOccurrences[name] = true;
+        }
+
+        // Verify all names are now unique
+        const newNames = clients.map(c => c.name);
+        const newUniqueNames = [...new Set(newNames)];
+
+        if (newNames.length !== newUniqueNames.length) {
+          errors.push('Unable to resolve all duplicate client names');
+        } else if (renamedClients.length > 0) {
+          // Add success message about renamed clients
+          setSuccessMessages([
+            `Found ${renamedClients.length} duplicate client names that were automatically made unique.`
+          ]);
+        }
+      } else {
+        // Clear any previous success messages
+        setSuccessMessages([]);
       }
 
       if (errors.length > 0) {
@@ -272,6 +310,7 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
     setJsonText('');
     setParsedData(null);
     setValidationErrors([]);
+    setSuccessMessages([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -339,6 +378,20 @@ const JsonUploadForm = ({ onSubmit, loading }) => {
                 <ul className="text-sm text-red-700 list-disc pl-5 space-y-1">
                   {validationErrors.map((error, index) => (
                     <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {successMessages.length > 0 && (
+              <div className="bg-blue-50 p-3 rounded-md border border-blue-200">
+                <div className="flex items-center mb-2">
+                  <Info className="h-4 w-4 text-blue-500 mr-2" />
+                  <h3 className="text-sm font-medium text-blue-800">Information</h3>
+                </div>
+                <ul className="text-sm text-blue-700 list-disc pl-5 space-y-1">
+                  {successMessages.map((message, index) => (
+                    <li key={index}>{message}</li>
                   ))}
                 </ul>
               </div>
