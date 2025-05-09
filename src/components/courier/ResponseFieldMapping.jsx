@@ -166,12 +166,13 @@ const ResponseFieldMapping = ({ onComplete, apiResponses, tmsFields, loading }) 
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Map Response Fields</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Map Response Fields</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
           {/* API Tabs */}
           <Tabs
             defaultValue={`api-${selectedApiIndex}`}
@@ -308,9 +309,11 @@ const ResponseFieldMapping = ({ onComplete, apiResponses, tmsFields, loading }) 
               </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-between">
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-between">
         <Button
           type="button"
           variant="outline"
@@ -335,8 +338,8 @@ const ResponseFieldMapping = ({ onComplete, apiResponses, tmsFields, loading }) 
             </>
           )}
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 

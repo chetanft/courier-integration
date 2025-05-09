@@ -397,12 +397,13 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Authentication Setup</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Authentication Setup</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Courier Name - always show for now */}
           <FormField
             control={control}
@@ -897,9 +898,10 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
             </div>
           )}
         </form>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <div></div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
         <Button
           type="button"
           onClick={handleSubmit(onSubmit)}
@@ -914,8 +916,8 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
             'Continue to API Setup'
           )}
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 

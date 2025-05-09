@@ -199,12 +199,13 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Configure Courier APIs</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Configure Courier APIs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Accordion type="single" collapsible defaultValue="api-0">
             {apis.map((api, index) => (
               <AccordionItem key={index} value={`api-${index}`}>
@@ -478,8 +479,10 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
             Add Another API
           </Button>
         </form>
-      </CardContent>
-      <CardFooter className="flex justify-between">
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-between">
         <Button
           type="button"
           variant="outline"
@@ -501,8 +504,8 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
             'Continue to Field Mapping'
           )}
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 
