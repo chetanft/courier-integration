@@ -87,7 +87,10 @@ const Dashboard = () => {
     return clients
       .filter(client => {
         // Apply search filter
-        const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        const matchesSearch =
+          (client.name && client.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (client.company_name && client.company_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (client.company_id && client.company_id.toLowerCase().includes(searchQuery.toLowerCase())) ||
           (client.api_url && client.api_url.toLowerCase().includes(searchQuery.toLowerCase()));
 
         // Apply status filter
@@ -242,12 +245,26 @@ const Dashboard = () => {
               >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-semibold">{client.name}</h3>
+                    <h3 className="text-lg font-semibold">
+                      {client.company_name || client.name}
+                    </h3>
                     <StatusBadge status={status} />
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-500">
+                    {client.company_id && (
+                      <p className="text-sm text-gray-500">
+                        ID: {client.company_id}
+                      </p>
+                    )}
+
+                    {!client.company_name && client.name && (
+                      <p className="text-sm text-gray-500">
+                        Name: {client.name}
+                      </p>
+                    )}
+
+                    <p className="text-xs text-gray-500">
                       Added {new Date(client.created_at).toLocaleDateString()}
                     </p>
 

@@ -276,7 +276,10 @@ const ClientDetails = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">{client.name}</h1>
+          <h1 className="text-2xl font-bold">
+            {client.company_name || client.name}
+            {client.company_id && <span className="ml-2 text-sm text-gray-500">({client.company_id})</span>}
+          </h1>
         </div>
 
         <Button
@@ -294,12 +297,69 @@ const ClientDetails = () => {
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
           title="Delete Client"
-          entityName={client.name}
+          entityName={client.company_name || client.name}
           entityType="client"
           onConfirm={handleDeleteClient}
           isDeleting={isDeleting}
         />
       </div>
+
+      {/* Client Information Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Client Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Client Name</h3>
+              <p className="mt-1">{client.name}</p>
+            </div>
+
+            {client.company_name && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Company Name</h3>
+                <p className="mt-1">{client.company_name}</p>
+              </div>
+            )}
+
+            {client.company_id && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Company ID</h3>
+                <p className="mt-1">{client.company_id}</p>
+              </div>
+            )}
+
+            {client.old_company_id && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Old Company ID</h3>
+                <p className="mt-1">{client.old_company_id}</p>
+              </div>
+            )}
+
+            {client.display_id && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Display ID</h3>
+                <p className="mt-1">{client.display_id}</p>
+              </div>
+            )}
+
+            {client.types && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">Types</h3>
+                <p className="mt-1">{client.types}</p>
+              </div>
+            )}
+
+            {client.api_url && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500">API URL</h3>
+                <p className="mt-1 font-mono text-sm break-all">{client.api_url}</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Couriers</h2>

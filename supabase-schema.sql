@@ -19,6 +19,11 @@ CREATE TABLE clients (
   name TEXT NOT NULL,
   api_url TEXT,
   last_api_fetch TIMESTAMP WITH TIME ZONE,
+  company_id TEXT,
+  company_name TEXT,
+  old_company_id TEXT,
+  display_id TEXT,
+  types TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
