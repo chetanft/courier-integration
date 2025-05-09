@@ -49,19 +49,20 @@ const KeyValueEditor = ({
   return (
     <div className="space-y-2">
       {actualPairs.map((pair, index) => (
-        <div key={index} className="flex items-center gap-2">
+        <div key={index} className="flex items-center gap-2 flex-wrap key-value-pair">
           <Input
             placeholder={keyPlaceholder}
             value={pair.key}
             onChange={(e) => handlePairChange(index, 'key', e.target.value)}
-            className="flex-1"
+            className="flex-1 min-w-[120px] max-w-full"
             disabled={disabledKeys.includes(pair.key)}
           />
           <Input
             placeholder={valuePlaceholder}
             value={pair.value}
             onChange={(e) => handlePairChange(index, 'value', e.target.value)}
-            className="flex-1"
+            className="flex-1 min-w-[120px] max-w-full truncate"
+            title={pair.value} // Show full value on hover
           />
           <Button
             type="button"
@@ -69,6 +70,7 @@ const KeyValueEditor = ({
             size="icon"
             onClick={() => handleRemovePair(index)}
             disabled={disabledKeys.includes(pair.key)}
+            className="flex-shrink-0"
           >
             <TrashIcon className="h-4 w-4" />
           </Button>

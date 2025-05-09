@@ -1,1 +1,28 @@
 /* Custom styles can be added here */
+
+/* Fix for horizontal overflow in modals */
+.dialog-content {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Ensure long text in inputs is properly handled */
+input, textarea {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ensure key-value pairs wrap properly */
+.key-value-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+/* Ensure content in modals doesn't overflow */
+.modal-content-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}

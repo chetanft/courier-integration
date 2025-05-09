@@ -261,10 +261,10 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
                   <FormItem>
                     <FormLabel>Paste cURL Command</FormLabel>
                     <FormControl>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full">
                         <Textarea
                           placeholder="curl -X GET 'https://api.example.com/couriers' -H 'Authorization: Bearer token'"
-                          className="font-mono flex-1"
+                          className="font-mono flex-1 w-full"
                           {...field}
                         />
                         <Button

@@ -295,14 +295,14 @@ const RequestBuilder = ({
             <CardTitle>Request Configuration</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 w-full">
               {/* HTTP Method */}
               <FormField
                 control={control}
                 name="method"
                 rules={{ required: "HTTP method is required" }}
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="w-full">
                     <FormLabel>Method</FormLabel>
                     <Select
                       onValueChange={field.onChange}
@@ -327,7 +327,7 @@ const RequestBuilder = ({
               />
 
               {/* URL */}
-              <div className="md:col-span-3">
+              <div className="md:col-span-3 w-full">
                 <FormField
                   control={control}
                   name="url"
@@ -342,7 +342,7 @@ const RequestBuilder = ({
                     <FormItem>
                       <FormLabel>API Endpoint URL</FormLabel>
                       <FormControl>
-                        <Input placeholder="https://api.example.com/tracking" {...field} />
+                        <Input placeholder="https://api.example.com/tracking" {...field} className="w-full" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -352,12 +352,12 @@ const RequestBuilder = ({
             </div>
 
             {/* Headers */}
-            <div className="mt-6">
+            <div className="mt-6 w-full">
               <FormField
                 control={control}
                 name="headers"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="w-full">
                     <FormLabel>Headers</FormLabel>
                     <FormControl>
                       <KeyValueEditor
@@ -377,12 +377,12 @@ const RequestBuilder = ({
 
             {/* Request Body (for non-GET requests) */}
             {method !== 'GET' && (
-              <div className="mt-6">
+              <div className="mt-6 w-full">
                 <FormField
                   control={control}
                   name="body"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="w-full">
                       <FormLabel>Request Body</FormLabel>
                       <FormControl>
                         <JsonEditor
@@ -416,16 +416,16 @@ const RequestBuilder = ({
                     <FormItem>
                       <FormLabel>Paste cURL Command</FormLabel>
                       <FormControl>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2 w-full">
                           <Textarea
                             placeholder="curl -X GET 'https://api.example.com/tracking?id=123' -H 'Authorization: Bearer token'"
-                            className="font-mono flex-1"
+                            className="font-mono flex-1 w-full"
                             {...field}
                           />
                           <Button
                             type="button"
                             onClick={handleCurlParse}
-                            className="self-end"
+                            className="self-end sm:self-auto flex-shrink-0"
                           >
                             Parse
                           </Button>

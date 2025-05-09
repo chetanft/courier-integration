@@ -29,7 +29,7 @@ const AddAvailableCouriersDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Add Available Couriers for {client?.name}</DialogTitle>
           <DialogDescription>
@@ -37,7 +37,7 @@ const AddAvailableCouriersDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-4 w-full">
           <CourierUploadTabs
             clientId={client?.id}
             clientName={client?.name}
