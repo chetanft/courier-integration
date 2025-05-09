@@ -362,7 +362,7 @@ const RequestBuilder = ({
                     <FormLabel>Headers</FormLabel>
                     <FormControl>
                       <KeyValueEditor
-                        value={field.value || []}
+                        pairs={field.value || []}
                         onChange={field.onChange}
                         keyPlaceholder="Header name"
                         valuePlaceholder="Header value"
@@ -807,7 +807,7 @@ const RequestBuilder = ({
                           <FormLabel>JWT Request Headers</FormLabel>
                           <FormControl>
                             <KeyValueEditor
-                              pairs={field.value}
+                              pairs={field.value || []}
                               onChange={field.onChange}
                               keyPlaceholder="Content-Type"
                               valuePlaceholder="application/json"
@@ -1152,7 +1152,7 @@ const RequestBuilder = ({
                       )}
                       <FormControl>
                         <KeyValueEditor
-                          pairs={field.value}
+                          pairs={field.value || []}
                           onChange={field.onChange}
                           keyPlaceholder="Content-Type"
                           valuePlaceholder="application/json"
@@ -1174,7 +1174,7 @@ const RequestBuilder = ({
                       <FormLabel>Query Parameters</FormLabel>
                       <FormControl>
                         <KeyValueEditor
-                          pairs={field.value}
+                          pairs={field.value || []}
                           onChange={field.onChange}
                           keyPlaceholder="trackingNumber"
                           valuePlaceholder="ABC123"
