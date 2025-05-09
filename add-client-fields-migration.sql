@@ -1,12 +1,16 @@
 -- Migration script to add additional client fields
 -- Run this in your Supabase SQL Editor to add the new fields to the clients table
 
--- Add company_id, old_company_id, display_id, and types fields to clients table
+-- Add company_id, company_name, old_company_id, display_id, and types fields to clients table
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS company_id TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS company_name TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS old_company_id TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS display_id TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS types TEXT;
+
+-- Note: Both 'name' and 'company_name' fields will exist in the table for backward compatibility.
+-- For new clients, we'll set both fields to the same value if only one is provided.
+-- The UI will primarily display and use 'company_name' going forward.
 
 -- Update the schema in the supabase-schema.sql file
 -- This is just for documentation purposes, you'll need to manually update the file

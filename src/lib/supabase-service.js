@@ -119,6 +119,16 @@ export const addClient = async (clientData) => {
       created_at: new Date().toISOString()
     };
 
+    // If company_name is provided but name is not, use company_name for both
+    if (clientData.company_name && !clientData.name) {
+      clientObject.name = clientData.company_name;
+    }
+
+    // If name is provided but company_name is not, use name for both
+    if (clientData.name && !clientData.company_name) {
+      clientObject.company_name = clientData.name;
+    }
+
     // Add api_url if provided
     if (clientData.api_url) {
       try {
@@ -171,10 +181,15 @@ export const addClient = async (clientData) => {
         console.warn('Error might be related to missing columns, trying without api_url, last_api_fetch, and request_config');
 
         // Try again without the api_url, last_api_fetch, and request_config fields
+        // But include both name and company_name for consistency
+        const name = clientData.name || clientData.company_name;
+        const company_name = clientData.company_name || clientData.name;
+
         const { data: retryData, error: retryError } = await supabase
           .from('clients')
           .insert({
-            name: clientData.name,
+            name: name,
+            company_name: company_name,
             created_at: new Date().toISOString()
           })
           .select()
@@ -546,20 +561,26 @@ export const addClientsInBulk = async (clients) => {
     console.log(`Adding ${clients.length} clients in bulk`);
 
     // Prepare clients for insertion
-    const clientsToInsert = clients.map(client => ({
-      name: client.name,
-      api_url: client.api_url || null,
-      request_config: client.request_config ?
-        (typeof client.request_config === 'string' ? client.request_config : JSON.stringify(client.request_config))
-        : null,
-      // Add new fields if they exist
-      company_id: client.company_id || null,
-      company_name: client.company_name || null,
-      old_company_id: client.old_company_id || null,
-      display_id: client.display_id || null,
-      types: client.types || null,
-      created_at: new Date().toISOString()
-    }));
+    const clientsToInsert = clients.map(client => {
+      // Ensure both name and company_name are set if either is provided
+      const name = client.name || client.company_name || null;
+      const company_name = client.company_name || client.name || null;
+
+      return {
+        name: name,
+        api_url: client.api_url || null,
+        request_config: client.request_config ?
+          (typeof client.request_config === 'string' ? client.request_config : JSON.stringify(client.request_config))
+          : null,
+        // Add new fields if they exist
+        company_id: client.company_id || null,
+        company_name: company_name,
+        old_company_id: client.old_company_id || null,
+        display_id: client.display_id || null,
+        types: client.types || null,
+        created_at: new Date().toISOString()
+      };
+    });
 
     // Insert all clients
     const { data, error } = await supabase
@@ -577,11 +598,18 @@ export const addClientsInBulk = async (clients) => {
         )) {
         console.warn('Error might be related to missing columns, trying with only name field');
 
-        // Try again with just the name field
-        const simplifiedClients = clients.map(client => ({
-          name: client.name,
-          created_at: new Date().toISOString()
-        }));
+        // Try again with just the name and company_name fields
+        const simplifiedClients = clients.map(client => {
+          // Ensure both name and company_name are set if either is provided
+          const name = client.name || client.company_name || null;
+          const company_name = client.company_name || client.name || null;
+
+          return {
+            name: name,
+            company_name: company_name,
+            created_at: new Date().toISOString()
+          };
+        });
 
         const { data: retryData, error: retryError } = await supabase
           .from('clients')
