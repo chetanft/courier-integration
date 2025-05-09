@@ -526,14 +526,14 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                       />
                     </FormControl>
                     <FormDescription>
-                      Path to the token in the response (e.g., "access_token" or "data.token")
+                      Path to the token in the response (e.g., "access_token" or "data.token"). Click "Test API & Generate Token" to test the API and extract the token.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* Generate Token Button */}
+              {/* Test API & Generate Token Button */}
               <Button
                 type="button"
                 onClick={generateToken}
@@ -542,10 +542,10 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                 {tokenLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
+                    Testing API...
                   </>
                 ) : (
-                  'Generate Token'
+                  'Test API & Generate Token'
                 )}
               </Button>
 
@@ -712,6 +712,29 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                       )}
                     />
                   )}
+                </div>
+              )}
+
+              {/* Test API Button for cURL */}
+              {watch('auth.url') && (
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    onClick={generateToken}
+                    disabled={tokenLoading}
+                  >
+                    {tokenLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Testing API...
+                      </>
+                    ) : (
+                      'Test API with Parsed cURL'
+                    )}
+                  </Button>
+                  <FormDescription className="mt-2">
+                    Click to test the API with the parsed cURL data and extract any authentication tokens.
+                  </FormDescription>
                 </div>
               )}
 
