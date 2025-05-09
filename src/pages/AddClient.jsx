@@ -6,7 +6,7 @@ import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
-import CourierUploadTabs from '../components/courier-upload/CourierUploadTabs';
+import SimplifiedCourierUploadTabs from '../components/courier-upload/SimplifiedCourierUploadTabs';
 import {
   FormField,
   FormItem,
@@ -219,7 +219,7 @@ const AddClient = () => {
               Upload couriers via CSV, JSON, or API integration.
             </p>
 
-            <CourierUploadTabs
+            <SimplifiedCourierUploadTabs
               onParsedData={handleParsedCouriers}
               onError={(error) => setError(error)}
             />

@@ -13,7 +13,7 @@ import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
 import { Card, CardHeader, CardTitle } from '../components/ui/card';
 import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
-import AddAvailableCouriersDialog from '../components/dialogs/AddAvailableCouriersDialog';
+import NewAvailableCouriersDialog from '../components/dialogs/NewAvailableCouriersDialog';
 
 const ClientDetails = () => {
   const { id: clientId } = useParams();
@@ -375,7 +375,7 @@ const ClientDetails = () => {
             Add Available Couriers
           </Button>
 
-          <AddAvailableCouriersDialog
+          <NewAvailableCouriersDialog
             open={addCouriersDialogOpen}
             onOpenChange={setAddCouriersDialogOpen}
             client={client}
