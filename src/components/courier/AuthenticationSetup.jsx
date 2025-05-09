@@ -927,7 +927,35 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       <div className="flex justify-end">
         <Button
           type="button"
-          onClick={handleSubmit(onSubmit)}
+          onClick={async () => {
+            try {
+              // Get the current form data
+              const formData = watch();
+              console.log('Form data on button click:', formData);
+
+              // Validate courier name
+              if (!formData.courier_name || formData.courier_name.trim() === '') {
+                toast.error('Please enter a courier name');
+                return;
+              }
+
+              // Create courier in database
+              setLoading(true);
+              const courierResult = await createCourier(formData);
+              console.log('Courier created successfully:', courierResult);
+
+              // Call onComplete with the token if available
+              onComplete(token || '');
+
+              // Show success message
+              toast.success('Moving to API Setup step');
+            } catch (error) {
+              console.error('Error proceeding to next step:', error);
+              toast.error('Failed to proceed to next step: ' + (error.message || 'Unknown error'));
+            } finally {
+              setLoading(false);
+            }
+          }}
           disabled={loading}
         >
           {loading ? (

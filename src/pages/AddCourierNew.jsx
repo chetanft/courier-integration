@@ -100,9 +100,15 @@ const AddCourierNew = () => {
   // Handle authentication completion
   const handleAuthComplete = (token) => {
     console.log('Authentication completed with token:', token ? 'Token exists' : 'No token');
+
+    // Set the auth token
     setAuthToken(token || '');
-    setCurrentStep(2);
-    toast.success('Authentication completed successfully');
+
+    // Force update to the next step
+    setTimeout(() => {
+      setCurrentStep(2);
+      toast.success('Authentication completed successfully');
+    }, 100);
   };
 
   // Handle API configuration completion
@@ -223,6 +229,8 @@ const AddCourierNew = () => {
       </div>
 
       <Stepper currentStep={currentStep} steps={steps} className="mb-6" />
+
+      {console.log('Rendering step:', currentStep, 'courier:', courier, 'authToken:', authToken ? 'exists' : 'none')}
 
       <FormProvider {...methods}>
         {currentStep === 1 && (
