@@ -1,5 +1,6 @@
 // API Proxy for external courier API calls
 // This function acts as a CORS proxy to allow the frontend to make requests to external APIs
+/* eslint-disable no-undef */
 const fetch = require('node-fetch');
 
 exports.handler = async function(event) {
@@ -66,7 +67,7 @@ exports.handler = async function(event) {
         fetchOptions.headers['content-type']?.includes('application/json')
       ) {
         fetchOptions.body = JSON.stringify(body);
-      } 
+      }
       // If it's form-urlencoded, convert to URLSearchParams
       else if (
         fetchOptions.headers['Content-Type']?.includes('application/x-www-form-urlencoded') ||
@@ -107,11 +108,11 @@ exports.handler = async function(event) {
 
     // Make the request to the external API
     const response = await fetch(finalUrl, fetchOptions);
-    
+
     // Get the response body
     let responseBody;
     const contentType = response.headers.get('content-type');
-    
+
     if (contentType && contentType.includes('application/json')) {
       responseBody = await response.json();
     } else {
@@ -119,12 +120,73 @@ exports.handler = async function(event) {
       // Try to parse as JSON anyway, in case the content type is wrong
       try {
         responseBody = JSON.parse(responseBody);
-      } catch (e) {
+      } catch (_) {
         // If it's not valid JSON, keep it as text
+        console.log('Response is not valid JSON, keeping as text');
       }
     }
 
-    // Return the response
+    // Check for error status codes and enhance the response
+    if (response.status >= 400) {
+      console.error(`API returned error status: ${response.status}`, responseBody);
+
+      // Special handling for 405 Method Not Allowed
+      if (response.status === 405) {
+        const isSafexpress = url.includes('safexpress.com');
+        let errorMessage = `API request failed (Status: 405) - URL: ${url}`;
+        let troubleshooting = [];
+
+        // Add specific troubleshooting suggestions for Safexpress
+        if (isSafexpress) {
+          troubleshooting = [
+            "Try using a different HTTP method (GET instead of POST, or vice versa)",
+            "Verify the API endpoint URL is correct",
+            "Check if the API requires specific headers",
+            "Ensure the request body format matches API requirements"
+          ];
+
+          // For Safexpress auth endpoint specifically
+          if (url.includes('oauth2/token')) {
+            troubleshooting.push(
+              "For Safexpress auth endpoint, try using GET method with client_id and client_secret as query parameters",
+              "Alternatively, try using Basic Auth with client_id:client_secret encoded in the Authorization header"
+            );
+          }
+        }
+
+        return {
+          statusCode: 405,
+          headers,
+          body: JSON.stringify({
+            error: true,
+            message: errorMessage,
+            timestamp: new Date().toISOString(),
+            details: {
+              requestedMethod: fetchOptions.method,
+              allowedMethods: response.headers.get('allow') || 'Not specified by server',
+              troubleshooting
+            }
+          })
+        };
+      }
+
+      // For other error status codes
+      return {
+        statusCode: response.status,
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          error: true,
+          message: `API request failed (Status: ${response.status}) - URL: ${url}`,
+          timestamp: new Date().toISOString(),
+          details: responseBody || {}
+        })
+      };
+    }
+
+    // Return the successful response
     return {
       statusCode: response.status,
       headers: {

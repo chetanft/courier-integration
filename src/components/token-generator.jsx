@@ -30,6 +30,40 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
   // State to track if a curl command was detected
   // (We keep this minimal state to show a simple notification)
 
+  // Helper function to try alternative HTTP methods when a 405 error occurs
+  const tryAlternativeMethod = async (endpoint, currentMethod, headers, body, apiIntent) => {
+    // Define alternative methods to try
+    const methodsToTry = ['GET', 'POST', 'PUT'].filter(m => m !== currentMethod);
+
+    for (const method of methodsToTry) {
+      try {
+        console.log(`Trying alternative method ${method} after 405 error`);
+
+        // Create a request to the proxy with the alternative method
+        const response = await axios.post(endpoint, {
+          url: authEndpoint,
+          method: method,
+          headers: headers,
+          body: body,
+          apiIntent: apiIntent
+        });
+
+        // If successful, update the form with the working method
+        if (response.status >= 200 && response.status < 300) {
+          setValue('auth.jwtAuthMethod', method);
+          addToast(`Success! ${method} method works for this endpoint.`, 'success');
+          return response;
+        }
+      } catch (error) {
+        console.error(`Alternative method ${method} also failed:`, error);
+        // Continue to the next method
+      }
+    }
+
+    // If all alternatives failed, return null
+    return null;
+  };
+
   // We're now using the imported parseCurl function from curl-parser.js
   // This is a wrapper to handle errors and provide consistent interface
   const parseCurlCommand = (curlCommand) => {
@@ -48,6 +82,15 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       // Check if we have a JWT token in the auth object
       if (auth && auth.type === 'jwt' && auth.token) {
         console.log('JWT token found in curl command:', auth.token);
+      }
+
+      // If the URL contains 'oauth' or 'token', suggest using the token path
+      if (url && (url.includes('oauth') || url.includes('token'))) {
+        // Check if we have a token path set
+        if (!watch('auth.jwtTokenPath')) {
+          setValue('auth.jwtTokenPath', 'access_token');
+          addToast('Set token path to "access_token" based on URL', 'info');
+        }
       }
 
       return { url, method, headers, body, auth };
@@ -155,6 +198,9 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       let lastError = null;
       let response = null;
 
+      // Log the API we're calling
+      console.log(`Making token request to: ${authEndpoint}`);
+
       // Try each endpoint until one works
       for (const endpoint of proxyEndpoints) {
         try {
@@ -178,6 +224,27 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
             response: error.response?.data,
             status: error.response?.status
           });
+
+          // Check if this is a 405 Method Not Allowed error
+          if (error.response?.status === 405) {
+            console.log('Received 405 Method Not Allowed error, trying alternative methods');
+
+            // Try alternative methods
+            const alternativeResponse = await tryAlternativeMethod(
+              endpoint,
+              authMethod,
+              authHeaders,
+              authBody,
+              'generate_auth_token'
+            );
+
+            if (alternativeResponse) {
+              response = alternativeResponse;
+              console.log('Alternative method succeeded:', response.status);
+              break;
+            }
+          }
+
           lastError = error;
           // Continue to the next endpoint
         }
@@ -261,8 +328,51 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       }
     } catch (error) {
       console.error('Error generating token:', error);
-      setTokenError(error.message || 'Failed to generate token');
-      addToast(error.message || 'Failed to generate token', 'error');
+
+      // Extract detailed error information if available
+      let errorMessage = error.message || 'Failed to generate token';
+      let errorDetails = {};
+
+      // Check if this is an axios error with response data
+      if (error.response && error.response.data) {
+        const responseData = error.response.data;
+
+        // If the response data has an error message, use it
+        if (responseData.message) {
+          errorMessage = responseData.message;
+        }
+
+        // If there are troubleshooting suggestions, include them
+        if (responseData.details && responseData.details.troubleshooting) {
+          errorDetails.troubleshooting = responseData.details.troubleshooting;
+        }
+
+        // Include any other details
+        if (responseData.details) {
+          errorDetails = { ...errorDetails, ...responseData.details };
+        }
+      }
+
+      // Set the error message with details if available
+      setTokenError(errorMessage);
+
+      // Provide more helpful error messages based on error type
+      if (errorMessage.includes('405')) {
+        addToast('Method Not Allowed (405). Try changing the HTTP method (GET/POST/PUT).', 'error');
+      } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+        addToast('Authentication failed. Check your credentials and headers.', 'error');
+      } else if (errorMessage.includes('404')) {
+        addToast('API endpoint not found (404). Verify the URL is correct.', 'error');
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('ECONNREFUSED')) {
+        addToast('Connection failed. The API server may be down or unreachable.', 'error');
+      } else {
+        addToast(errorMessage, 'error');
+      }
+
+      // Log detailed error information for debugging
+      if (Object.keys(errorDetails).length > 0) {
+        console.log('Error details:', errorDetails);
+      }
     } finally {
       setLoading(false);
     }
@@ -406,6 +516,17 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
                   <li>Ensure the endpoint URL is correct and accessible</li>
                   <li>Check that your headers and request body match the API requirements</li>
                   <li>If using a curl command, verify it works in your terminal</li>
+                  {tokenError.includes('405') && (
+                    <>
+                      <li className="font-semibold">For "Method Not Allowed" (405) errors:</li>
+                      <ul className="list-circle list-inside ml-4 space-y-1">
+                        <li>Try changing the HTTP method (e.g., from POST to GET or vice versa)</li>
+                        <li>Verify the API documentation for the correct HTTP method</li>
+                        <li>Check if the endpoint requires specific headers or authentication</li>
+                        <li>Some APIs require parameters in the URL instead of the request body</li>
+                      </ul>
+                    </>
+                  )}
                   <li>You may need network admin assistance if your organization blocks API requests</li>
                 </ul>
               </div>
