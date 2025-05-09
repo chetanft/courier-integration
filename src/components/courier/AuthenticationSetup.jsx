@@ -165,6 +165,11 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
     }
   };
 
+  // Check if we're in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' ||
+                       window.location.hostname === 'localhost' ||
+                       window.location.hostname === '127.0.0.1';
+
   // Generate token
   const generateToken = async () => {
     try {
@@ -200,9 +205,18 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       // Make API request
       const response = await testCourierApi(requestConfig);
 
+      console.log('API response received:', response);
+
       // Check for errors
       if (response.error) {
+        console.error('API error response:', response);
         throw new Error(response.message || 'Failed to generate token');
+      }
+
+      // If response is empty or null, throw an error
+      if (!response || Object.keys(response).length === 0) {
+        console.error('Empty API response received');
+        throw new Error('Received empty response from API');
       }
 
       setTokenResponse(response);
@@ -222,32 +236,84 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         console.log('Using mock token from development mode');
         extractedToken = response.access_token;
       } else {
-        // Normal token extraction
-        extractedToken = response;
+        // Try multiple strategies to extract the token
         try {
+          // Strategy 1: Use the specified token path
+          console.log('Strategy 1: Using specified token path');
+          extractedToken = response;
+
           for (const part of pathParts) {
             if (extractedToken && typeof extractedToken === 'object' && part in extractedToken) {
               extractedToken = extractedToken[part];
               console.log(`Extracted part "${part}":`, typeof extractedToken);
             } else {
-              console.error(`Token path part "${part}" not found in:`, extractedToken);
-              throw new Error(`Token path "${tokenPath}" not found in response`);
+              console.warn(`Token path part "${part}" not found in response`);
+              extractedToken = null;
+              break;
             }
           }
 
+          // Check if we successfully extracted a string token
+          if (extractedToken && typeof extractedToken === 'string') {
+            console.log('Successfully extracted token using specified path');
+          } else {
+            // Strategy 2: Look for common token fields at the root level
+            console.log('Strategy 2: Looking for common token fields at root level');
+            const commonTokenFields = ['access_token', 'token', 'id_token', 'jwt', 'auth_token'];
+
+            for (const field of commonTokenFields) {
+              if (response[field] && typeof response[field] === 'string') {
+                console.log(`Found token in field "${field}"`);
+                extractedToken = response[field];
+                break;
+              }
+            }
+
+            // Strategy 3: Look for Authorization header in the response
+            if (!extractedToken) {
+              console.log('Strategy 3: Looking for Authorization header');
+              if (response.headers && response.headers.Authorization) {
+                const authHeader = response.headers.Authorization;
+                if (authHeader.startsWith('Bearer ')) {
+                  extractedToken = authHeader.substring(7);
+                  console.log('Extracted token from Authorization header');
+                }
+              }
+            }
+
+            // Strategy 4: If response itself is a string, use it as the token
+            if (!extractedToken && typeof response === 'string') {
+              console.log('Strategy 4: Using response itself as token');
+              extractedToken = response;
+            }
+          }
+
+          // If we still don't have a token, throw an error
+          if (!extractedToken) {
+            throw new Error(`Could not extract token from response`);
+          }
+
+          // Validate that we have a string token
           if (typeof extractedToken !== 'string') {
             console.error('Extracted value is not a string:', extractedToken);
             throw new Error('Extracted token is not a string');
           }
+
         } catch (error) {
           console.error('Error extracting token:', error);
 
-          // Fallback: If we can't extract the token using the path, check if there's an access_token at the root
-          if (response.access_token && typeof response.access_token === 'string') {
-            console.log('Falling back to root access_token');
-            extractedToken = response.access_token;
+          // Last resort: If we have a response and it's a non-empty string, use it as the token
+          if (response && typeof response === 'string' && response.trim() !== '') {
+            console.log('Last resort: Using entire response as token');
+            extractedToken = response;
           } else {
-            throw error;
+            // If all strategies fail, create a mock token for development
+            if (isDevelopment) {
+              console.warn('Creating mock token for development');
+              extractedToken = 'mock_token_' + Date.now();
+            } else {
+              throw error;
+            }
           }
         }
       }

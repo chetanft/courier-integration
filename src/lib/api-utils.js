@@ -141,7 +141,39 @@ export const testCourierApi = async (requestConfig) => {
     }
 
     // Make API call through our Netlify proxy
-    const response = await axios.post(COURIER_PROXY_URL, requestConfig);
+    let response;
+    try {
+      response = await axios.post(COURIER_PROXY_URL, requestConfig);
+
+      // Check if response is empty or undefined
+      if (!response || !response.data) {
+        console.error('Empty response received from API proxy');
+        return {
+          error: true,
+          status: 500,
+          statusText: 'Internal Server Error',
+          message: 'Empty response received from API proxy',
+          details: {
+            requestConfig: debugConfig
+          },
+          timestamp: new Date().toISOString()
+        };
+      }
+    } catch (proxyError) {
+      console.error('Error calling API proxy:', proxyError);
+
+      return {
+        error: true,
+        status: proxyError.response?.status || 500,
+        statusText: proxyError.response?.statusText || 'Internal Server Error',
+        message: `API proxy error: ${proxyError.message}`,
+        details: {
+          requestConfig: debugConfig,
+          error: proxyError.toString()
+        },
+        timestamp: new Date().toISOString()
+      };
+    }
 
     // Check if the response indicates an error
     if (response.data && response.data.error) {
