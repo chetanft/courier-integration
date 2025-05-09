@@ -175,6 +175,17 @@ const AddCourierNew = () => {
       // Set success state regardless of Supabase upload result
       setJsFileGenerated(true);
       toast.success('JS file generated and downloaded successfully');
+
+      // After a short delay, navigate to the courier details page
+      setTimeout(() => {
+        if (clientIdToUse) {
+          // If we have a client ID, navigate back to the client details page
+          navigate(`/client/${clientIdToUse}`);
+        } else {
+          // Otherwise, navigate to the courier details page
+          navigate(`/courier/${courier.id}`);
+        }
+      }, 2000); // 2-second delay to allow the user to see the success message
     } catch (error) {
       console.error('Error generating JS file:', error);
       toast.error('Failed to generate JS file');
