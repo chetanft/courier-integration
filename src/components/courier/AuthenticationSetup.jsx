@@ -6,8 +6,9 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { KeyValueEditor } from '../ui/key-value-editor';
 import { JsonEditor } from '../ui/json-editor';
+import { JsonViewer } from '../ui/json-viewer';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { parseCurl } from '../../lib/curl-parser';
 import { testCourierApi } from '../../lib/api-utils';
 import { toast } from 'sonner';
@@ -29,7 +30,7 @@ import {
 } from '../ui/select';
 
 const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
-  const { control, watch, setValue, handleSubmit, formState: { errors } } = useFormContext();
+  const { control, watch, setValue, handleSubmit } = useFormContext();
 
   // Local state
   const [authType, setAuthType] = useState('none');
@@ -61,7 +62,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       if (data.auth.type === 'none') {
         console.log('No auth required, proceeding to next step');
         // Create courier in database
-        const courier = await createCourier(data);
+        await createCourier(data);
         onComplete('');
         return;
       }
@@ -80,7 +81,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
 
         // Token is generated, proceed to next step
         console.log('Token generated via form, proceeding to next step');
-        const courier = await createCourier(data);
+        await createCourier(data);
         onComplete(token);
         return;
       }
@@ -95,14 +96,14 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         // If token is found in the parsed cURL, use it
         if (token) {
           console.log('Token found in parsed cURL, proceeding to next step');
-          const courier = await createCourier(data);
+          await createCourier(data);
           onComplete(token);
           return;
         }
 
         // If no token is found but URL is parsed, proceed anyway
         console.log('No token found in parsed cURL, proceeding to next step');
-        const courier = await createCourier(data);
+        await createCourier(data);
         onComplete('');
         return;
       }
@@ -154,6 +155,15 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         } else if (parsed.auth.type === 'bearer' || parsed.auth.type === 'jwt') {
           setToken(parsed.auth.token);
           setTokenGenerated(true);
+
+          // Set a successful token response for display
+          setTokenResponse({
+            success: true,
+            message: 'Token extracted from cURL command',
+            token: parsed.auth.token,
+            timestamp: new Date().toISOString()
+          });
+
           toast.success('Token extracted from cURL command');
         }
       }
@@ -161,13 +171,21 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       toast.success('cURL command parsed successfully');
     } catch (error) {
       console.error('Error parsing cURL command:', error);
+
+      // Set error response for display
+      setTokenResponse({
+        error: true,
+        message: 'Failed to parse cURL command: ' + error.message,
+        timestamp: new Date().toISOString(),
+        details: error
+      });
+
       toast.error('Failed to parse cURL command: ' + error.message);
     }
   };
 
   // Check if we're in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development' ||
-                       window.location.hostname === 'localhost' ||
+  const isDevelopment = window.location.hostname === 'localhost' ||
                        window.location.hostname === '127.0.0.1';
 
   // Generate token
@@ -207,6 +225,9 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
 
       console.log('API response received:', response);
 
+      // Always set the token response, even if there's an error
+      setTokenResponse(response);
+
       // Check for errors
       if (response.error) {
         console.error('API error response:', response);
@@ -218,8 +239,6 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         console.error('Empty API response received');
         throw new Error('Received empty response from API');
       }
-
-      setTokenResponse(response);
 
       // Extract token from response using token path
       const tokenPath = auth.tokenPath || 'access_token';
@@ -323,6 +342,18 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       toast.success('Token generated successfully');
     } catch (error) {
       console.error('Error generating token:', error);
+
+      // If we don't already have a tokenResponse set (from the API call),
+      // create an error response object
+      if (!tokenResponse) {
+        setTokenResponse({
+          error: true,
+          message: error.message || 'Failed to generate token',
+          timestamp: new Date().toISOString(),
+          details: error
+        });
+      }
+
       toast.error(error.message || 'Failed to generate token');
     } finally {
       setTokenLoading(false);
@@ -371,6 +402,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                     setAuthType(value);
                     setTokenGenerated(false);
                     setToken('');
+                    setTokenResponse(null); // Reset token response when auth type changes
                   }}
                   defaultValue={field.value}
                 >
@@ -516,6 +548,30 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                   'Generate Token'
                 )}
               </Button>
+
+              {/* API Response Display */}
+              {tokenResponse && (
+                <div className={`mt-4 p-4 border rounded-md ${tokenResponse.error ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+                  <div className="flex items-center mb-2">
+                    {tokenResponse.error ? (
+                      <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                    )}
+                    <h3 className={`text-lg font-medium ${tokenResponse.error ? 'text-red-800' : 'text-green-800'}`}>
+                      {tokenResponse.error ? 'Error Response' : 'API Response'}
+                    </h3>
+                  </div>
+
+                  {tokenResponse.error && (
+                    <p className="text-red-600 mb-2">{tokenResponse.message}</p>
+                  )}
+
+                  <div className="bg-white p-2 rounded border">
+                    <JsonViewer data={tokenResponse} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -656,6 +712,30 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                       )}
                     />
                   )}
+                </div>
+              )}
+
+              {/* API Response Display for cURL */}
+              {tokenResponse && authType === 'curl' && (
+                <div className={`mt-4 p-4 border rounded-md ${tokenResponse.error ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+                  <div className="flex items-center mb-2">
+                    {tokenResponse.error ? (
+                      <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                    )}
+                    <h3 className={`text-lg font-medium ${tokenResponse.error ? 'text-red-800' : 'text-green-800'}`}>
+                      {tokenResponse.error ? 'Error Response' : 'API Response'}
+                    </h3>
+                  </div>
+
+                  {tokenResponse.error && (
+                    <p className="text-red-600 mb-2">{tokenResponse.message}</p>
+                  )}
+
+                  <div className="bg-white p-2 rounded border">
+                    <JsonViewer data={tokenResponse} />
+                  </div>
                 </div>
               )}
             </div>
