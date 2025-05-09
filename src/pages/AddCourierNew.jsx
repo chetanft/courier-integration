@@ -9,7 +9,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import AuthenticationSetup from '../components/courier/AuthenticationSetup';
 import CourierApiConfig from '../components/courier/CourierApiConfig';
 import ResponseFieldMapping from '../components/courier/ResponseFieldMapping';
-import { addCourier, addFieldMapping, uploadJsFile, getClientById, linkClientsToCourier } from '../lib/supabase-service';
+import { addCourier, addFieldMapping, uploadJsFile, getClientById, linkClientsToCourier, updateCourierJsFileStatus } from '../lib/supabase-service';
 import { generateJsConfig } from '../lib/js-generator-enhanced';
 import { getTmsFields } from '../lib/edge-functions-service';
 
@@ -163,10 +163,21 @@ const AddCourierNew = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Try to upload to Supabase, but continue even if it fails
+      // Try to upload to Supabase and update courier status
       try {
+        // Upload the JS file to Supabase
         await uploadJsFile(courier.id, fileName, jsCode);
         console.log('JS file uploaded to Supabase successfully');
+
+        // Update the courier record to indicate JS file has been generated
+        const updatedCourier = await updateCourierJsFileStatus(courier.id, fileName, jsCode);
+        if (updatedCourier) {
+          console.log('Courier status updated successfully:', updatedCourier);
+          // Update the local courier state with the updated data
+          setCourier(updatedCourier);
+        } else {
+          console.warn('Failed to update courier status, but JS file was generated');
+        }
       } catch (uploadError) {
         console.warn('Failed to upload JS file to Supabase, but file was downloaded locally:', uploadError);
         // Continue even if upload fails - the user already has the file downloaded locally

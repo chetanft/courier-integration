@@ -96,7 +96,9 @@ const ClientDetails = () => {
     console.log('Courier js_file_generated:', courier.js_file_generated);
 
     // Check if JS file exists for this courier (check both fields for backward compatibility)
-    if (courier.js_file_path || courier.js_file_generated) {
+    // Also check if the value is truthy (not just present but null/undefined)
+    if ((courier.js_file_path && courier.js_file_path.length > 0) ||
+        (courier.js_file_generated === true)) {
       // Navigate to courier detail page
       console.log('Navigating to courier detail page:', `/courier-simple/${courier.id}`);
       navigate(`/courier-simple/${courier.id}`);
@@ -107,8 +109,15 @@ const ClientDetails = () => {
     }
   };
 
-  // Get courier status based on API configuration
+  // Get courier status based on API configuration and JS file generation
   const getCourierStatus = (courier) => {
+    // If JS file is generated, consider it fully configured
+    if ((courier.js_file_path && courier.js_file_path.length > 0) ||
+        (courier.js_file_generated === true)) {
+      return 'configured';
+    }
+
+    // Otherwise, check API configuration
     if (!courier.api_base_url) {
       return 'setup-required';
     }
