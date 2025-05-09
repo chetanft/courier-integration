@@ -310,9 +310,10 @@ export const parseCurl = (curlString) => {
           }
 
           // If method is still GET, change to POST when data is present
+          // This is a common convention in cURL - if you provide data without specifying a method, it defaults to POST
           if (request.method === 'GET') {
             request.method = 'POST';
-            console.log('Changed method to POST because data is present');
+            console.log('Changed method to POST because data is present (cURL convention)');
           }
         } catch (bodyError) {
           console.warn('Error processing request body:', bodyError.message);

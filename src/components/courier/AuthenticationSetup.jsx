@@ -211,6 +211,18 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         url = hasQueryParams ? `${url}&${queryString}` : `${url}?${queryString}`;
       }
 
+      // Determine if this is a form-urlencoded request
+      const isFormUrlEncoded = url.includes('oauth2/token') ||
+        (auth.headers && auth.headers.some(h =>
+          h.key.toLowerCase() === 'content-type' &&
+          h.value.toLowerCase().includes('application/x-www-form-urlencoded')
+        ));
+
+      // Determine if this is an OAuth token endpoint
+      const isOAuthTokenEndpoint = url.includes('oauth2/token') ||
+        url.includes('token') ||
+        url.includes('auth');
+
       // Create request config
       const requestConfig = {
         url: url,
@@ -218,15 +230,12 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         apiIntent: 'generate_auth_token',
         headers: auth.headers,
         body: auth.body,
-        isFormUrlEncoded: url.includes('oauth2/token') || (auth.headers && auth.headers.some(h =>
-          h.key.toLowerCase() === 'content-type' &&
-          h.value.toLowerCase().includes('application/x-www-form-urlencoded')
-        ))
+        isFormUrlEncoded: isFormUrlEncoded
       };
 
-      // Special handling for Safexpress OAuth token endpoint
-      if (url.includes('safexpress') && url.includes('oauth2/token')) {
-        console.log('Detected Safexpress OAuth token endpoint, ensuring method is POST');
+      // Generic handling for OAuth token endpoints - these typically require POST
+      if (isOAuthTokenEndpoint) {
+        console.log('Detected OAuth token endpoint, ensuring method is POST');
         requestConfig.method = 'POST';
       }
 

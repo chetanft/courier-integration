@@ -280,21 +280,16 @@ const makeCourierApiCall = async (requestConfig) => {
         break;
     }
 
-    // Special handling for Safexpress which needs both Authorization and x-api-key
-    if ((requestConfig.url && requestConfig.url.includes('safexpress')) ||
-        (requestConfig.courier === 'safexpress')) {
-      console.log('Detected Safexpress API, ensuring both auth headers are present');
+    // Generic handling for API key headers
+    if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
+      console.log('Adding x-api-key header from auth config');
+      headers['x-api-key'] = requestConfig.auth.apiKey;
+    }
 
-      // Make sure we have x-api-key header
-      if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
-        headers['x-api-key'] = requestConfig.auth.apiKey;
-      }
-
-      // Ensure method is POST for Safexpress token endpoint
-      if (requestConfig.url && requestConfig.url.includes('oauth2/token')) {
-        console.log('Detected Safexpress OAuth token endpoint, ensuring method is POST');
-        requestConfig.method = 'POST';
-      }
+    // Generic handling for OAuth token endpoints
+    if (requestConfig.url && requestConfig.url.includes('oauth2/token')) {
+      console.log('Detected OAuth token endpoint, ensuring method is POST');
+      requestConfig.method = 'POST';
     }
 
     // Special handling for FreightTiger API
@@ -516,26 +511,20 @@ const makeCourierApiCall = async (requestConfig) => {
             requestConfig.testDocket &&
             typeof axiosConfig.data === 'object') {
 
-          // Special handling for Safexpress
-          if (requestConfig.url.includes('safexpress') || requestConfig.courier === 'safexpress') {
-            console.log('Detected Safexpress API, adding special parameters');
-            axiosConfig.data = {
-              ...axiosConfig.data,
-              docNo: requestConfig.testDocket,
-              docType: "WB"  // Add docType for Safexpress
-            };
+          // Generic handling for all couriers
+          axiosConfig.data = {
+            ...axiosConfig.data,
+            docNo: requestConfig.testDocket,
+            trackingNumber: requestConfig.testDocket,
+            // Include common tracking parameters used by various couriers
+            awbNo: requestConfig.testDocket,
+            referenceNumber: requestConfig.testDocket,
+            shipmentNo: requestConfig.testDocket
+          };
 
-            // Ensure we have the x-api-key header for Safexpress
-            if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
-              headers['x-api-key'] = requestConfig.auth.apiKey;
-            }
-          } else {
-            // Generic handling for other couriers
-            axiosConfig.data = {
-              ...axiosConfig.data,
-              docNo: requestConfig.testDocket,
-              trackingNumber: requestConfig.testDocket
-            };
+          // Ensure we have the x-api-key header if provided
+          if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
+            headers['x-api-key'] = requestConfig.auth.apiKey;
           }
         }
         break;
