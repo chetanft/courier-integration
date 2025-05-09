@@ -29,7 +29,7 @@ const AddAvailableCouriersDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden dialog-content">
         <DialogHeader>
           <DialogTitle>Add Available Couriers for {client?.name}</DialogTitle>
           <DialogDescription>

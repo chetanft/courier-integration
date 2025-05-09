@@ -12,9 +12,9 @@ const CourierUploadTabs = ({
   initialTab = 'api',
   onParsedData
 }) => {
-  // eslint-disable-next-line no-unused-vars
+   
   const [_, setActiveTab] = useState(initialTab);
-  // eslint-disable-next-line no-unused-vars
+   
   const [__, setParsedCouriers] = useState(null);
 
   const handleParsedData = (couriers) => {
@@ -45,8 +45,8 @@ const CourierUploadTabs = ({
         <TabsTrigger value="api">API Integration</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="csv">
-        <div className="p-1">
+      <TabsContent value="csv" className="w-full">
+        <div className="p-1 w-full">
           <CourierCsvUploadForm
             clientId={clientId}
             onSuccess={handleSuccess}
@@ -56,8 +56,8 @@ const CourierUploadTabs = ({
         </div>
       </TabsContent>
 
-      <TabsContent value="json">
-        <div className="p-1">
+      <TabsContent value="json" className="w-full">
+        <div className="p-1 w-full">
           <CourierJsonUploadForm
             clientId={clientId}
             onSuccess={handleSuccess}
@@ -67,8 +67,8 @@ const CourierUploadTabs = ({
         </div>
       </TabsContent>
 
-      <TabsContent value="api">
-        <div className="p-1">
+      <TabsContent value="api" className="w-full">
+        <div className="p-1 w-full">
           <CourierApiIntegrationForm
             clientId={clientId}
             clientName={clientName}

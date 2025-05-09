@@ -140,7 +140,7 @@ const NewAvailableCouriersDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden dialog-content">
         <DialogHeader>
           <DialogTitle>Add Available Couriers for {client?.name}</DialogTitle>
           <DialogDescription>
@@ -155,7 +155,7 @@ const NewAvailableCouriersDialog = ({
             <TabsTrigger value="api">API Integration</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="csv" className="mt-0">
+          <TabsContent value="csv" className="mt-0 w-full">
             <CourierCsvUploadForm
               clientId={client?.id}
               onSuccess={handleSuccess}
@@ -163,7 +163,7 @@ const NewAvailableCouriersDialog = ({
             />
           </TabsContent>
 
-          <TabsContent value="json" className="mt-0">
+          <TabsContent value="json" className="mt-0 w-full">
             <CourierJsonUploadForm
               clientId={client?.id}
               onSuccess={handleSuccess}
@@ -171,7 +171,7 @@ const NewAvailableCouriersDialog = ({
             />
           </TabsContent>
 
-          <TabsContent value="api" className="mt-0">
+          <TabsContent value="api" className="mt-0 w-full">
             <div className="space-y-4">
               {error && (
                 <div className="bg-red-50 p-4 rounded-md border border-red-200">

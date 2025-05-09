@@ -139,7 +139,7 @@ const RedesignedAvailableCouriersDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden dialog-content">
         <DialogHeader>
           <DialogTitle>Add Available Couriers for {client?.name}</DialogTitle>
           <DialogDescription>
@@ -147,14 +147,14 @@ const RedesignedAvailableCouriersDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-auto">
+        <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="csv">CSV Upload</TabsTrigger>
             <TabsTrigger value="json">JSON Upload</TabsTrigger>
             <TabsTrigger value="api">API Integration</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="csv" className="mt-0 w-auto">
+          <TabsContent value="csv" className="mt-0 w-full">
             <CourierCsvUploadForm
               clientId={client?.id}
               onSuccess={handleSuccess}
@@ -162,7 +162,7 @@ const RedesignedAvailableCouriersDialog = ({
             />
           </TabsContent>
 
-          <TabsContent value="json" className="mt-0 w-auto">
+          <TabsContent value="json" className="mt-0 w-full">
             <CourierJsonUploadForm
               clientId={client?.id}
               onSuccess={handleSuccess}
@@ -170,8 +170,8 @@ const RedesignedAvailableCouriersDialog = ({
             />
           </TabsContent>
 
-          <TabsContent value="api" className="mt-0 w-auto">
-            <div className="space-y-4 w-auto">
+          <TabsContent value="api" className="mt-0 w-full">
+            <div className="space-y-4 w-full">
               {error && (
                 <div className="bg-red-50 p-4 rounded-md border border-red-200">
                   <div className="flex items-center mb-2">
@@ -194,11 +194,11 @@ const RedesignedAvailableCouriersDialog = ({
                 </div>
               )}
 
-              <Card className="w-auto">
+              <Card className="w-full">
                 <CardHeader>
                   <CardTitle>cURL Command</CardTitle>
                 </CardHeader>
-                <CardContent className="w-auto">
+                <CardContent className="w-full">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Paste cURL Command</label>
@@ -223,11 +223,11 @@ const RedesignedAvailableCouriersDialog = ({
               </Card>
 
               {showParsedData && (
-                <Card className="w-auto">
+                <Card className="w-full">
                   <CardHeader>
                     <CardTitle>Parsed Request Details</CardTitle>
                   </CardHeader>
-                  <CardContent className="w-auto">
+                  <CardContent className="w-full">
                     <div className="space-y-4">
                       <div className="grid grid-cols-4 gap-4">
                         <div className="col-span-1">

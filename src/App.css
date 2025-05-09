@@ -74,3 +74,39 @@ textarea.curl-input {
   border: 1px solid #e5e7eb;
   border-radius: 0.375rem;
 }
+
+/* Fix for tabs in dialogs to ensure consistent width */
+[role="tabpanel"] {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Ensure consistent width for all tab content */
+[data-state="active"] {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Fix for dialog content to ensure consistent width */
+.DialogContent, [role="dialog"] {
+  width: 100% !important;
+  max-width: 500px !important;
+}
+
+/* Fix for dialog content overflow */
+[role="dialog"] > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Fix for cards in dialogs to ensure consistent width */
+.dialog-content .Card {
+  width: 100% !important;
+}
+
+/* Fix for textarea in dialogs to ensure consistent width */
+.dialog-content textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+}

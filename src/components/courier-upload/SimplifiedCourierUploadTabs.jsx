@@ -15,6 +15,7 @@ import CourierJsonUploadForm from './CourierJsonUploadForm';
  */
 const SimplifiedCourierUploadTabs = ({
   clientId,
+  // eslint-disable-next-line no-unused-vars
   clientName,
   onSuccess,
   onError,
@@ -22,6 +23,7 @@ const SimplifiedCourierUploadTabs = ({
   onParsedData
 }) => {
   // State for the active tab
+  // eslint-disable-next-line no-unused-vars
   const [activeTab, setActiveTab] = useState(initialTab);
 
   // State for API tab
@@ -142,7 +144,7 @@ const SimplifiedCourierUploadTabs = ({
         <TabsTrigger value="api">API Integration</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="csv" className="mt-0">
+      <TabsContent value="csv" className="mt-0 w-full">
         <CourierCsvUploadForm
           clientId={clientId}
           onSuccess={handleSuccess}
@@ -151,7 +153,7 @@ const SimplifiedCourierUploadTabs = ({
         />
       </TabsContent>
 
-      <TabsContent value="json" className="mt-0">
+      <TabsContent value="json" className="mt-0 w-full">
         <CourierJsonUploadForm
           clientId={clientId}
           onSuccess={handleSuccess}
@@ -160,7 +162,7 @@ const SimplifiedCourierUploadTabs = ({
         />
       </TabsContent>
 
-      <TabsContent value="api" className="mt-0">
+      <TabsContent value="api" className="mt-0 w-full">
         <div className="space-y-4">
           {error && (
             <div className="bg-red-50 p-4 rounded-md border border-red-200">
