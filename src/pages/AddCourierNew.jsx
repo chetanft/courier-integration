@@ -163,11 +163,18 @@ const AddCourierNew = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Upload to Supabase
-      await uploadJsFile(courier.id, fileName, jsCode);
+      // Try to upload to Supabase, but continue even if it fails
+      try {
+        await uploadJsFile(courier.id, fileName, jsCode);
+        console.log('JS file uploaded to Supabase successfully');
+      } catch (uploadError) {
+        console.warn('Failed to upload JS file to Supabase, but file was downloaded locally:', uploadError);
+        // Continue even if upload fails - the user already has the file downloaded locally
+      }
 
+      // Set success state regardless of Supabase upload result
       setJsFileGenerated(true);
-      toast.success('JS file generated and saved successfully');
+      toast.success('JS file generated and downloaded successfully');
     } catch (error) {
       console.error('Error generating JS file:', error);
       toast.error('Failed to generate JS file');
