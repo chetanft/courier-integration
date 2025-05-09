@@ -2,7 +2,7 @@
 import supabase from './supabase-client';
 
 // Base URL for Edge Functions
-const EDGE_FUNCTION_URL = import.meta.env.PROD 
+const EDGE_FUNCTION_URL = import.meta.env.PROD
   ? 'https://wyewfqxsxzakafksexil.supabase.co/functions/v1'
   : 'http://localhost:54321/functions/v1';
 
@@ -22,7 +22,7 @@ const handleApiError = (error, operation) => {
   };
 
   // Check for RLS errors
-  if (error.code === 'RLS_ERROR' || 
+  if (error.code === 'RLS_ERROR' ||
       (error.details && error.details.code === 'RLS_ERROR') ||
       error.message?.includes('permission denied') ||
       error.details?.message?.includes('permission denied')) {
@@ -43,14 +43,14 @@ const callEdgeFunction = async (functionName, method = 'GET', body = null) => {
     // Get the current session
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || (await supabase.auth.getSession()).data.session?.access_token;
-    
+
     // If no token is available, use the anon key
-    const authHeader = token 
-      ? `Bearer ${token}` 
+    const authHeader = token
+      ? `Bearer ${token}`
       : `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
-    
+
     const url = `${EDGE_FUNCTION_URL}/${functionName}`;
-    
+
     const options = {
       method,
       headers: {
@@ -65,7 +65,7 @@ const callEdgeFunction = async (functionName, method = 'GET', body = null) => {
 
     console.log(`Calling Edge Function: ${functionName} (${method})`);
     const response = await fetch(url, options);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw {
@@ -87,9 +87,26 @@ const callEdgeFunction = async (functionName, method = 'GET', body = null) => {
 export const getTmsFields = async () => {
   try {
     const data = await callEdgeFunction('tms-fields');
-    return data;
+
+    // Ensure we return an array of strings
+    if (Array.isArray(data)) {
+      return data.map(field => {
+        if (typeof field === 'string') {
+          return field;
+        } else if (field && typeof field === 'object' && field.name) {
+          return field.name;
+        } else {
+          console.error('Invalid TMS field format:', field);
+          return null;
+        }
+      }).filter(Boolean); // Remove null values
+    }
+
+    console.error('TMS fields data is not an array:', data);
+    return [];
   } catch (error) {
     handleApiError(error, 'getTmsFields');
+    return []; // Return empty array on error
   }
 };
 
@@ -103,7 +120,7 @@ export const addTmsField = async (fieldData) => {
       dataType: fieldData.dataType || 'string',
       isRequired: fieldData.isRequired || false
     });
-    
+
     return data;
   } catch (error) {
     handleApiError(error, 'addTmsField');
@@ -121,7 +138,7 @@ export const updateTmsField = async (id, fieldData) => {
       data_type: fieldData.dataType,
       is_required: fieldData.isRequired
     });
-    
+
     return data;
   } catch (error) {
     handleApiError(error, 'updateTmsField');
@@ -163,7 +180,7 @@ export const checkRlsConfiguration = async () => {
         details: 'Please enable RLS for the tms_fields table and add a policy to allow read access.'
       };
     }
-    
+
     return {
       success: false,
       message: error.message,

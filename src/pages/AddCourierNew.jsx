@@ -77,7 +77,18 @@ const AddCourierNew = () => {
       try {
         // Load TMS fields
         const fields = await getTmsFields();
-        setTmsFields(fields);
+
+        // Process TMS fields to ensure they're in the correct format
+        if (Array.isArray(fields)) {
+          // If fields are objects, extract the name property
+          const processedFields = fields.map(field =>
+            typeof field === 'string' ? field : field.name
+          );
+          setTmsFields(processedFields);
+        } else {
+          console.error('TMS fields is not an array:', fields);
+          setTmsFields([]);
+        }
 
         // Load client data if clientId is provided
         if (clientIdToUse) {
@@ -251,13 +262,18 @@ const AddCourierNew = () => {
         )}
 
         {currentStep === 3 && (
-          <ResponseFieldMapping
-            onComplete={handleFieldMappingComplete}
-            apiResponses={apiResponses}
-            tmsFields={tmsFields}
-            courier={courier}
-            loading={loading}
-          />
+          <>
+            {console.log('TMS Fields before passing to ResponseFieldMapping:', JSON.stringify(tmsFields))}
+            <ResponseFieldMapping
+              onComplete={handleFieldMappingComplete}
+              apiResponses={apiResponses}
+              tmsFields={Array.isArray(tmsFields) ? tmsFields.map(field =>
+                typeof field === 'string' ? field : field.name
+              ) : []}
+              courier={courier}
+              loading={loading}
+            />
+          </>
         )}
 
         {/* Success Message after JS file generation */}

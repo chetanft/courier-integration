@@ -53,25 +53,36 @@ exports.handler = async function(event) {
 
     console.log(`Proxying ${method || 'GET'} request to: ${url}`);
 
-    // Prepare fetch options
+    // Prepare fetch options with sanitized headers
+    const sanitizedHeaders = {};
+
+    // Process headers to ensure they're all strings and valid
+    if (customHeaders) {
+      for (const [key, value] of Object.entries(customHeaders)) {
+        if (value !== undefined && value !== null) {
+          sanitizedHeaders[key] = String(value);
+        }
+      }
+    }
+
     const fetchOptions = {
       method: method || 'GET',
-      headers: customHeaders || {}
+      headers: sanitizedHeaders
     };
 
     // Add body for methods that support it
     if (['POST', 'PUT', 'PATCH'].includes(fetchOptions.method) && body) {
       // If the content type is application/json, stringify the body
       if (
-        fetchOptions.headers['Content-Type']?.includes('application/json') ||
-        fetchOptions.headers['content-type']?.includes('application/json')
+        sanitizedHeaders['Content-Type']?.includes('application/json') ||
+        sanitizedHeaders['content-type']?.includes('application/json')
       ) {
         fetchOptions.body = JSON.stringify(body);
       }
       // If it's form-urlencoded, convert to URLSearchParams
       else if (
-        fetchOptions.headers['Content-Type']?.includes('application/x-www-form-urlencoded') ||
-        fetchOptions.headers['content-type']?.includes('application/x-www-form-urlencoded')
+        sanitizedHeaders['Content-Type']?.includes('application/x-www-form-urlencoded') ||
+        sanitizedHeaders['content-type']?.includes('application/x-www-form-urlencoded')
       ) {
         const formData = new URLSearchParams();
         for (const key in body) {
@@ -106,8 +117,32 @@ exports.handler = async function(event) {
       bodyLength: fetchOptions.body ? fetchOptions.body.length : 0
     });
 
+    // Log the headers for debugging
+    console.log('Headers before fetch:', JSON.stringify(fetchOptions.headers));
+
+    // Create a new Headers object to ensure it's properly formatted
+    const headers = new Headers();
+
+    // Add each header individually to ensure they're properly formatted
+    for (const [key, value] of Object.entries(fetchOptions.headers)) {
+      if (value !== undefined && value !== null) {
+        headers.set(key, String(value));
+      }
+    }
+
+    // Create a new fetch options object with the properly formatted headers
+    const finalFetchOptions = {
+      method: fetchOptions.method,
+      headers: headers
+    };
+
+    // Add body if it exists
+    if (fetchOptions.body) {
+      finalFetchOptions.body = fetchOptions.body;
+    }
+
     // Make the request to the external API
-    const response = await fetch(finalUrl, fetchOptions);
+    const response = await fetch(finalUrl, finalFetchOptions);
 
     // Get the response body
     let responseBody;

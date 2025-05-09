@@ -148,12 +148,26 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
         url = hasQueryParams ? `${url}&${queryString}` : `${url}?${queryString}`;
       }
 
-      // Create request config
+      // Create request config with sanitized headers
+      const sanitizedHeaders = [];
+
+      // Ensure all headers have string values
+      if (api.headers && Array.isArray(api.headers)) {
+        api.headers.forEach(header => {
+          if (header.key) {
+            sanitizedHeaders.push({
+              key: header.key,
+              value: header.value !== undefined && header.value !== null ? String(header.value) : ''
+            });
+          }
+        });
+      }
+
       const requestConfig = {
         url: url,
         method: api.method,
         apiIntent: 'test_api',
-        headers: api.headers || [],
+        headers: sanitizedHeaders,
         body: api.body || {}
       };
 
@@ -162,21 +176,25 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
 
       // Add auth token if available
       if (authToken) {
+        console.log('Adding auth token to request');
+
         // Check if Authorization header already exists
         const hasAuthHeader = requestConfig.headers.some(h => h.key.toLowerCase() === 'authorization');
 
         if (!hasAuthHeader) {
           requestConfig.headers.push({
             key: 'Authorization',
-            value: `Bearer ${authToken}`
+            value: `Bearer ${String(authToken)}`
           });
         }
 
         // For SafeExpress, also add the auth token to the auth object
         if (isSafexpress) {
+          console.log('Adding SafeExpress-specific auth configuration');
+
           requestConfig.auth = {
             type: 'bearer',
-            token: authToken
+            token: String(authToken)
           };
 
           // Check if x-api-key header exists
@@ -185,20 +203,31 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
           // If no x-api-key header, look for it in the existing headers
           if (!hasApiKeyHeader) {
             // Try to find the x-api-key in the existing headers from the previous step
-            const apiKeyHeader = api.headers.find(h => h.key.toLowerCase() === 'x-api-key');
+            const apiKeyHeader = api.headers?.find(h => h.key.toLowerCase() === 'x-api-key');
 
             if (apiKeyHeader) {
+              const apiKeyValue = String(apiKeyHeader.value);
+              console.log('Found x-api-key header, adding to request');
+
               requestConfig.headers.push({
                 key: 'x-api-key',
-                value: apiKeyHeader.value
+                value: apiKeyValue
               });
 
               // Also add to auth object
-              requestConfig.auth.apiKey = apiKeyHeader.value;
+              requestConfig.auth.apiKey = apiKeyValue;
             }
           }
         }
       }
+
+      // Log the final request config for debugging
+      console.log('Final request config:', {
+        url: requestConfig.url,
+        method: requestConfig.method,
+        headers: requestConfig.headers.map(h => h.key),
+        hasAuth: !!requestConfig.auth
+      });
 
       // Make API request
       const response = await testCourierApi(requestConfig);

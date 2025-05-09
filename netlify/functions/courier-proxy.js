@@ -111,8 +111,8 @@ const makeCourierApiCall = async (requestConfig) => {
 
       requestConfig.headers.forEach(header => {
         if (header.key && header.value !== undefined) {
-          console.log(`Adding header: ${header.key} = ${header.value}`);
-          headers[header.key] = header.value;
+          console.log(`Adding header: ${header.key} = ${typeof header.value === 'string' ? header.value : String(header.value)}`);
+          headers[header.key] = typeof header.value === 'string' ? header.value : String(header.value);
         }
       });
     } else {
@@ -124,7 +124,11 @@ const makeCourierApiCall = async (requestConfig) => {
       case 'bearer':
         // Check if the token already starts with 'Bearer ' prefix
         const token = requestConfig.auth.token;
-        headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        if (token) {
+          headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        } else {
+          console.warn('Bearer token is missing or undefined');
+        }
         break;
       case 'basic':
         // Use Buffer.from for base64 encoding in Node.js (instead of btoa which is browser-only)
@@ -137,14 +141,23 @@ const makeCourierApiCall = async (requestConfig) => {
         break;
     }
 
-    // Create axios request config
+    // Create axios request config with sanitized headers
+    const sanitizedHeaders = {};
+
+    // Process headers to ensure they're all strings
+    for (const [key, value] of Object.entries(headers)) {
+      if (value !== undefined && value !== null) {
+        sanitizedHeaders[key] = String(value);
+      }
+    }
+
+    // Add content type header
+    sanitizedHeaders['Content-Type'] = requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json';
+
     const axiosConfig = {
       method: requestConfig.method || 'GET',
       url: requestConfig.url,
-      headers: {
-        ...headers,
-        'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
-      },
+      headers: sanitizedHeaders,
       // Add timeout
       timeout: 30000, // 30 seconds
       // Add validateStatus to handle all status codes

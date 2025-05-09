@@ -211,6 +211,14 @@ const normalizeRequestConfig = (config) => {
     normalized.retryDelay = DEFAULT_RETRY_DELAY;
   }
 
+  // Ensure all header values are strings
+  if (normalized.headers && Array.isArray(normalized.headers)) {
+    normalized.headers = normalized.headers.map(header => ({
+      key: header.key,
+      value: header.value !== undefined && header.value !== null ? String(header.value) : ''
+    }));
+  }
+
   return normalized;
 };
 

@@ -41,6 +41,27 @@ const ResponseFieldMapping = ({ onComplete, apiResponses, tmsFields, loading }) 
   const [extractedFields, setExtractedFields] = useState([]);
   const [requiredFields, setRequiredFields] = useState([]);
 
+  // Process TMS fields to ensure they're strings
+  const processedTmsFields = React.useMemo(() => {
+    console.log('Processing TMS fields in ResponseFieldMapping:', tmsFields);
+    if (!Array.isArray(tmsFields)) {
+      console.error('TMS fields is not an array:', tmsFields);
+      return [];
+    }
+
+    return tmsFields.map(field => {
+      if (typeof field === 'string') {
+        return field;
+      } else if (field && typeof field === 'object') {
+        console.log('Converting TMS field object to string:', field);
+        return field.name || '';
+      } else {
+        console.error('Invalid TMS field:', field);
+        return '';
+      }
+    }).filter(Boolean);
+  }, [tmsFields]);
+
   // Watch APIs
   const apis = watch('apis') || [];
 
@@ -240,7 +261,7 @@ const ResponseFieldMapping = ({ onComplete, apiResponses, tmsFields, loading }) 
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="none">-- None --</SelectItem>
-                                    {tmsFields.map((tmsField, i) => (
+                                    {processedTmsFields.map((tmsField, i) => (
                                       <SelectItem key={i} value={tmsField}>
                                         {tmsField}
                                       </SelectItem>

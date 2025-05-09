@@ -245,8 +245,8 @@ const makeCourierApiCall = async (requestConfig) => {
 
       requestConfig.headers.forEach(header => {
         if (header.key && header.value !== undefined) {
-          console.log(`Adding header: ${header.key} = ${header.value}`);
-          headers[header.key] = header.value;
+          console.log(`Adding header: ${header.key} = ${typeof header.value === 'string' ? header.value : String(header.value)}`);
+          headers[header.key] = typeof header.value === 'string' ? header.value : String(header.value);
         }
       });
     } else {
@@ -260,10 +260,14 @@ const makeCourierApiCall = async (requestConfig) => {
     switch (requestConfig.auth?.type) {
       case 'bearer':
         // Make sure we include 'Bearer ' prefix if it's not already there
-        if (token && !token.startsWith('Bearer ')) {
-          headers['Authorization'] = `Bearer ${token}`;
+        if (token) {
+          if (!token.startsWith('Bearer ')) {
+            headers['Authorization'] = `Bearer ${token}`;
+          } else {
+            headers['Authorization'] = token;
+          }
         } else {
-          headers['Authorization'] = token;
+          console.warn('Bearer token is missing or empty');
         }
         break;
       case 'basic':
@@ -399,14 +403,27 @@ const makeCourierApiCall = async (requestConfig) => {
       throw new Error('No URL provided in request config');
     }
 
+    // Create sanitized headers
+    const sanitizedHeaders = {};
+
+    // Process headers to ensure they're all strings
+    for (const [key, value] of Object.entries(headers)) {
+      if (value !== undefined && value !== null) {
+        sanitizedHeaders[key] = String(value);
+      }
+    }
+
+    // Add content type header
+    sanitizedHeaders['Content-Type'] = requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json';
+
+    // Log sanitized headers for debugging
+    console.log('Sanitized headers:', Object.keys(sanitizedHeaders));
+
     // Create axios request config
     const axiosConfig = {
       method: requestConfig.method || 'GET',
       url: url,
-      headers: {
-        ...headers,
-        'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
-      },
+      headers: sanitizedHeaders,
 
       // Log the method being used
       ...(console.log(`Using HTTP method: ${requestConfig.method || 'GET'}`), {}),
