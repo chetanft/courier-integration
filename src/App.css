@@ -2,8 +2,9 @@
 
 /* Fix for horizontal overflow in modals */
 .dialog-content {
-  max-width: 100%;
+  max-width: 100% !important;
   overflow-x: hidden;
+  width: auto !important;
 }
 
 /* Ensure long text in inputs is properly handled */
