@@ -231,7 +231,37 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       // Check for errors
       if (response.error) {
         console.error('API error response:', response);
-        throw new Error(response.message || 'Failed to generate token');
+
+        // Create a more descriptive error message
+        let errorMessage = response.message || 'Failed to generate token';
+
+        // Add more details if available
+        if (response.status) {
+          errorMessage += ` (Status: ${response.status})`;
+        }
+
+        // Add URL information
+        if (response.url) {
+          errorMessage += ` - URL: ${response.url}`;
+        }
+
+        // Add network error details
+        if (response.isNetworkError) {
+          errorMessage += ' - Network connectivity issue detected.';
+        }
+
+        // Add suggestions based on error type
+        if (response.status === 404) {
+          errorMessage += ' - The API endpoint could not be found. Please verify the URL.';
+        } else if (response.status === 401 || response.status === 403) {
+          errorMessage += ' - Authentication failed. Please check your credentials.';
+        } else if (response.status === 500) {
+          errorMessage += ' - Server error occurred. Please try again later.';
+        } else if (response.status === 502) {
+          errorMessage += ' - Could not connect to the API server. Please check if the server is accessible.';
+        }
+
+        throw new Error(errorMessage);
       }
 
       // If response is empty or null, throw an error
@@ -564,7 +594,44 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                   </div>
 
                   {tokenResponse.error && (
-                    <p className="text-red-600 mb-2">{tokenResponse.message}</p>
+                    <div className="mb-4">
+                      <p className="text-red-600 mb-2 font-medium">{tokenResponse.message}</p>
+
+                      {/* Additional error details */}
+                      <div className="text-sm text-red-700 mt-2">
+                        <ul className="list-disc list-inside space-y-1">
+                          {tokenResponse.status && (
+                            <li>Status Code: {tokenResponse.status} {tokenResponse.statusText ? `(${tokenResponse.statusText})` : ''}</li>
+                          )}
+                          {tokenResponse.url && (
+                            <li>API URL: {tokenResponse.url}</li>
+                          )}
+                          {tokenResponse.method && (
+                            <li>Request Method: {tokenResponse.method}</li>
+                          )}
+                          {tokenResponse.isNetworkError && (
+                            <li>Network Error: Check your internet connection and API server accessibility</li>
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Troubleshooting suggestions */}
+                      <div className="mt-3 bg-red-100 p-3 rounded text-sm text-red-800">
+                        <p className="font-medium mb-1">Troubleshooting Suggestions:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Verify the API URL is correct and accessible</li>
+                          <li>Check that your headers and request body match the API requirements</li>
+                          <li>Ensure the API server is running and reachable</li>
+                          <li>Try the request in a tool like Postman or cURL to verify it works</li>
+                          {tokenResponse.status === 401 && (
+                            <li>Authentication failed - check your credentials</li>
+                          )}
+                          {tokenResponse.status === 404 && (
+                            <li>Endpoint not found - verify the URL path</li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
                   )}
 
                   <div className="bg-white p-2 rounded border">
@@ -753,7 +820,44 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                   </div>
 
                   {tokenResponse.error && (
-                    <p className="text-red-600 mb-2">{tokenResponse.message}</p>
+                    <div className="mb-4">
+                      <p className="text-red-600 mb-2 font-medium">{tokenResponse.message}</p>
+
+                      {/* Additional error details */}
+                      <div className="text-sm text-red-700 mt-2">
+                        <ul className="list-disc list-inside space-y-1">
+                          {tokenResponse.status && (
+                            <li>Status Code: {tokenResponse.status} {tokenResponse.statusText ? `(${tokenResponse.statusText})` : ''}</li>
+                          )}
+                          {tokenResponse.url && (
+                            <li>API URL: {tokenResponse.url}</li>
+                          )}
+                          {tokenResponse.method && (
+                            <li>Request Method: {tokenResponse.method}</li>
+                          )}
+                          {tokenResponse.isNetworkError && (
+                            <li>Network Error: Check your internet connection and API server accessibility</li>
+                          )}
+                        </ul>
+                      </div>
+
+                      {/* Troubleshooting suggestions */}
+                      <div className="mt-3 bg-red-100 p-3 rounded text-sm text-red-800">
+                        <p className="font-medium mb-1">Troubleshooting Suggestions:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Verify the API URL is correct and accessible</li>
+                          <li>Check that your headers and request body match the API requirements</li>
+                          <li>Ensure the API server is running and reachable</li>
+                          <li>Try the original cURL command in your terminal to verify it works</li>
+                          {tokenResponse.status === 401 && (
+                            <li>Authentication failed - check your credentials</li>
+                          )}
+                          {tokenResponse.status === 404 && (
+                            <li>Endpoint not found - verify the URL path</li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
                   )}
 
                   <div className="bg-white p-2 rounded border">

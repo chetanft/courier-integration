@@ -217,15 +217,35 @@ const makeCourierApiCall = async (requestConfig) => {
 
       // Check if the response indicates an error
       if (response.status >= 400) {
+        // Create a more descriptive error message
+        let errorMessage = response.data?.message || 'API request failed';
+
+        // Add status code to the message if available
+        if (response.status) {
+          errorMessage = `API request failed with status ${response.status} (${response.statusText || 'Unknown Error'})`;
+        }
+
+        // Add more context based on status code
+        if (response.status === 401 || response.status === 403) {
+          errorMessage += ': Authentication failed or insufficient permissions';
+        } else if (response.status === 404) {
+          errorMessage += ': Endpoint not found';
+        } else if (response.status === 500) {
+          errorMessage += ': Server error occurred';
+        } else if (response.status === 502 || response.status === 503 || response.status === 504) {
+          errorMessage += ': Server unavailable or gateway error';
+        }
+
         return {
           error: true,
           status: response.status,
           statusText: response.statusText,
-          message: response.data?.message || 'API request failed',
+          message: errorMessage,
           details: response.data,
           url: requestConfig.url,
           method: requestConfig.method,
           apiIntent: requestConfig.apiIntent,
+          isNetworkError: false,
           timestamp: new Date().toISOString()
         };
       }
@@ -240,16 +260,55 @@ const makeCourierApiCall = async (requestConfig) => {
         config: axiosError.config
       });
 
+      // Determine if this is a network error
+      const isNetworkError = axiosError.code === 'ECONNABORTED' ||
+                            axiosError.code === 'ENOTFOUND' ||
+                            axiosError.code === 'ECONNREFUSED' ||
+                            axiosError.code === 'ETIMEDOUT' ||
+                            axiosError.message.includes('Network Error');
+
+      // Create a more descriptive error message
+      let errorMessage = axiosError.message;
+
+      // Add more context based on error code
+      if (isNetworkError) {
+        if (axiosError.code === 'ENOTFOUND') {
+          errorMessage = `Cannot resolve hostname: ${new URL(requestConfig.url).hostname}. Please check if the URL is correct.`;
+        } else if (axiosError.code === 'ECONNREFUSED') {
+          errorMessage = `Connection refused to ${new URL(requestConfig.url).hostname}. The server might be down or not accepting connections.`;
+        } else if (axiosError.code === 'ETIMEDOUT') {
+          errorMessage = `Connection timed out to ${new URL(requestConfig.url).hostname}. The server might be slow or unreachable.`;
+        } else if (axiosError.code === 'ECONNABORTED') {
+          errorMessage = `Request aborted due to timeout. The server might be slow to respond.`;
+        } else {
+          errorMessage = `Network error connecting to ${requestConfig.url}. Please check your internet connection and API server accessibility.`;
+        }
+      } else if (axiosError.response) {
+        // We have a response with an error status
+        errorMessage = `API request failed with status ${axiosError.response.status} (${axiosError.response.statusText || 'Unknown Error'})`;
+
+        // Add more context based on status code
+        if (axiosError.response.status === 401 || axiosError.response.status === 403) {
+          errorMessage += ': Authentication failed or insufficient permissions';
+        } else if (axiosError.response.status === 404) {
+          errorMessage += ': Endpoint not found';
+        } else if (axiosError.response.status === 500) {
+          errorMessage += ': Server error occurred';
+        }
+      }
+
       // Return a structured error response
       return {
         error: true,
         status: axiosError.response?.status,
         statusText: axiosError.response?.statusText,
-        message: axiosError.message,
+        message: errorMessage,
         details: axiosError.response?.data || {},
         url: requestConfig.url,
         method: requestConfig.method,
         apiIntent: requestConfig.apiIntent,
+        isNetworkError,
+        code: axiosError.code,
         timestamp: new Date().toISOString()
       };
     }
@@ -308,11 +367,41 @@ exports.handler = async (event) => {
   } catch (error) {
     console.error('Error in courier-proxy:', error);
 
+    // Check if this is a network error
+    const isNetworkError = error.code === 'ECONNABORTED' ||
+                          error.code === 'ENOTFOUND' ||
+                          error.code === 'ECONNREFUSED' ||
+                          error.code === 'ETIMEDOUT' ||
+                          (error.message && error.message.includes('Network Error'));
+
+    // Extract network details if available
+    const networkDetails = isNetworkError ? {
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      hostname: error.hostname,
+      address: error.address,
+      port: error.port
+    } : undefined;
+
+    // Determine appropriate status code
+    const statusCode = error.response?.status || (isNetworkError ? 502 : 500);
+
     return {
-      statusCode: 500,
+      statusCode: statusCode,
       body: JSON.stringify({
         error: true,
         message: `Error in courier-proxy: ${error.message}`,
+        code: error.code,
+        type: isNetworkError ? 'NETWORK_ERROR' : 'SERVER_ERROR',
+        url: error.config?.url,
+        networkDetails: isNetworkError ? networkDetails : undefined,
+        axiosDetails: error.isAxiosError ? {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers
+        } : undefined,
         timestamp: new Date().toISOString()
       })
     };
