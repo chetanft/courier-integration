@@ -99,8 +99,10 @@ const AddCourierNew = () => {
 
   // Handle authentication completion
   const handleAuthComplete = (token) => {
-    setAuthToken(token);
+    console.log('Authentication completed with token:', token ? 'Token exists' : 'No token');
+    setAuthToken(token || '');
     setCurrentStep(2);
+    toast.success('Authentication completed successfully');
   };
 
   // Handle API configuration completion

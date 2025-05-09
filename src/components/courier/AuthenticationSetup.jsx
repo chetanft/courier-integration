@@ -62,7 +62,8 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       if (data.auth.type === 'none') {
         console.log('No auth required, proceeding to next step');
         // Create courier in database
-        await createCourier(data);
+        const courierResult = await createCourier(data);
+        console.log('Courier created successfully:', courierResult);
         onComplete('');
         return;
       }
@@ -74,14 +75,15 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
           return;
         }
 
-        if (!tokenGenerated) {
+        if (!tokenGenerated && !token) {
           toast.error('Please generate a token first');
           return;
         }
 
         // Token is generated, proceed to next step
-        console.log('Token generated via form, proceeding to next step');
-        await createCourier(data);
+        console.log('Token generated via form, proceeding to next step with token:', token ? 'Token exists' : 'No token');
+        const courierResult = await createCourier(data);
+        console.log('Courier created successfully:', courierResult);
         onComplete(token);
         return;
       }
@@ -96,14 +98,16 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         // If token is found in the parsed cURL, use it
         if (token) {
           console.log('Token found in parsed cURL, proceeding to next step');
-          await createCourier(data);
+          const courierResult = await createCourier(data);
+          console.log('Courier created successfully:', courierResult);
           onComplete(token);
           return;
         }
 
         // If no token is found but URL is parsed, proceed anyway
         console.log('No token found in parsed cURL, proceeding to next step');
-        await createCourier(data);
+        const courierResult = await createCourier(data);
+        console.log('Courier created successfully:', courierResult);
         onComplete('');
         return;
       }
@@ -112,7 +116,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       toast.error('Please complete the authentication setup');
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast.error('Failed to proceed to next step: ' + error.message);
+      toast.error('Failed to proceed to next step: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -936,6 +940,33 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
           )}
         </Button>
       </div>
+
+      {/* Debug information - will be hidden in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
+          <h4 className="text-sm font-medium mb-2">Debug Info:</h4>
+          <div className="text-xs">
+            <p>Auth Type: {authType}</p>
+            <p>Token Generated: {tokenGenerated ? 'Yes' : 'No'}</p>
+            <p>Token Present: {token ? 'Yes' : 'No'}</p>
+            <p>Loading: {loading ? 'Yes' : 'No'}</p>
+            <div className="mt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  console.log('Current form data:', watch());
+                  console.log('Token:', token);
+                  console.log('Token Generated:', tokenGenerated);
+                }}
+              >
+                Log Form Data
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
