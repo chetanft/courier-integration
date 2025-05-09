@@ -38,6 +38,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
   const [token, setToken] = useState('');
   const [tokenLoading, setTokenLoading] = useState(false);
   const [tokenGenerated, setTokenGenerated] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
 
   // Watch auth type
   const watchAuthType = watch('auth.type');
@@ -940,7 +941,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
               }
 
               // Create courier in database
-              setLoading(true);
+              setLocalLoading(true);
               const courierResult = await createCourier(formData);
               console.log('Courier created successfully:', courierResult);
 
@@ -953,12 +954,12 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
               console.error('Error proceeding to next step:', error);
               toast.error('Failed to proceed to next step: ' + (error.message || 'Unknown error'));
             } finally {
-              setLoading(false);
+              setLocalLoading(false);
             }
           }}
-          disabled={loading}
+          disabled={loading || localLoading}
         >
-          {loading ? (
+          {loading || localLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Processing...
