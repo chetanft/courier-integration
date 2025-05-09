@@ -289,6 +289,12 @@ const makeCourierApiCall = async (requestConfig) => {
       if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
         headers['x-api-key'] = requestConfig.auth.apiKey;
       }
+
+      // Ensure method is POST for Safexpress token endpoint
+      if (requestConfig.url && requestConfig.url.includes('oauth2/token')) {
+        console.log('Detected Safexpress OAuth token endpoint, ensuring method is POST');
+        requestConfig.method = 'POST';
+      }
     }
 
     // Special handling for FreightTiger API
@@ -386,6 +392,9 @@ const makeCourierApiCall = async (requestConfig) => {
         ...headers,
         'Content-Type': requestConfig.isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json'
       },
+
+      // Log the method being used
+      ...(console.log(`Using HTTP method: ${requestConfig.method || 'GET'}`), {}),
       // Add timeout - use custom timeout if provided, otherwise default to 30 seconds
       timeout: requestConfig.timeout || 30000,
       // Add validateStatus to handle all status codes

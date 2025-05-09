@@ -217,8 +217,18 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
         method: auth.method,
         apiIntent: 'generate_auth_token',
         headers: auth.headers,
-        body: auth.body
+        body: auth.body,
+        isFormUrlEncoded: url.includes('oauth2/token') || (auth.headers && auth.headers.some(h =>
+          h.key.toLowerCase() === 'content-type' &&
+          h.value.toLowerCase().includes('application/x-www-form-urlencoded')
+        ))
       };
+
+      // Special handling for Safexpress OAuth token endpoint
+      if (url.includes('safexpress') && url.includes('oauth2/token')) {
+        console.log('Detected Safexpress OAuth token endpoint, ensuring method is POST');
+        requestConfig.method = 'POST';
+      }
 
       // Make API request
       const response = await testCourierApi(requestConfig);
