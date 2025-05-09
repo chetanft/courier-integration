@@ -163,23 +163,27 @@ const AddCourierNew = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Try to upload to Supabase and update courier status
+      // Update courier status and upload JS file to Supabase
       try {
-        // Upload the JS file to Supabase
-        await uploadJsFile(courier.id, fileName, jsCode);
-        console.log('JS file uploaded to Supabase successfully');
-
-        // Update the courier record to indicate JS file has been generated
+        // Use updateCourierJsFileStatus which handles both file upload and status update
         const updatedCourier = await updateCourierJsFileStatus(courier.id, fileName, jsCode);
         if (updatedCourier) {
           console.log('Courier status updated successfully:', updatedCourier);
           // Update the local courier state with the updated data
           setCourier(updatedCourier);
         } else {
-          console.warn('Failed to update courier status, but JS file was generated');
+          console.warn('Failed to update courier status, but JS file was generated locally');
+
+          // Fallback to just uploading the file if status update fails
+          try {
+            await uploadJsFile(courier.id, fileName, jsCode);
+            console.log('JS file uploaded to Supabase as fallback');
+          } catch (fallbackError) {
+            console.warn('Fallback upload also failed:', fallbackError);
+          }
         }
       } catch (uploadError) {
-        console.warn('Failed to upload JS file to Supabase, but file was downloaded locally:', uploadError);
+        console.warn('Failed to update courier status and upload JS file to Supabase, but file was downloaded locally:', uploadError);
         // Continue even if upload fails - the user already has the file downloaded locally
       }
 

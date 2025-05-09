@@ -1464,26 +1464,61 @@ export const updateCourierJsFileStatus = async (courierId, fileName, jsContent) 
     // First, upload the JS file to storage
     const filePath = `${courierId}/${fileName}`;
 
+    // Try both storage buckets (js_files and js-configs) to maximize chances of success
+    let uploadSuccess = false;
+    let uploadData = null;
+
     // Convert JS content to a Blob
     const jsBlob = new Blob([jsContent], { type: 'application/javascript' });
 
-    // Upload the file to storage
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('js_files')
-      .upload(filePath, jsBlob, {
-        cacheControl: '3600',
-        upsert: true
-      });
+    // Try uploading to js_files bucket first
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from('js_files')
+        .upload(filePath, jsBlob, {
+          cacheControl: '3600',
+          upsert: true
+        });
 
-    if (uploadError) {
-      console.error('Error uploading JS file:', uploadError);
-      throw uploadError;
+      if (!error) {
+        console.log('JS file uploaded successfully to js_files bucket:', data);
+        uploadSuccess = true;
+        uploadData = data;
+      } else {
+        console.warn('Error uploading to js_files bucket, will try js-configs:', error);
+      }
+    } catch (uploadError) {
+      console.warn('Exception uploading to js_files bucket, will try js-configs:', uploadError);
     }
 
-    console.log('JS file uploaded successfully:', uploadData);
+    // If js_files failed, try js-configs bucket
+    if (!uploadSuccess) {
+      try {
+        const { data, error } = await supabase
+          .storage
+          .from('js-configs')
+          .upload(filePath, jsBlob, {
+            contentType: 'application/javascript',
+            upsert: true
+          });
 
-    // Now update the courier record with the file path
+        if (!error) {
+          console.log('JS file uploaded successfully to js-configs bucket:', data);
+          uploadSuccess = true;
+          uploadData = data;
+        } else {
+          console.warn('Error uploading to js-configs bucket:', error);
+        }
+      } catch (uploadError) {
+        console.warn('Exception uploading to js-configs bucket:', uploadError);
+      }
+    }
+
+    // Even if file upload fails, still try to update the courier status
+    // This ensures the UI will show the correct state even if storage has issues
+    console.log('Updating courier record with file path:', filePath);
+
     const { data, error } = await supabase
       .from('couriers')
       .update({
@@ -1495,12 +1530,15 @@ export const updateCourierJsFileStatus = async (courierId, fileName, jsContent) 
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error updating courier record:', error);
+      throw error;
+    }
 
     console.log('Courier record updated successfully:', data);
     return data;
   } catch (error) {
-    console.error('Error updating courier JS file status:', error);
+    console.error('Error in updateCourierJsFileStatus:', error);
     return null;
   }
 };
