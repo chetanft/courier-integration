@@ -13,7 +13,7 @@ import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
 import { Card, CardHeader, CardTitle } from '../components/ui/card';
 import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
-import NewAvailableCouriersDialog from '../components/dialogs/NewAvailableCouriersDialog';
+import RedesignedAvailableCouriersDialog from '../components/dialogs/RedesignedAvailableCouriersDialog';
 
 const ClientDetails = () => {
   const { id: clientId } = useParams();
@@ -24,9 +24,11 @@ const ClientDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // eslint-disable-next-line no-unused-vars
   const [dialogOpen, setDialogOpen] = useState(false);
   const [availableCouriers, setAvailableCouriers] = useState([]);
   const [selectedCourier, setSelectedCourier] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [addingCourier, setAddingCourier] = useState(false);
 
   // Delete client dialog state
@@ -166,6 +168,7 @@ const ClientDetails = () => {
   }, [couriers, searchQuery, filterValue, sortValue]);
 
   // Handle adding a courier to this client
+  // eslint-disable-next-line no-unused-vars
   const handleAddCourier = async () => {
     if (!selectedCourier) {
       return;
@@ -375,7 +378,7 @@ const ClientDetails = () => {
             Add Available Couriers
           </Button>
 
-          <NewAvailableCouriersDialog
+          <RedesignedAvailableCouriersDialog
             open={addCouriersDialogOpen}
             onOpenChange={setAddCouriersDialogOpen}
             client={client}
