@@ -11,6 +11,7 @@ import { FilterDropdown } from '../components/ui/filter-dropdown';
 import { SortDropdown } from '../components/ui/sort-dropdown';
 import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
+import { Card, CardHeader, CardTitle } from '../components/ui/card';
 import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
 import AddAvailableCouriersDialog from '../components/dialogs/AddAvailableCouriersDialog';
 
