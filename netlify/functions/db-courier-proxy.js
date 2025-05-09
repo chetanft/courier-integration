@@ -292,6 +292,26 @@ const makeCourierApiCall = async (requestConfig) => {
       requestConfig.method = 'POST';
     }
 
+    // Special handling for SafeExpress tracking API
+    if (requestConfig.url && requestConfig.url.includes('safexpress') &&
+        requestConfig.url.includes('tracking')) {
+      console.log('Detected SafeExpress tracking API');
+
+      // Ensure we have both Authorization and x-api-key headers
+      if (requestConfig.auth?.token && !headers['authorization']) {
+        console.log('Adding Authorization header for SafeExpress');
+        headers['authorization'] = `Bearer ${requestConfig.auth.token}`;
+      }
+
+      if (requestConfig.auth?.apiKey && !headers['x-api-key']) {
+        console.log('Adding x-api-key header for SafeExpress');
+        headers['x-api-key'] = requestConfig.auth.apiKey;
+      }
+
+      // Log all headers for debugging
+      console.log('Headers for SafeExpress request:', Object.keys(headers));
+    }
+
     // Special handling for FreightTiger API
     if ((requestConfig.url && requestConfig.url.includes('freighttiger.com')) ||
         requestConfig.isFreightTigerApi) {
@@ -531,8 +551,31 @@ const makeCourierApiCall = async (requestConfig) => {
     }
 
     // Make the request
-    console.log('Making request with config:', axiosConfig);
-    console.log('Headers being sent:', axiosConfig.headers);
+    console.log('Making request with config:', {
+      url: axiosConfig.url,
+      method: axiosConfig.method,
+      hasData: !!axiosConfig.data,
+      dataType: axiosConfig.data ? typeof axiosConfig.data : null,
+      timeout: axiosConfig.timeout
+    });
+
+    // Log headers (without sensitive values)
+    const headerKeys = Object.keys(axiosConfig.headers);
+    console.log('Headers being sent:', headerKeys);
+
+    // Log auth-related headers specifically
+    const authHeaders = headerKeys.filter(key =>
+      key.toLowerCase() === 'authorization' ||
+      key.toLowerCase() === 'x-api-key' ||
+      key.toLowerCase().includes('auth') ||
+      key.toLowerCase().includes('token')
+    );
+
+    if (authHeaders.length > 0) {
+      console.log('Auth headers present:', authHeaders);
+    } else {
+      console.warn('No auth headers detected in request');
+    }
 
     try {
       console.log('Making API request with config:', {

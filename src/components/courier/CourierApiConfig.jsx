@@ -157,12 +157,47 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
         body: api.body || {}
       };
 
+      // Check if the URL contains 'safexpress' to determine if it's a SafeExpress API
+      const isSafexpress = url.toLowerCase().includes('safexpress');
+
       // Add auth token if available
       if (authToken) {
-        requestConfig.headers = [
-          ...requestConfig.headers,
-          { key: 'Authorization', value: `Bearer ${authToken}` }
-        ];
+        // Check if Authorization header already exists
+        const hasAuthHeader = requestConfig.headers.some(h => h.key.toLowerCase() === 'authorization');
+
+        if (!hasAuthHeader) {
+          requestConfig.headers.push({
+            key: 'Authorization',
+            value: `Bearer ${authToken}`
+          });
+        }
+
+        // For SafeExpress, also add the auth token to the auth object
+        if (isSafexpress) {
+          requestConfig.auth = {
+            type: 'bearer',
+            token: authToken
+          };
+
+          // Check if x-api-key header exists
+          const hasApiKeyHeader = requestConfig.headers.some(h => h.key.toLowerCase() === 'x-api-key');
+
+          // If no x-api-key header, look for it in the existing headers
+          if (!hasApiKeyHeader) {
+            // Try to find the x-api-key in the existing headers from the previous step
+            const apiKeyHeader = api.headers.find(h => h.key.toLowerCase() === 'x-api-key');
+
+            if (apiKeyHeader) {
+              requestConfig.headers.push({
+                key: 'x-api-key',
+                value: apiKeyHeader.value
+              });
+
+              // Also add to auth object
+              requestConfig.auth.apiKey = apiKeyHeader.value;
+            }
+          }
+        }
       }
 
       // Make API request
