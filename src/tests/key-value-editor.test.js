@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import { jest } from '@jest/globals';
 
 describe('KeyValueEditor Component', () => {
   // Test the handleAddPair function logic
@@ -13,7 +14,9 @@ describe('KeyValueEditor Component', () => {
 
     // Simulate the handleAddPair function from KeyValueEditor
     const handleAddPair = () => {
-      const newPairs = [...pairs, { key: '', value: '' }];
+      // In the updated component, we use actualPairs which is value || pairs || []
+      const actualPairs = pairs;
+      const newPairs = [...actualPairs, { key: '', value: '' }];
       onChange(newPairs);
     };
 
@@ -37,7 +40,9 @@ describe('KeyValueEditor Component', () => {
 
     // Simulate the handleAddPair function from KeyValueEditor
     const handleAddPair = () => {
-      const newPairs = [...pairs, { key: '', value: '' }];
+      // In the updated component, we use actualPairs which is value || pairs || []
+      const actualPairs = pairs;
+      const newPairs = [...actualPairs, { key: '', value: '' }];
       onChange(newPairs);
     };
 

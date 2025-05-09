@@ -8,47 +8,54 @@ import { FormDescription } from './form';
  * A component for editing key-value pairs
  * @param {Object} props
  * @param {Array<{key: string, value: string}>} props.pairs - The key-value pairs
+ * @param {Array<{key: string, value: string}>} props.value - Alternative prop name for pairs (for compatibility)
  * @param {Function} props.onChange - Called when pairs change
  * @param {string} props.keyPlaceholder - Placeholder for key input
  * @param {string} props.valuePlaceholder - Placeholder for value input
  * @param {string} props.description - Optional description text
+ * @param {Array<string>} props.disabledKeys - Keys that should be disabled from editing
  */
 const KeyValueEditor = ({
   pairs = [],
+  value,
   onChange,
   keyPlaceholder = 'Key',
   valuePlaceholder = 'Value',
-  description
+  description,
+  disabledKeys = []
 }) => {
+  // Handle both 'pairs' and 'value' props for backward compatibility
+  const actualPairs = value || pairs || [];
   // Add a new empty pair
   const handleAddPair = () => {
-    const newPairs = [...pairs, { key: '', value: '' }];
+    const newPairs = [...actualPairs, { key: '', value: '' }];
     onChange(newPairs);
   };
 
   // Remove a pair at the specified index
   const handleRemovePair = (index) => {
-    const newPairs = [...pairs];
+    const newPairs = [...actualPairs];
     newPairs.splice(index, 1);
     onChange(newPairs);
   };
 
   // Update a pair at the specified index
   const handlePairChange = (index, field, value) => {
-    const newPairs = [...pairs];
+    const newPairs = [...actualPairs];
     newPairs[index] = { ...newPairs[index], [field]: value };
     onChange(newPairs);
   };
 
   return (
     <div className="space-y-2">
-      {pairs.map((pair, index) => (
+      {actualPairs.map((pair, index) => (
         <div key={index} className="flex items-center gap-2">
           <Input
             placeholder={keyPlaceholder}
             value={pair.key}
             onChange={(e) => handlePairChange(index, 'key', e.target.value)}
             className="flex-1"
+            disabled={disabledKeys.includes(pair.key)}
           />
           <Input
             placeholder={valuePlaceholder}
@@ -61,6 +68,7 @@ const KeyValueEditor = ({
             variant="ghost"
             size="icon"
             onClick={() => handleRemovePair(index)}
+            disabled={disabledKeys.includes(pair.key)}
           >
             <TrashIcon className="h-4 w-4" />
           </Button>
@@ -75,7 +83,7 @@ const KeyValueEditor = ({
         className="mt-2"
       >
         <PlusIcon className="h-4 w-4 mr-2" />
-        Add {pairs.length === 0 ? 'a' : 'another'} pair
+        Add {actualPairs.length === 0 ? 'a' : 'another'} pair
       </Button>
 
       {description && (

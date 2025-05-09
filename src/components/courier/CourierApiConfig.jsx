@@ -343,7 +343,7 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
                           <FormLabel>Headers</FormLabel>
                           <FormControl>
                             <KeyValueEditor
-                              value={field.value || []}
+                              pairs={field.value || []}
                               onChange={field.onChange}
                               keyPlaceholder="Header name"
                               valuePlaceholder="Header value"
@@ -363,7 +363,7 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
                           <FormLabel>Query Parameters</FormLabel>
                           <FormControl>
                             <KeyValueEditor
-                              value={field.value || []}
+                              pairs={field.value || []}
                               onChange={field.onChange}
                               keyPlaceholder="Parameter name"
                               valuePlaceholder="Parameter value"

@@ -511,7 +511,7 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
                     <FormLabel>Headers</FormLabel>
                     <FormControl>
                       <KeyValueEditor
-                        value={field.value || []}
+                        pairs={field.value || []}
                         onChange={field.onChange}
                         keyPlaceholder="Header name"
                         valuePlaceholder="Header value"

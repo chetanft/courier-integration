@@ -1,6 +1,7 @@
 /**
  * @jest-environment jsdom
  */
+import { jest } from '@jest/globals';
 
 describe('RequestBuilder Component', () => {
   // Test the handleCurlParse function
