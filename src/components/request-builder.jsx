@@ -38,7 +38,7 @@ const RequestBuilder = ({
   formMethods,
   onSubmit,
   loading = false,
-  showCurlInput = true, // Always true to ensure curl input is shown
+  showCurlInput = true, // Whether to show the curl input section
   showApiIntents = true,
   customSubmitLabel = 'Test API & Continue',
   nameFieldLabel = 'Courier Name',
@@ -49,8 +49,7 @@ const RequestBuilder = ({
   nameFieldInCard = true,
   subheadingPosition = 'beforeRequest' // 'beforeCurl' or 'beforeRequest'
 }) => {
-  // Force showCurlInput to be true to ensure curl input is always shown
-  showCurlInput = true;
+  // Use the showCurlInput parameter as provided by the parent component
   const { control, watch, setValue, handleSubmit, formState } = formMethods;
 
   // Watch for changes to relevant fields
