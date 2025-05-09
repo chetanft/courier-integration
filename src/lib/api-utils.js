@@ -123,6 +123,23 @@ export const testCourierApi = async (requestConfig) => {
     }
     console.log('Sending request config to proxy:', debugConfig);
 
+    // Check if we're in development mode
+    const isDev = process.env.NODE_ENV === 'development' ||
+                 window.location.hostname === 'localhost' ||
+                 window.location.hostname === '127.0.0.1';
+
+    // In development mode, return a mock response for auth token generation
+    if (isDev && requestConfig.apiIntent === 'generate_auth_token') {
+      console.log('Development mode detected. Returning mock auth token response.');
+      return {
+        access_token: 'mock_dev_token_' + Date.now(),
+        token_type: 'bearer',
+        expires_in: 3600,
+        scope: 'all',
+        dev_mode: true
+      };
+    }
+
     // Make API call through our Netlify proxy
     const response = await axios.post(COURIER_PROXY_URL, requestConfig);
 

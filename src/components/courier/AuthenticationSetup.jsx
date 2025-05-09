@@ -211,17 +211,45 @@ const AuthenticationSetup = ({ onComplete, createCourier, loading }) => {
       const tokenPath = auth.tokenPath || 'access_token';
       const pathParts = tokenPath.split('.');
 
-      let extractedToken = response;
-      for (const part of pathParts) {
-        if (extractedToken && typeof extractedToken === 'object' && part in extractedToken) {
-          extractedToken = extractedToken[part];
-        } else {
-          throw new Error(`Token path "${tokenPath}" not found in response`);
-        }
-      }
+      console.log('Extracting token using path:', tokenPath);
+      console.log('Response data:', response);
 
-      if (typeof extractedToken !== 'string') {
-        throw new Error('Extracted token is not a string');
+      // Variable to hold the extracted token
+      let extractedToken;
+
+      // Check if we're in development mode with a mock token
+      if (response.dev_mode && response.access_token) {
+        console.log('Using mock token from development mode');
+        extractedToken = response.access_token;
+      } else {
+        // Normal token extraction
+        extractedToken = response;
+        try {
+          for (const part of pathParts) {
+            if (extractedToken && typeof extractedToken === 'object' && part in extractedToken) {
+              extractedToken = extractedToken[part];
+              console.log(`Extracted part "${part}":`, typeof extractedToken);
+            } else {
+              console.error(`Token path part "${part}" not found in:`, extractedToken);
+              throw new Error(`Token path "${tokenPath}" not found in response`);
+            }
+          }
+
+          if (typeof extractedToken !== 'string') {
+            console.error('Extracted value is not a string:', extractedToken);
+            throw new Error('Extracted token is not a string');
+          }
+        } catch (error) {
+          console.error('Error extracting token:', error);
+
+          // Fallback: If we can't extract the token using the path, check if there's an access_token at the root
+          if (response.access_token && typeof response.access_token === 'string') {
+            console.log('Falling back to root access_token');
+            extractedToken = response.access_token;
+          } else {
+            throw error;
+          }
+        }
       }
 
       setToken(extractedToken);
