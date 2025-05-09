@@ -90,7 +90,9 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
   // Handle cURL parsing for an API
   const handleCurlParse = (curlCommand, index) => {
     try {
+      console.log('Parsing cURL command for API', index);
       const parsed = parseCurl(curlCommand);
+      console.log('Parsed cURL result:', parsed);
 
       // Update form values with parsed data
       const currentApis = [...watch('apis')];
@@ -103,11 +105,23 @@ const CourierApiConfig = ({ onComplete, authToken, loading }) => {
         body: parsed.body || {}
       };
 
+      // Update each field individually to ensure the UI updates
+      setValue(`apis.${index}.method`, parsed.method);
+      setValue(`apis.${index}.url`, parsed.url);
+      setValue(`apis.${index}.headers`, parsed.headers || []);
+      setValue(`apis.${index}.queryParams`, parsed.queryParams || []);
+      setValue(`apis.${index}.body`, parsed.body || {});
+
+      // Also update the entire apis array
       setValue('apis', currentApis);
+
       toast.success('cURL command parsed successfully');
+
+      // Force a re-render by triggering a state update
+      setApiResponses([...apiResponses]);
     } catch (error) {
       console.error('Error parsing cURL command:', error);
-      toast.error('Failed to parse cURL command');
+      toast.error('Failed to parse cURL command: ' + error.message);
     }
   };
 
