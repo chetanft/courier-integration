@@ -1,4 +1,13 @@
 /**
+ * @deprecated This file is deprecated and will be removed in a future release.
+ * Please use the new services:
+ * - courier-api-client.js - For courier-specific API operations
+ * - api-service.js - For generic API operations
+ * 
+ * See migration-doc.md for a complete mapping of functions.
+ */
+
+/**
  * Courier API Service
  *
  * This service handles fetching and processing courier data from client APIs.
@@ -237,53 +246,53 @@ export const extractCouriersFromResponse = (data) => {
   }
 };
 
+// Helper function to show deprecation warnings
+const showDeprecationWarning = (oldFn, newFn) => {
+  console.warn(`DEPRECATED: ${oldFn} is deprecated. Use ${newFn} instead. This will be removed in a future release.`);
+};
+
 /**
- * Fetch courier data from a client API
- *
- * @param {string} apiUrl - The client's API URL
- * @param {Object} requestConfig - Optional request configuration
- * @param {Object} options - Additional options
- * @param {Array} options.filterFields - Array of field paths to extract from the response
- * @param {string} options.filterPath - Path to the array of items to filter (e.g., 'data.results')
- * @returns {Promise<Array>} - Promise resolving to an array of courier objects
+ * Fetch courier data from an API endpoint
+ * @deprecated Use courier-api-client.js: fetchData() instead
  */
-export const fetchCourierData = async (apiUrl, requestConfig = null, options = {}) => {
+export const fetchCourierData = async (url, parameters = {}) => {
+  showDeprecationWarning('fetchCourierData', 'courier-api-client.js: fetchData');
   try {
     // Validate API URL
-    if (!apiUrl) {
+    if (!url) {
       throw new Error('API URL is required');
     }
 
     // Decode the URL if it's encoded
-    let decodedUrl = apiUrl;
+    let decodedUrl = url;
     try {
       // Check if the URL contains encoded characters
-      if (apiUrl.includes('%')) {
+      if (url.includes('%')) {
         console.log('URL appears to be encoded, attempting to decode...');
-        decodedUrl = decodeURIComponent(apiUrl);
+        decodedUrl = decodeURIComponent(url);
         console.log(`Decoded URL: ${decodedUrl}`);
       }
     } catch (decodeError) {
       console.warn('Error decoding URL, will use original:', decodeError);
-      // Always set decodedUrl to apiUrl in case of error
-      decodedUrl = apiUrl;
+      // Always set decodedUrl to url in case of error
+      decodedUrl = url;
     }
 
     console.log(`Fetching courier data from: ${decodedUrl}`);
-    console.log('Request config:', requestConfig);
+    console.log('Request config:', parameters);
 
     // Check for duplicate query parameters in the URL
-    if (requestConfig && requestConfig.queryParams && requestConfig.queryParams.length > 0) {
+    if (parameters && parameters.queryParams && parameters.queryParams.length > 0) {
       try {
         const urlObj = new URL(decodedUrl);
         const existingParams = new Set(urlObj.searchParams.keys());
         
         // Filter out query parameters that already exist in the URL
-        requestConfig.queryParams = requestConfig.queryParams.filter(param => 
+        parameters.queryParams = parameters.queryParams.filter(param => 
           !existingParams.has(param.key)
         );
         
-        console.log('After filtering for duplicates, using query parameters:', requestConfig.queryParams);
+        console.log('After filtering for duplicates, using query parameters:', parameters.queryParams);
       } catch (urlError) {
         console.warn('Error parsing URL to check for duplicate parameters:', urlError);
       }
@@ -293,12 +302,12 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
     let error;
 
     // If we have a request config, use it with testCourierApi
-    if (requestConfig) {
+    if (parameters) {
       try {
         console.log('Using provided request config with testCourierApi');
         // Make sure the URL in the request config is updated
         const config = {
-          ...requestConfig,
+          ...parameters,
           url: decodedUrl,
           apiIntent: 'fetch_courier_data'
         };
@@ -338,29 +347,29 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
 
         // Create options for direct fetch with auth if available
         const directFetchOptions = {
-          method: requestConfig?.method || 'GET',
+          method: parameters?.method || 'GET',
           headers: {}
         };
 
         // Add auth if available
-        if (requestConfig?.auth) {
-          directFetchOptions.auth = requestConfig.auth;
+        if (parameters?.auth) {
+          directFetchOptions.auth = parameters.auth;
 
           // Add Authorization header based on auth type
-          if (requestConfig.auth.type === 'bearer' && requestConfig.auth.token) {
-            directFetchOptions.headers['Authorization'] = `Bearer ${requestConfig.auth.token}`;
-          } else if (requestConfig.auth.type === 'basic' && requestConfig.auth.username && requestConfig.auth.password) {
-            const basicAuth = btoa(`${requestConfig.auth.username}:${requestConfig.auth.password}`);
+          if (parameters.auth.type === 'bearer' && parameters.auth.token) {
+            directFetchOptions.headers['Authorization'] = `Bearer ${parameters.auth.token}`;
+          } else if (parameters.auth.type === 'basic' && parameters.auth.username && parameters.auth.password) {
+            const basicAuth = btoa(`${parameters.auth.username}:${parameters.auth.password}`);
             directFetchOptions.headers['Authorization'] = `Basic ${basicAuth}`;
-          } else if (requestConfig.auth.type === 'apikey' && requestConfig.auth.apiKey) {
-            const keyName = requestConfig.auth.apiKeyName || 'X-API-Key';
-            directFetchOptions.headers[keyName] = requestConfig.auth.apiKey;
+          } else if (parameters.auth.type === 'apikey' && parameters.auth.apiKey) {
+            const keyName = parameters.auth.apiKeyName || 'X-API-Key';
+            directFetchOptions.headers[keyName] = parameters.auth.apiKey;
           }
         }
 
         // Add any headers from requestConfig
-        if (requestConfig?.headers && Array.isArray(requestConfig.headers)) {
-          requestConfig.headers.forEach(header => {
+        if (parameters?.headers && Array.isArray(parameters.headers)) {
+          parameters.headers.forEach(header => {
             if (header.key && header.value) {
               directFetchOptions.headers[header.key] = header.value;
             }
@@ -379,14 +388,14 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
 
           // Create options for proxy fetch with auth if available
           const proxyFetchOptions = {
-            method: requestConfig?.method || 'GET',
+            method: parameters?.method || 'GET',
             headers: {},
-            auth: requestConfig?.auth
+            auth: parameters?.auth
           };
 
           // Add any headers from requestConfig
-          if (requestConfig?.headers && Array.isArray(requestConfig.headers)) {
-            requestConfig.headers.forEach(header => {
+          if (parameters?.headers && Array.isArray(parameters.headers)) {
+            parameters.headers.forEach(header => {
               if (header.key && header.value) {
                 proxyFetchOptions.headers[header.key] = header.value;
               }
@@ -400,10 +409,10 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
           console.error('Proxy error details:', JSON.stringify(proxyError, null, 2));
 
           // Try one more time with the original URL if we decoded it
-          if (decodedUrl !== apiUrl) {
+          if (decodedUrl !== url) {
             console.log('Trying one more time with the original encoded URL...');
             try {
-              data = await proxyFetch(apiUrl);
+              data = await proxyFetch(url);
               console.log('Proxy fetch with original URL successful, data received:', data);
             } catch (error) {
               console.error('All fetch attempts failed');
@@ -424,11 +433,11 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
     }
 
     // Check if we need to filter the data
-    if (options.filterFields && options.filterFields.length > 0) {
-      console.log('Filtering data with fields:', options.filterFields);
+    if (parameters.filterFields && parameters.filterFields.length > 0) {
+      console.log('Filtering data with fields:', parameters.filterFields);
 
       // Apply the filter
-      const filteredData = filterApiResponse(data, options.filterFields, options.filterPath);
+      const filteredData = filterApiResponse(data, parameters.filterFields, parameters.filterPath);
       console.log('Filtered data:', filteredData);
 
       return filteredData;
@@ -467,7 +476,7 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
       status: error.response?.status || error.status,
       statusText: error.response?.statusText || error.statusText,
       data: error.response?.data || error.data,
-      url: apiUrl,
+      url: url,
       stack: error.stack,
       isNetworkError: error.message?.includes('Network Error') || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK'
     };
@@ -702,4 +711,13 @@ export const fetchCouriersForMultipleClients = async (clients, options = {}) => 
   }
 
   return results;
+};
+
+/**
+ * Make a request to the courier API
+ * @deprecated Use courier-api-client.js: makeRequest() instead
+ */
+export const makeCourierRequest = async () => {
+  showDeprecationWarning('makeCourierRequest', 'courier-api-client.js: makeRequest');
+  throw new Error('This function is deprecated. Please use courier-api-client.js: makeRequest() instead.');
 };

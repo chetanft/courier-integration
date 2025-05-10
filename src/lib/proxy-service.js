@@ -1,4 +1,13 @@
 /**
+ * @deprecated This file is deprecated and will be removed in a future release.
+ * Please use the new services:
+ * - api-service.js - For generic API operations
+ * - courier-api-client.js - For courier-specific API operations
+ * 
+ * See migration-doc.md for a complete mapping of functions.
+ */
+
+/**
  * Proxy Service
  *
  * This service provides proxy functionality for making API requests
@@ -8,6 +17,11 @@
 import axios from 'axios';
 import { testCourierApi } from './api-utils';
 
+// Helper function to show deprecation warnings
+const showDeprecationWarning = (oldFn, newFn) => {
+  console.warn(`DEPRECATED: ${oldFn} is deprecated. Use ${newFn} instead. This will be removed in a future release.`);
+};
+
 /**
  * Make a direct API request without using a proxy
  *
@@ -16,6 +30,7 @@ import { testCourierApi } from './api-utils';
  * @returns {Promise<Object>} - Promise resolving to the response data
  */
 export const directFetch = async (url, options = {}) => {
+  showDeprecationWarning('directFetch', 'api-service.js: makeApiRequest');
   try {
     console.log(`Making direct request to: ${url}`);
 
@@ -104,6 +119,7 @@ export const directFetch = async (url, options = {}) => {
  * @returns {Promise<Object>} - Promise resolving to the response data
  */
 export const proxyFetch = async (url, options = {}) => {
+  showDeprecationWarning('proxyFetch', 'api-service.js: makeProxyRequest');
   try {
     console.log(`Making proxied request to: ${url}`);
 

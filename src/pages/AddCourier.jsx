@@ -5,7 +5,8 @@ import { testCourierApi } from '../lib/api-utils';
 import { extractFieldPaths, formatFieldPath } from '../lib/field-extractor';
 import { generateJsConfig } from '../lib/js-generator';
 import { getTmsFields } from '../lib/edge-functions-service';
-import { addCourier, addFieldMapping, saveApiTestResult, uploadJsFile } from '../lib/supabase-service';
+import { createCourier, createFieldMapping } from '../lib/db-service';
+import { testApiConnection, uploadJsFile } from '../lib/courier-api-client';
 // import { cn } from '../lib/utils';
 import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -175,12 +176,12 @@ const AddCourier = () => {
       }
 
       // Save courier
-      const savedCourier = await addCourier(courierData);
+      const savedCourier = await createCourier(courierData);
       setCourier(savedCourier);
       setApiResponse(response);
 
       // Save API test result
-      await saveApiTestResult({
+      await testApiConnection({
         courier_id: savedCourier.id,
         api_endpoint: data.api_endpoint,
         api_intent: data.api_intent,
@@ -272,15 +273,28 @@ const AddCourier = () => {
 
   // Save mappings
   const saveMappings = async () => {
-    try {
-      setLoading(true);
-      const validMappings = fieldMappings.filter(mapping => mapping.tms_field);
+    if (!courier) {
+      console.error('No courier data available');
+      return;
+    }
 
-      for (const mapping of validMappings) {
-        await addFieldMapping(mapping);
+    setLoading(true);
+    try {
+      console.log('Saving field mappings:', fieldMappings);
+      
+      // Save each field mapping
+      for (const mapping of fieldMappings) {
+        if (mapping.tms_field) { // Only save if TMS field is selected
+          await createFieldMapping({
+            courier_id: courier.id,
+            api_field: mapping.api_field,
+            tms_field: mapping.tms_field,
+            api_type: courier.api_intent
+          });
+        }
       }
 
-      console.log(`${validMappings.length} mappings saved successfully!`);
+      console.log('Mappings saved successfully!');
     } catch (error) {
       console.error('Error saving mappings:', error);
     } finally {

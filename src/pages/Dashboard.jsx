@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getClients, getCouriersByClientId } from '../lib/supabase-service';
+import { getClients, getCourierClients } from '../lib/db-service';
 import { Button } from '../components/ui/button';
 import { PlusCircle, Package, Loader2 } from 'lucide-react';
 import { SearchBar } from '../components/ui/search-bar';
@@ -36,7 +36,7 @@ const Dashboard = () => {
         const couriersMap = {};
         for (const client of clientsData || []) {
           try {
-            const couriers = await getCouriersByClientId(client.id);
+            const couriers = await getCourierClients(client.id);
             couriersMap[client.id] = couriers || [];
           } catch (courierErr) {
             console.error(`Error fetching couriers for client ${client.id}:`, courierErr);

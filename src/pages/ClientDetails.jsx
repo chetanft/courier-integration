@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getClientById, getCouriersByClientId, getCouriers, linkClientsToCourier, deleteClient } from '../lib/supabase-service';
+import { getClientById, getCourierClients, getCouriers, linkClientsToCourier, deleteClient } from '../lib/db-service';
 import { Button } from '../components/ui/button';
 import { ArrowLeft, PlusCircle, Truck, Loader2, Trash2, Server } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -58,7 +58,7 @@ const ClientDetails = () => {
         setClient(clientData);
 
         // Get couriers for this client
-        const clientCouriers = await getCouriersByClientId(clientId);
+        const clientCouriers = await getCourierClients(clientId);
 
         // Debug: Log all couriers to check their properties
         console.log('All client couriers:', clientCouriers);
@@ -227,7 +227,7 @@ const ClientDetails = () => {
       setClient(clientData);
 
       // Get updated couriers for this client
-      const clientCouriers = await getCouriersByClientId(clientId);
+      const clientCouriers = await getCourierClients(clientId);
       setCouriers(clientCouriers || []);
 
       // Get all couriers to determine which ones are available to add

@@ -1,3 +1,14 @@
+/**
+ * @deprecated This file is deprecated and will be removed in a future release.
+ * Please use the new services:
+ * - db-service.js - For database operations (clients, couriers, mappings)
+ * - courier-api-client.js - For courier-specific API operations
+ * - api-service.js - For generic API requests
+ * - auth-service.js - For authentication
+ * 
+ * See migration-doc.md for a complete mapping of functions.
+ */
+
 // Supabase service for courier integration platform
 import supabase from './supabase-client';
 
@@ -19,8 +30,14 @@ const handleApiError = (error, operation) => {
   throw errorResponse;
 };
 
+// Helper function to show deprecation warnings
+const showDeprecationWarning = (oldFn, newFn) => {
+  console.warn(`DEPRECATED: ${oldFn} is deprecated. Use ${newFn} instead. This will be removed in a future release.`);
+};
+
 // Add a new courier
 export const addCourier = async (courierData) => {
+  showDeprecationWarning('addCourier', 'db-service.js: createCourier');
   try {
     // Create base courier data
     const courierInsertData = {
@@ -87,6 +104,7 @@ export const addCourier = async (courierData) => {
 
 // Add field mapping
 export const addFieldMapping = async (mappingData) => {
+  showDeprecationWarning('addFieldMapping', 'db-service.js: createFieldMapping');
   try {
     const { data, error } = await supabase
       .from('field_mappings')
@@ -110,6 +128,7 @@ export const addFieldMapping = async (mappingData) => {
 
 // Add a new client
 export const addClient = async (clientData) => {
+  showDeprecationWarning('addClient', 'db-service.js: createClient');
   try {
     console.log('Adding client with data:', clientData);
 
@@ -218,6 +237,7 @@ export const addClient = async (clientData) => {
 
 // Get all clients
 export const getClients = async () => {
+  showDeprecationWarning('getClients', 'db-service.js: getClients');
   try {
     const { data, error } = await supabase
       .from('clients')
@@ -233,6 +253,7 @@ export const getClients = async () => {
 
 // Get a single client by ID
 export const getClientById = async (clientId) => {
+  showDeprecationWarning('getClientById', 'db-service.js: getClientById');
   try {
     const { data, error } = await supabase
       .from('clients')
@@ -249,6 +270,7 @@ export const getClientById = async (clientId) => {
 
 // Get all couriers
 export const getCouriers = async () => {
+  showDeprecationWarning('getCouriers', 'db-service.js: getCouriers');
   try {
     // First try with all fields
     try {
@@ -363,6 +385,7 @@ export const getCourierClients = async (courierId) => {
 
 // Get couriers linked to a client
 export const getCouriersByClientId = async (clientId) => {
+  showDeprecationWarning('getCouriersByClientId', 'db-service.js: getCourierClients');
   try {
     // First try with all fields
     try {
@@ -447,6 +470,7 @@ export const getCouriersByClientId = async (clientId) => {
 
 // Get field mappings for a courier
 export const getCourierMappings = async (courierId) => {
+  showDeprecationWarning('getCourierMappings', 'db-service.js: getCourierMappings');
   try {
     const { data, error } = await supabase
       .from('field_mappings')
@@ -462,6 +486,7 @@ export const getCourierMappings = async (courierId) => {
 
 // Get a single courier by ID
 export const getCourierById = async (courierId) => {
+  showDeprecationWarning('getCourierById', 'db-service.js: getCourierById');
   try {
     const { data, error } = await supabase
       .from('couriers')
@@ -552,8 +577,6 @@ export const updateClientLastFetch = async (clientId) => {
     handleApiError(error, 'updateClientLastFetch');
   }
 };
-
-
 
 // Add multiple clients in bulk
 export const addClientsInBulk = async (clients) => {
@@ -1010,6 +1033,7 @@ export const getCourierByName = async (courierName) => {
 
 // Upload a generated JS file to Supabase storage
 export const uploadJsFile = async (courierId, fileName, fileContent) => {
+  showDeprecationWarning('uploadJsFile', 'courier-api-client.js: uploadJsFile');
   try {
     console.log('Starting uploadJsFile for courier:', courierId, 'fileName:', fileName);
 
@@ -1293,6 +1317,7 @@ export const deleteCourier = async (id) => {
 
 // Delete a client
 export const deleteClient = async (id) => {
+  showDeprecationWarning('deleteClient', 'db-service.js: deleteClient');
   try {
     const { error } = await supabase
       .from('clients')
@@ -1494,7 +1519,6 @@ export const updateCourierJsFileStatus = async (courierId, fileName, jsContent) 
 
     // Try both storage buckets (js_files and js-configs) to maximize chances of success
     let uploadSuccess = false;
-    let uploadData = null;
 
     // Convert JS content to a Blob
     const jsBlob = new Blob([jsContent], { type: 'application/javascript' });
@@ -1512,7 +1536,6 @@ export const updateCourierJsFileStatus = async (courierId, fileName, jsContent) 
       if (!error) {
         console.log('JS file uploaded successfully to js_files bucket:', data);
         uploadSuccess = true;
-        uploadData = data;
       } else {
         console.warn('Error uploading to js_files bucket, will try js-configs:', error);
       }
@@ -1534,7 +1557,6 @@ export const updateCourierJsFileStatus = async (courierId, fileName, jsContent) 
         if (!error) {
           console.log('JS file uploaded successfully to js-configs bucket:', data);
           uploadSuccess = true;
-          uploadData = data;
         } else {
           console.warn('Error uploading to js-configs bucket:', error);
         }
