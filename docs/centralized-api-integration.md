@@ -14,7 +14,9 @@ This document provides an overview of the centralized API integration system, wh
 8. [JS File Generator](#js-file-generator)
 9. [UI Components](#ui-components)
 10. [Integration with Existing Forms](#integration-with-existing-forms)
-11. [Testing](#testing)
+11. [Performance Optimizations](#performance-optimizations)
+12. [UI/UX Refinements](#uiux-refinements)
+13. [Testing](#testing)
 
 ## Overview
 
@@ -262,6 +264,83 @@ The system is integrated with the following existing forms:
 - **Add Available Couriers**: Uses the enhanced API client for fetching available couriers.
 - **Add Client Form**: Uses the enhanced API client for adding clients and available couriers.
 - **Bulk Upload Form**: Uses the enhanced API client for bulk uploading clients.
+
+## Performance Optimizations
+
+The system includes several performance optimizations to handle large API responses and improve overall performance:
+
+### Lazy JSON Viewer
+
+The `LazyJsonViewer` component (`src/components/ui/lazy-json-viewer.jsx`) provides an efficient way to render large JSON responses using virtualization to only render visible items.
+
+#### Key Features
+
+- **Virtualized Rendering**: Only renders visible items, improving performance for large JSON responses.
+- **Collapsible Nodes**: Allows users to collapse and expand nodes to focus on specific parts of the response.
+- **Preview Values**: Shows previews of values for collapsed nodes, making it easier to navigate large responses.
+- **Syntax Highlighting**: Highlights different types of values (strings, numbers, booleans, etc.) for better readability.
+
+### Optimized Field Extractor
+
+The field extractor (`src/lib/field-extractor.js`) has been optimized to handle large responses more efficiently:
+
+#### Key Features
+
+- **Depth Limiting**: Limits the depth of traversal to avoid performance issues with deeply nested objects.
+- **Array Sampling**: Samples a subset of array items to extract field paths, improving performance for large arrays.
+- **Path Limiting**: Limits the number of paths extracted to avoid performance issues with large responses.
+- **Circular Reference Detection**: Detects and handles circular references to avoid infinite recursion.
+
+### Caching Utilities
+
+The caching utilities (`src/lib/cache-utils.js`) provide a way to cache expensive operations, improving performance for repeated operations:
+
+#### Key Features
+
+- **LRU Cache**: Implements a Least Recently Used (LRU) cache to store results of expensive operations.
+- **Memoization**: Provides a memoization utility to cache function results based on input parameters.
+- **Request Caching**: Caches API responses based on request configurations.
+- **Field Path Caching**: Caches extracted field paths to avoid re-extracting them for the same response.
+
+## UI/UX Refinements
+
+The system includes several UI/UX refinements to improve the user experience:
+
+### Enhanced API Response Display
+
+The `EnhancedApiResponseDisplay` component (`src/components/api/EnhancedApiResponseDisplay.jsx`) provides an improved display for API responses:
+
+#### Key Features
+
+- **Field Filtering**: Allows users to filter the response by field paths, making it easier to focus on specific parts of the response.
+- **Text Search**: Allows users to search for text within the response.
+- **Expandable Sections**: Allows users to expand and collapse sections of the response.
+- **Copy and Download**: Provides buttons to copy the response to the clipboard or download it as a JSON file.
+- **Error Highlighting**: Highlights error responses with red borders and error messages.
+
+### Enhanced Field Mapping Component
+
+The `EnhancedFieldMappingComponent` component (`src/components/api/EnhancedFieldMappingComponent.jsx`) provides an improved interface for mapping API response fields to FT fields:
+
+#### Key Features
+
+- **Field Search**: Allows users to search for API fields by name.
+- **Field Preview**: Shows previews of field values to help users understand the data.
+- **Validation**: Validates mappings to ensure they are complete and valid.
+- **Custom Mappings**: Allows users to add custom mappings for fields not in the predefined list.
+- **Tooltips**: Provides tooltips with additional information about fields and their purpose.
+
+### Enhanced Authentication Form
+
+The `EnhancedAuthenticationForm` component (`src/components/api/EnhancedAuthenticationForm.jsx`) provides an improved interface for configuring API authentication:
+
+#### Key Features
+
+- **Multiple Authentication Methods**: Supports various authentication methods, including Basic Auth, Bearer Token, JWT, and API Key.
+- **cURL Parsing**: Allows users to paste a cURL command to automatically extract authentication details.
+- **Validation**: Validates authentication configurations to ensure they are complete and valid.
+- **Tooltips**: Provides tooltips with additional information about authentication methods and their purpose.
+- **Visual Feedback**: Provides visual feedback for successful authentication detection and validation errors.
 
 ## Testing
 
