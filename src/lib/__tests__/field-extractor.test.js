@@ -77,7 +77,13 @@ describe('Field Extractor', () => {
       };
       obj.self = obj;
 
-      const paths = extractFieldPaths(obj);
+      // Use default options for this test
+      const paths = extractFieldPaths(obj, '', new Set(), {
+        maxDepth: 10,
+        maxArrayItems: 1,
+        maxPaths: 1000,
+        visited: new Set()
+      });
       expect(paths).toContain('name');
       expect(paths).toContain('self');
     });
@@ -88,7 +94,13 @@ describe('Field Extractor', () => {
         emptyArr: []
       };
 
-      const paths = extractFieldPaths(obj);
+      // Use default options for this test
+      const paths = extractFieldPaths(obj, '', new Set(), {
+        maxDepth: 10,
+        maxArrayItems: 1,
+        maxPaths: 1000,
+        visited: new Set()
+      });
       expect(paths).toContain('emptyObj');
       expect(paths).toContain('emptyArr');
     });

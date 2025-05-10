@@ -35,15 +35,28 @@ export const parseCurl = (curlString) => {
       }
     };
 
-    // Extract URL with regex
-    const urlMatch = normalizedCurl.match(/curl\s+['"]?([^'">\s]+)['"]?/);
-    if (urlMatch && urlMatch[1]) {
-      parsed.url = urlMatch[1];
+    // Extract URL - look for the last argument that's not an option or flag
+    const parts = normalizedCurl.split(/\s+/);
+    let url = '';
+
+    // Find the last part that looks like a URL (not starting with - and containing a dot or slash)
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i].replace(/^['"]|['"]$/g, ''); // Remove quotes
+      if (!part.startsWith('-') && (part.includes('.') || part.includes('/'))) {
+        url = part;
+        break;
+      }
+    }
+
+    if (url) {
+      parsed.url = url;
 
       // Ensure URL has protocol
       if (!parsed.url.startsWith('http://') && !parsed.url.startsWith('https://')) {
         parsed.url = 'https://' + parsed.url;
       }
+    } else {
+      throw new Error('No URL found in cURL command');
     }
 
     // Extract method with regex
@@ -82,13 +95,21 @@ export const parseCurl = (curlString) => {
       }
     }
 
-    // Extract data with regex
-    const dataMatch = normalizedCurl.match(/-d\s+['"](.+?)['"]/);
-    if (dataMatch && dataMatch[1]) {
+    // Extract data with regex - handle both single and double quotes
+    const dataMatch = normalizedCurl.match(/-d\s+(['"])(.+?)\1/);
+    if (dataMatch && dataMatch[2]) {
       try {
-        parsed.body = JSON.parse(dataMatch[1]);
+        parsed.body = JSON.parse(dataMatch[2]);
       } catch (error) {
-        parsed.body = dataMatch[1];
+        // If JSON parsing fails, try to clean up the string
+        try {
+          // Replace escaped quotes
+          const cleanJson = dataMatch[2].replace(/\\"/g, '"').replace(/\\'/g, "'");
+          parsed.body = JSON.parse(cleanJson);
+        } catch (jsonError) {
+          // If all parsing fails, just use the string
+          parsed.body = dataMatch[2];
+        }
       }
 
       // If method is still GET, change to POST when data is present

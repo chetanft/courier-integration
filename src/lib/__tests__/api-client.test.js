@@ -5,8 +5,11 @@
 import { makeApiRequest, normalizeRequestConfig, applyAuthentication, createErrorResponse } from '../api-client';
 import axios from 'axios';
 
-// Mock axios
-jest.mock('axios');
+// Mock axios manually instead of using jest.mock
+const originalAxios = { ...axios };
+beforeAll(() => {
+  axios.post = jest.fn();
+});
 
 describe('API Client', () => {
   beforeEach(() => {

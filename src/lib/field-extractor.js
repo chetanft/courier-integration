@@ -45,6 +45,9 @@ export const extractFieldPaths = (
 
   // Check for circular references
   if (options.visited.has(obj)) {
+    if (prefix) {
+      paths.add(prefix);
+    }
     return Array.from(paths);
   }
 
@@ -121,6 +124,12 @@ export const extractFieldPaths = (
 
   // Handle objects
   const keys = Object.keys(obj);
+
+  // Add empty object paths
+  if (keys.length === 0 && prefix) {
+    paths.add(prefix);
+    return Array.from(paths);
+  }
 
   // If there are too many keys, sample a subset
   const keysToProcess = keys.length > 100 ? keys.slice(0, 100) : keys;
