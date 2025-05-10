@@ -17,6 +17,9 @@ import CourierDetailSimple from './pages/CourierDetailSimple';
 import Settings from './pages/Settings';
 import UpdateCourierMappings from './pages/UpdateCourierMappings';
 
+// Import API integration test component
+import ApiIntegrationTest from './components/api/ApiIntegrationTest';
+
 // This file now uses the Dashboard component instead of inline HomeContent
 
 // This is a test change to trigger a new Netlify deployment
@@ -58,6 +61,9 @@ function App() {
             <Route path="/courier-simple/:id" element={<CourierDetailSimple />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/update-courier-mappings" element={<UpdateCourierMappings />} />
+
+            {/* Test routes */}
+            <Route path="/api-integration-test" element={<ApiIntegrationTest />} />
           </Routes>
         </main>
 

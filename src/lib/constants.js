@@ -43,8 +43,37 @@ export const API_INTENTS = {
   TRACK_SHIPMENT: 'track_shipment',
   GENERATE_AUTH_TOKEN: 'generate_auth_token',
   FETCH_COURIER_DATA: 'fetch_courier_data',
-  FETCH_EPOD: 'epod'
+  FETCH_EPOD: 'epod',
+  GENERIC_REQUEST: 'api_request'
 };
+
+// Field mapping types
+export const FIELD_MAPPING_TYPES = {
+  TRACKING: 'tracking',
+  EPOD: 'epod',
+  CUSTOM: 'custom'
+};
+
+// Default FT fields for tracking
+export const DEFAULT_TRACKING_FIELDS = [
+  { key: 'trackingNumber', label: 'Tracking Number' },
+  { key: 'status', label: 'Status' },
+  { key: 'origin', label: 'Origin' },
+  { key: 'destination', label: 'Destination' },
+  { key: 'estimatedDelivery', label: 'Estimated Delivery' },
+  { key: 'actualDelivery', label: 'Actual Delivery' },
+  { key: 'events', label: 'Events' }
+];
+
+// Default FT fields for EPOD
+export const DEFAULT_EPOD_FIELDS = [
+  { key: 'trackingNumber', label: 'Tracking Number' },
+  { key: 'podDate', label: 'POD Date' },
+  { key: 'podTime', label: 'POD Time' },
+  { key: 'receiverName', label: 'Receiver Name' },
+  { key: 'receiverDesignation', label: 'Receiver Designation' },
+  { key: 'podImage', label: 'POD Image URL' }
+];
 
 // Common Content Types
 export const CONTENT_TYPES = {
@@ -118,5 +147,8 @@ export default {
   COMMON_DATA_FIELDS,
   PAGINATION_FIELDS,
   HTTP_METHODS,
-  AUTH_TYPES
+  AUTH_TYPES,
+  FIELD_MAPPING_TYPES,
+  DEFAULT_TRACKING_FIELDS,
+  DEFAULT_EPOD_FIELDS
 };
