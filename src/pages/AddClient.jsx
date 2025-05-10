@@ -24,9 +24,8 @@ const AddClient = () => {
   // Initialize form with react-hook-form
   const formMethods = useForm({
     defaultValues: {
-      courier_name: '', // We'll use this for client name
+      courier_name: '', // We'll use this for company name
       company_id: '',
-      company_name: '',
       old_company_id: '',
       display_id: '',
       types: ''
@@ -55,7 +54,7 @@ const AddClient = () => {
       const result = await addClient({
         name: data.courier_name.trim(),
         company_id: data.company_id?.trim() || null,
-        company_name: data.company_name?.trim() || null,
+        company_name: data.courier_name.trim(),
         old_company_id: data.old_company_id?.trim() || null,
         display_id: data.display_id?.trim() || null,
         types: data.types?.trim() || null
@@ -71,18 +70,18 @@ const AddClient = () => {
       }
 
       // Show success message
-      toast.success(`Client "${data.courier_name.trim()}" added successfully!`);
+      toast.success(`Company "${data.courier_name.trim()}" added successfully!`);
 
       // Navigate back to home
       navigate('/');
     } catch (err) {
-      console.error('Error adding client:', err);
+      console.error('Error adding company:', err);
 
       setError({
-        message: err.message || 'Failed to add client'
+        message: err.message || 'Failed to add company'
       });
 
-      toast.error('Failed to add client: ' + (err.message || 'Unknown error'));
+      toast.error('Failed to add company: ' + (err.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -98,7 +97,7 @@ const AddClient = () => {
 
       {loading && !error && (
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4 text-center">
-          <div className="animate-pulse text-blue-600">Saving client...</div>
+          <div className="animate-pulse text-blue-600">Saving company...</div>
         </div>
       )}
 
@@ -118,9 +117,9 @@ const AddClient = () => {
             Add a new company to the system. The company name will be used to identify the company in the system.
           </p>
 
-          {/* Client Information Fields */}
+          {/* Company Information Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {/* Client Name Field */}
+            {/* Company Name Field */}
             <FormField
               control={formMethods.control}
               name="courier_name"
@@ -151,20 +150,7 @@ const AddClient = () => {
               )}
             />
 
-            {/* Company Name Field */}
-            <FormField
-              control={formMethods.control}
-              name="company_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter company name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
 
             {/* Old Company ID Field */}
             <FormField
