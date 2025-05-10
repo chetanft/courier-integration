@@ -2,7 +2,6 @@
  * Unit tests for the enhanced cURL parser
  */
 
-import { vi, describe, it, expect } from 'vitest';
 import { parseCurl, validateCurlParse, toCurl } from '../enhanced-curl-parser';
 
 describe('Enhanced cURL Parser', () => {

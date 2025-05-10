@@ -2,7 +2,6 @@
  * Unit tests for the field extractor utility
  */
 
-import { vi, describe, it, expect } from 'vitest';
 import { extractFieldPaths, formatFieldPath, getValueByPath, extractFields } from '../field-extractor';
 
 describe('Field Extractor', () => {

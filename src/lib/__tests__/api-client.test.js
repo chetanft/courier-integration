@@ -2,22 +2,21 @@
  * Unit tests for the centralized API client
  */
 
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { makeApiRequest, normalizeRequestConfig, applyAuthentication, createErrorResponse } from '../api-client';
 import axios from 'axios';
 
 // Mock axios
-vi.mock('axios');
+jest.mock('axios');
 
 describe('API Client', () => {
   beforeEach(() => {
     // Clear all mocks before each test
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   afterEach(() => {
     // Restore all mocks after each test
-    vi.restoreAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('normalizeRequestConfig', () => {
