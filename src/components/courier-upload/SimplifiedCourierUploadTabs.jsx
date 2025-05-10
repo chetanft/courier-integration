@@ -35,6 +35,7 @@ const SimplifiedCourierUploadTabs = ({
   const [apiUrl, setApiUrl] = useState('');
   const [method, setMethod] = useState('GET');
   const [headers, setHeaders] = useState([]);
+  const [queryParams, setQueryParams] = useState([]);
   const [showParsedData, setShowParsedData] = useState(false);
 
   // Handle parsed data callback
@@ -77,6 +78,7 @@ const SimplifiedCourierUploadTabs = ({
       setApiUrl(parsed.url);
       setMethod(parsed.method);
       setHeaders(parsed.headers || []);
+      setQueryParams(parsed.queryParams || []);
       setParsedData(parsed);
       setShowParsedData(true);
       setError(null);
@@ -106,6 +108,7 @@ const SimplifiedCourierUploadTabs = ({
         method: method || 'GET',
         apiIntent: 'fetch_courier_data',
         headers: headers || [],
+        queryParams: queryParams || [],
         body: parsedData?.body || {}
       };
 
@@ -240,6 +243,13 @@ const SimplifiedCourierUploadTabs = ({
                     <div>
                       <label className="text-sm font-medium block mb-1">Headers</label>
                       <SimplifiedKeyValueDisplay pairs={headers} />
+                    </div>
+                  )}
+
+                  {queryParams && queryParams.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium block mb-1">Query Parameters</label>
+                      <SimplifiedKeyValueDisplay pairs={queryParams} />
                     </div>
                   )}
 
