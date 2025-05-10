@@ -178,6 +178,18 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       if (!authEndpoint) {
         setTokenError('Auth endpoint URL is required');
         addToast('Auth endpoint URL is required', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Check if URL is valid
+      try {
+        new URL(authEndpoint);
+      } catch {
+        // URL is invalid
+        setTokenError('Invalid URL format. Please enter a valid URL.');
+        addToast('Invalid URL format. Please enter a valid URL.', 'error');
+        setLoading(false);
         return;
       }
 
@@ -250,40 +262,12 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
         }
       }
 
-      // Last resort: Try a direct request if all proxies failed (may fail due to CORS)
+      // If we still don't have a response after trying all proxies
       if (!response) {
-        try {
-          console.log("All proxies failed, attempting direct request (may fail due to CORS)");
-
-          // Create headers object from array of key-value pairs
-          const directHeaders = authHeaders.reduce((obj, item) => {
-            obj[item.key] = item.value;
-            return obj;
-          }, {});
-
-          // Make direct request (will likely fail due to CORS, but worth trying)
-          response = await axios({
-            url: authEndpoint,
-            method: authMethod,
-            headers: directHeaders,
-            data: authBody
-          });
-
-          console.log("Direct request succeeded:", response.status);
-        } catch (error) {
-          console.error("Direct request failed:", {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status
-          });
-          // Re-throw the proxy error since it's more relevant
-          throw new Error(`API request failed across all proxy endpoints: ${lastError?.message}`);
-        }
-      }
-
-      // If we still don't have a response
-      if (!response) {
-        throw new Error(`API request failed across all methods`);
+        throw new Error(lastError ? 
+          `API request failed: ${lastError?.message || 'Unknown error'}` : 
+          'API request failed across all proxy endpoints'
+        );
       }
 
       // Process the response
@@ -293,14 +277,71 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
       }
 
       // Extract the token using the provided path
-      let token = response.data;
+      let token = null;
       try {
         if (tokenPath) {
-          token = _.get(response.data, tokenPath);
+          // Normalize the token path - remove leading/trailing dots and spaces
+          const normalizedPath = tokenPath.trim().replace(/^\.+|\.+$/g, '');
+          token = _.get(response.data, normalizedPath);
+          
+          // If token not found with the exact path, try some common variations
+          if (!token) {
+            const commonPaths = [
+              'access_token',
+              'accessToken',
+              'token',
+              'data.token',
+              'data.access_token',
+              'auth.token',
+              'jwt',
+              'response.token'
+            ];
+            
+            // Try each common path
+            for (const path of commonPaths) {
+              const potentialToken = _.get(response.data, path);
+              if (potentialToken && typeof potentialToken === 'string') {
+                token = potentialToken;
+                // Update the token path in the form
+                setValue('auth.jwtTokenPath', path);
+                addToast(`Found token at path: ${path}`, 'info');
+                break;
+              }
+            }
+          }
+        } else {
+          // If no token path provided, use the entire response or try to find token in common paths
+          if (typeof response.data === 'string') {
+            token = response.data;
+          } else {
+            // Try common token paths
+            const commonPaths = [
+              'access_token',
+              'accessToken',
+              'token',
+              'data.token',
+              'data.access_token',
+              'auth.token',
+              'jwt',
+              'response.token'
+            ];
+            
+            for (const path of commonPaths) {
+              const potentialToken = _.get(response.data, path);
+              if (potentialToken && typeof potentialToken === 'string') {
+                token = potentialToken;
+                // Update the token path in the form
+                setValue('auth.jwtTokenPath', path);
+                addToast(`Found token at path: ${path}`, 'info');
+                break;
+              }
+            }
+          }
         }
 
         if (!token) {
-          throw new Error(`Could not find token at path: ${tokenPath}`);
+          // If we still couldn't find a token, throw a clear error
+          throw new Error(`Could not find token at path: ${tokenPath || 'root'}. Please check the response and provide the correct path.`);
         }
 
         // Save the token in the form
@@ -320,11 +361,18 @@ const TokenGenerator = ({ formMethods, onTokenGenerated }) => {
 
       } catch (err) {
         console.error('Token path error:', err);
-        setTokenError(`Failed to extract token using path "${tokenPath}". Please check the path and try again.`);
+        
+        // Show a more helpful error message with the response data
+        setTokenError(`Failed to extract token using path "${tokenPath}". Please check the response and update the token path.`);
+        
+        // Still show the full response so the user can see what was returned
         setTokenResult({
           token: null,
           fullResponse: response.data
         });
+        
+        // Display a toast with instructions
+        addToast('Token path not found. Check the response and update the token path field.', 'warning');
       }
     } catch (error) {
       console.error('Error generating token:', error);

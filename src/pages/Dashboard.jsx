@@ -8,6 +8,7 @@ import { FilterDropdown } from '../components/ui/filter-dropdown';
 import { SortDropdown } from '../components/ui/sort-dropdown';
 import { StatusBadge } from '../components/ui/status-badge';
 import { GradientCard, CardContent } from '../components/ui/gradient-card';
+import { toast } from '../components/ui/use-toast';
 
 const Dashboard = () => {
   const [clients, setClients] = useState([]);
@@ -60,7 +61,28 @@ const Dashboard = () => {
 
   // Handle client card click
   const handleClientClick = (clientId) => {
-    navigate(`/client/${clientId}`);
+    if (!clientId) {
+      console.error('Invalid client ID for navigation');
+      toast('Unable to view client details: Invalid client ID', {
+        description: 'The client ID is missing or invalid.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Log the navigation
+    console.log(`Navigating to client details for ID: ${clientId}`);
+    
+    try {
+      // Navigate to the client details page
+      navigate(`/client/${clientId}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      toast('Navigation failed', {
+        description: 'Failed to navigate to client details page.',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Get client status based on API URL and couriers
@@ -238,8 +260,12 @@ const Dashboard = () => {
             return (
               <GradientCard
                 key={client.id}
-                className="cursor-pointer"
-                onClick={() => handleClientClick(client.id)}
+                className="cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent any default action
+                  e.stopPropagation(); // Stop event bubbling
+                  handleClientClick(client.id);
+                }}
                 theme={cardTheme}
                 glassmorphic={true}
               >
@@ -257,8 +283,6 @@ const Dashboard = () => {
                         ID: {client.company_id}
                       </p>
                     )}
-
-
 
                     <p className="text-xs text-gray-500">
                       Added {new Date(client.created_at).toLocaleDateString()}

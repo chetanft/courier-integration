@@ -30,7 +30,7 @@ import {
   CollapsibleTrigger,
 } from "../components/ui/collapsible";
 import { JsonViewer } from '../components/ui/json-viewer';
-import { Copy, Clipboard, Loader2, ChevronDown } from 'lucide-react';
+import { Copy, Clipboard, Loader2, ChevronDown, PlusCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { DeleteConfirmationDialog } from '../components/ui/delete-confirmation-dialog';
 
@@ -251,40 +251,119 @@ const CourierDetail = () => {
     }
   };
 
-  // Handle downloading a JS file
-  const handleDownloadJsFile = async (filePath, fileName) => {
+  // Handle generating and downloading a JS file
+  const handleGenerateJsFile = async () => {
+    // Set loading state
+    setDownloadLoading(true);
+    
     try {
-      setDownloadLoading(true);
-      console.log('Downloading JS file with path:', filePath);
-
-      const downloadUrl = await getJsFileDownloadUrl(filePath);
-
-      if (!downloadUrl) {
-        console.error('Failed to get download URL - null or undefined returned');
-        throw new Error('Failed to generate download URL. The file might not exist or there might be permission issues.');
+      if (!courier) {
+        toast.error('Courier information is missing');
+        return;
       }
-
-      console.log('Got download URL:', downloadUrl);
-
-      // Create and click a download link
+      
+      if (!mappings || mappings.length === 0) {
+        toast.error('No field mappings found. Please add field mappings before generating the JS file.');
+        return;
+      }
+      
+      console.log('Generating JS file for courier:', courier.name);
+      console.log('Using mappings:', mappings);
+      
+      // Generate JS config
+      const newJsConfig = generateJsConfig(courier, mappings);
+      
+      if (!newJsConfig) {
+        throw new Error('Failed to generate JS configuration');
+      }
+      
+      setJsConfig(newJsConfig);
+      
+      // Create a file name based on the courier name
+      const fileName = `${courier.name.toLowerCase().replace(/[^a-z0-9]/g, '')}_mapping.js`;
+      
+      // Create a Blob and download link
+      const blob = new Blob([newJsConfig], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = downloadUrl;
+      a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-
-      console.log('JS file download initiated successfully!');
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast.success('JS file generated and downloaded successfully');
+      
+      // Automatically refresh the JS files list
+      try {
+        const updatedJsFiles = await getJsFilesForCourier(id);
+        setJsFiles(updatedJsFiles || []);
+      } catch (refreshErr) {
+        console.error('Error refreshing JS files list:', refreshErr);
+        // Don't throw here, as the file generation itself was successful
+      }
     } catch (error) {
-      console.error('Error downloading JS file:', error);
+      console.error('Error generating JS file:', error);
+      toast.error(`Failed to generate JS file: ${error.message}`);
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
 
-      // Show a more user-friendly error message
-      alert(`Error downloading file: ${error.message || 'Unknown error'}`);
-
-      setError({
-        message: `Failed to download JS file: ${error.message || 'Unknown error'}`,
-        details: error
-      });
+  const handleDownloadJsFile = async (filePath, fileName) => {
+    setDownloadLoading(true);
+    
+    try {
+      console.log('Downloading JS file:', fileName);
+      console.log('File path:', filePath);
+      
+      if (!filePath) {
+        throw new Error('File path is missing');
+      }
+      
+      if (!fileName) {
+        // Generate a default file name if not provided
+        fileName = `courier_mapping_${new Date().getTime()}.js`;
+      }
+      
+      // Get the download URL
+      const url = await getJsFileDownloadUrl(filePath);
+      
+      if (!url) {
+        throw new Error('Failed to get download URL');
+      }
+      
+      console.log('Download URL:', url);
+      
+      // Create an anchor element and trigger the download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 100);
+      
+      toast.success('File downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      
+      // Show a user-friendly error message
+      if (error.message.includes('404') || error.message.includes('not found')) {
+        toast.error('File not found. It may have been deleted or moved.');
+      } else if (error.message.includes('permission')) {
+        toast.error('You do not have permission to download this file.');
+      } else {
+        toast.error(`Download failed: ${error.message}`);
+      }
     } finally {
       setDownloadLoading(false);
     }
@@ -772,26 +851,47 @@ const CourierDetail = () => {
         <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Generated JS Configuration</CardTitle>
-            {jsConfig && (
+            <div className="flex space-x-2">
+              {jsConfig && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={handleCopyJsCode}
+                >
+                  {copySuccess ? (
+                    <>
+                      <Clipboard className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy Code
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={handleCopyJsCode}
+                onClick={handleGenerateJsFile}
+                disabled={downloadLoading || !mappings || mappings.length === 0}
               >
-                {copySuccess ? (
+                {downloadLoading ? (
                   <>
-                    <Clipboard className="h-4 w-4" />
-                    Copied!
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating...
                   </>
                 ) : (
                   <>
-                    <Copy className="h-4 w-4" />
-                    Copy Code
+                    <PlusCircle className="h-4 w-4" />
+                    Generate JS File
                   </>
                 )}
               </Button>
-            )}
+            </div>
           </CardHeader>
           <CardContent>
             <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-sm max-h-[400px]">
