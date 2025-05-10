@@ -63,6 +63,23 @@ export const normalizeRequestConfig = (config) => {
     throw new Error('URL is required');
   }
   
+  // Check for duplicate query parameters in the URL
+  if (normalized.queryParams && normalized.queryParams.length > 0) {
+    try {
+      const urlObj = new URL(normalized.url);
+      const existingParams = new Set(urlObj.searchParams.keys());
+      
+      // Filter out query parameters that already exist in the URL
+      normalized.queryParams = normalized.queryParams.filter(param => 
+        !existingParams.has(param.key)
+      );
+      
+      console.log('After filtering for duplicates, using query parameters:', normalized.queryParams);
+    } catch (urlError) {
+      console.warn('Error parsing URL to check for duplicate parameters:', urlError);
+    }
+  }
+  
   return normalized;
 };
 

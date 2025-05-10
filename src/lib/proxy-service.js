@@ -107,6 +107,23 @@ export const proxyFetch = async (url, options = {}) => {
   try {
     console.log(`Making proxied request to: ${url}`);
 
+    // Check for duplicate query parameters in the URL
+    if (options.queryParams && options.queryParams.length > 0) {
+      try {
+        const urlObj = new URL(url);
+        const existingParams = new Set(urlObj.searchParams.keys());
+        
+        // Filter out query parameters that already exist in the URL
+        options.queryParams = options.queryParams.filter(param => 
+          !existingParams.has(param.key)
+        );
+        
+        console.log('After filtering for duplicates, using query parameters:', options.queryParams);
+      } catch (urlError) {
+        console.warn('Error parsing URL to check for duplicate parameters:', urlError);
+      }
+    }
+
     // Create request config for the proxy
     const requestConfig = {
       url,

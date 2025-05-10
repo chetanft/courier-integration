@@ -272,6 +272,23 @@ export const fetchCourierData = async (apiUrl, requestConfig = null, options = {
     console.log(`Fetching courier data from: ${decodedUrl}`);
     console.log('Request config:', requestConfig);
 
+    // Check for duplicate query parameters in the URL
+    if (requestConfig && requestConfig.queryParams && requestConfig.queryParams.length > 0) {
+      try {
+        const urlObj = new URL(decodedUrl);
+        const existingParams = new Set(urlObj.searchParams.keys());
+        
+        // Filter out query parameters that already exist in the URL
+        requestConfig.queryParams = requestConfig.queryParams.filter(param => 
+          !existingParams.has(param.key)
+        );
+        
+        console.log('After filtering for duplicates, using query parameters:', requestConfig.queryParams);
+      } catch (urlError) {
+        console.warn('Error parsing URL to check for duplicate parameters:', urlError);
+      }
+    }
+
     let data;
     let error;
 
