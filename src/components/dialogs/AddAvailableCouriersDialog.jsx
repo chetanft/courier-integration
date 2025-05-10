@@ -31,7 +31,7 @@ const AddAvailableCouriersDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[500px] max-h-[90vh] overflow-y-auto overflow-x-hidden dialog-content">
         <DialogHeader>
-          <DialogTitle>Add Available Couriers for {client?.name}</DialogTitle>
+          <DialogTitle>Add Available Couriers for {client?.company_name || client?.name}</DialogTitle>
           <DialogDescription>
             Upload couriers via CSV, JSON, or API integration.
           </DialogDescription>

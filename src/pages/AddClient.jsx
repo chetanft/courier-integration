@@ -42,7 +42,7 @@ const AddClient = () => {
   const onSubmit = async (data) => {
     if (!data.courier_name.trim()) {
       setError({
-        message: 'Please enter a client name'
+        message: 'Please enter a company name'
       });
       return;
     }
@@ -111,11 +111,11 @@ const AddClient = () => {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Add Client</CardTitle>
+          <CardTitle>Add Company</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500 mb-4">
-            Add a new client to the system. The client name will be used to identify the client in the system.
+            Add a new company to the system. The company name will be used to identify the company in the system.
           </p>
 
           {/* Client Information Fields */}
@@ -124,12 +124,12 @@ const AddClient = () => {
             <FormField
               control={formMethods.control}
               name="courier_name"
-              rules={{ required: "Client name is required" }}
+              rules={{ required: "Company name is required" }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client Name</FormLabel>
+                  <FormLabel>Company Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter client name" {...field} />
+                    <Input placeholder="Enter company name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -232,7 +232,7 @@ const AddClient = () => {
               onClick={formMethods.handleSubmit(onSubmit)}
               disabled={loading}
             >
-              {loading ? 'Saving...' : 'Save Client'}
+              {loading ? 'Saving...' : 'Save Company'}
             </Button>
           </div>
         </CardContent>

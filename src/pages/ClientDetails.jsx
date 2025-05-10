@@ -293,16 +293,16 @@ const ClientDetails = () => {
           className="ml-auto"
         >
           <Trash2 className="h-4 w-4 mr-2" />
-          Delete Client
+          Delete Company
         </Button>
 
         {/* Delete Client Confirmation Dialog */}
         <DeleteConfirmationDialog
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
-          title="Delete Client"
+          title="Delete Company"
           entityName={client.company_name || client.name}
-          entityType="client"
+          entityType="company"
           onConfirm={handleDeleteClient}
           isDeleting={isDeleting}
         />
@@ -311,21 +311,16 @@ const ClientDetails = () => {
       {/* Client Information Card */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Client Information</CardTitle>
+          <CardTitle>Company Information</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Client Name</h3>
-              <p className="mt-1">{client.name}</p>
-            </div>
 
-            {client.company_name && (
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Company Name</h3>
-                <p className="mt-1">{client.company_name}</p>
-              </div>
-            )}
+
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Company Name</h3>
+              <p className="mt-1">{client.company_name || client.name}</p>
+            </div>
 
             {client.company_id && (
               <div>

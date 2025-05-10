@@ -133,7 +133,7 @@ const Dashboard = () => {
           </Button>
           <Button onClick={() => navigate('/add-client')}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Client
+            Add Company
           </Button>
         </div>
       </div>
@@ -185,16 +185,16 @@ const Dashboard = () => {
       ) : filteredClients.length === 0 && clients.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
           <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Clients Found</h3>
-          <p className="text-gray-500 mb-4">Get started by adding your first client.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Companies Found</h3>
+          <p className="text-gray-500 mb-4">Get started by adding your first company.</p>
           <Button onClick={() => navigate('/add-client')}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Add Client
+            Add Company
           </Button>
         </div>
       ) : filteredClients.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Matching Clients</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Matching Companies</h3>
           <p className="text-gray-500 mb-4">Try adjusting your search or filter criteria.</p>
           <Button variant="outline" onClick={() => {
             setSearchQuery('');
@@ -258,11 +258,7 @@ const Dashboard = () => {
                       </p>
                     )}
 
-                    {!client.company_name && client.name && (
-                      <p className="text-sm text-gray-500">
-                        Name: {client.name}
-                      </p>
-                    )}
+
 
                     <p className="text-xs text-gray-500">
                       Added {new Date(client.created_at).toLocaleDateString()}
