@@ -67,13 +67,13 @@ const updateImports = (filePath) => {
     Object.keys(serviceMapping).forEach(oldService => {
       const newService = serviceMapping[oldService];
       
-      // Match imports from old service
-      const importRegex = new RegExp(`import\\s+([^;]+?)\\s+from\\s+['"]\\.\\.?\\/.*?\\/${oldService}['"]`, 'g');
+      // Match imports from old service, capturing the relative path
+      const importRegex = new RegExp(`import\\s+([^;]+?)\\s+from\\s+['"](\\.\\.\\/.*?)\\/lib\\/${oldService}['"]`, 'g');
       
-      content = content.replace(importRegex, (match, imports) => {
+      content = content.replace(importRegex, (match, imports, relativePath) => {
         console.log(`  Found import: ${match.trim()}`);
         
-        // If it's the new special case for api-utils, handle differently
+        // If it's the special case for api-utils and testCourierApi
         if (oldService === 'api-utils') {
           // Check if it contains testCourierApi
           if (imports.includes('testCourierApi')) {
@@ -82,15 +82,15 @@ const updateImports = (filePath) => {
             
             if (otherImports) {
               // Has other imports besides testCourierApi
-              return `import ${otherImports} from '../lib/${newService}';\nimport { testCourierApi } from '../lib/courier-api-client'`;
+              return `import ${otherImports} from '${relativePath}/lib/${newService}';\nimport { testCourierApi } from '${relativePath}/lib/courier-api-client'`;
             } else {
               // Only has testCourierApi
-              return `import { testCourierApi } from '../lib/courier-api-client'`;
+              return `import { testCourierApi } from '${relativePath}/lib/courier-api-client'`;
             }
           }
         }
         
-        return `import ${imports} from '../lib/${newService}'`;
+        return `import ${imports} from '${relativePath}/lib/${newService}'`;
       });
     });
     
