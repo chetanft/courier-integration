@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import JsonUploadForm from '../components/bulk-upload/JsonUploadForm';
 import CsvUploadForm from '../components/bulk-upload/CsvUploadForm';
 import ApiIntegrationForm from '../components/bulk-upload/ApiIntegrationForm';
+import EnhancedApiIntegrationForm from '../components/bulk-upload/EnhancedApiIntegrationForm';
 import UploadResults from '../components/bulk-upload/UploadResults';
 
 const BulkUploadClients = () => {
@@ -27,7 +28,7 @@ const BulkUploadClients = () => {
   const handleJsonUpload = async (data) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Process will be implemented in the JsonUploadForm component
       setResults(data);
@@ -47,7 +48,7 @@ const BulkUploadClients = () => {
   const handleCsvUpload = async (data) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Process will be implemented in the CsvUploadForm component
       setResults(data);
@@ -67,7 +68,7 @@ const BulkUploadClients = () => {
   const handleApiIntegration = async (data) => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Process will be implemented in the ApiIntegrationForm component
       setResults(data);
@@ -115,9 +116,9 @@ const BulkUploadClients = () => {
           <CardContent>
             <UploadResults results={results} />
             <div className="mt-4 flex justify-end">
-              <Button 
-                variant="outline" 
-                onClick={() => setResults(null)} 
+              <Button
+                variant="outline"
+                onClick={() => setResults(null)}
                 className="mr-2"
               >
                 Upload More Clients
@@ -140,17 +141,17 @@ const BulkUploadClients = () => {
                 <TabsTrigger value="csv">CSV Upload</TabsTrigger>
                 <TabsTrigger value="api">API Integration</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="json">
                 <JsonUploadForm onSubmit={handleJsonUpload} loading={loading} />
               </TabsContent>
-              
+
               <TabsContent value="csv">
                 <CsvUploadForm onSubmit={handleCsvUpload} loading={loading} />
               </TabsContent>
-              
+
               <TabsContent value="api">
-                <ApiIntegrationForm onSubmit={handleApiIntegration} loading={loading} />
+                <EnhancedApiIntegrationForm onSubmit={handleApiIntegration} loading={loading} />
               </TabsContent>
             </Tabs>
           </CardContent>

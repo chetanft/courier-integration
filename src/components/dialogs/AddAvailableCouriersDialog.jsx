@@ -2,6 +2,7 @@ import React from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import CourierUploadTabs from '../courier-upload/CourierUploadTabs';
+import EnhancedCourierUploadTabs from '../courier-upload/EnhancedCourierUploadTabs';
 
 const AddAvailableCouriersDialog = ({
   open,
@@ -38,7 +39,7 @@ const AddAvailableCouriersDialog = ({
         </DialogHeader>
 
         <div className="py-4 w-full">
-          <CourierUploadTabs
+          <EnhancedCourierUploadTabs
             clientId={client?.id}
             clientName={client?.name}
             onSuccess={handleSuccess}
