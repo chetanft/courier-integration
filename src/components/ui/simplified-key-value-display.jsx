@@ -10,6 +10,9 @@ import { cn } from '../../lib/utils';
  * @param {string} props.className - Additional CSS classes
  */
 const SimplifiedKeyValueDisplay = ({ pairs = [], className }) => {
+  // Log the pairs for debugging
+  console.log('SimplifiedKeyValueDisplay pairs:', pairs);
+
   if (!pairs || pairs.length === 0) {
     return (
       <div className={cn("text-sm text-gray-500 italic", className)}>

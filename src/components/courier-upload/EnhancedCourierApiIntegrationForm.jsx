@@ -97,6 +97,9 @@ const EnhancedCourierApiIntegrationForm = ({
       const parsed = parseCurl(curlCommand);
       console.log('Successfully parsed cURL command:', parsed);
 
+      // Log query parameters specifically for debugging
+      console.log('Query parameters from parsed cURL:', parsed.queryParams);
+
       // Update state with parsed data
       setApiUrl(parsed.url);
       setMethod(parsed.method);

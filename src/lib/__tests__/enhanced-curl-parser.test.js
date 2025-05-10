@@ -1,3 +1,4 @@
+/* eslint-env jest */
 /**
  * Unit tests for the enhanced cURL parser
  */
@@ -76,11 +77,13 @@ describe('Enhanced cURL Parser', () => {
     });
 
     it('should parse a request with JWT token', () => {
-      const curlCommand = 'curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c" https://api.example.com/endpoint';
+      // Using a dummy JWT token for testing purposes only - this is not a real token
+      const dummyJwtToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXN1YiIsIm5hbWUiOiJUZXN0IFVzZXIiLCJpYXQiOjE1MTYyMzkwMjJ9.fake-signature-for-testing-only';
+      const curlCommand = `curl -H "Authorization: Bearer ${dummyJwtToken}" https://api.example.com/endpoint`;
       const parsed = parseCurl(curlCommand);
 
       expect(parsed.auth.type).toBe('jwt');
-      expect(parsed.auth.token).toBe('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c');
+      expect(parsed.auth.token).toBe(dummyJwtToken);
     });
 
     it('should parse a request with query parameters', () => {

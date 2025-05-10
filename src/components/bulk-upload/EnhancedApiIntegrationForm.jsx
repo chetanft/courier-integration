@@ -87,10 +87,14 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
       const parsed = parseCurl(curlCommand);
       console.log('Successfully parsed cURL command:', parsed);
 
+      // Log query parameters specifically for debugging
+      console.log('Query parameters from parsed cURL:', parsed.queryParams);
+
       // Update form values with parsed data
       formMethods.setValue('url', parsed.url);
       formMethods.setValue('method', parsed.method);
       formMethods.setValue('headers', parsed.headers || []);
+      formMethods.setValue('queryParams', parsed.queryParams || []);
       formMethods.setValue('body', parsed.body || {});
 
       // Set input mode to curl
@@ -722,6 +726,7 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
                             </div>
                           </div>
 
+                          {/* Headers Section */}
                           {parsedCurlData.headers && parsedCurlData.headers.length > 0 && (
                             <div className="mb-2">
                               <label className="text-xs font-medium block mb-1">Headers</label>
@@ -736,15 +741,34 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
                             </div>
                           )}
 
-                          {parsedCurlData.body && (
-                            <div>
-                              <label className="text-xs font-medium block mb-1">Body</label>
-                              <div className="text-sm p-2 border rounded-md bg-white font-mono">
-                                {JSON.stringify(parsedCurlData.body, null, 2)}
+                          {/* Query Parameters Section */}
+                          {parsedCurlData.queryParams && parsedCurlData.queryParams.length > 0 && (
+                            <div className="mb-2">
+                              <label className="text-xs font-medium block mb-1">Query Parameters</label>
+                              <div className="text-sm p-2 border rounded-md bg-white">
+                                {parsedCurlData.queryParams.map((param, index) => (
+                                  <div key={index} className="flex mb-1">
+                                    <span className="font-medium mr-2">{param.key}:</span>
+                                    <span>{param.value}</span>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           )}
 
+                          {/* Body Section */}
+                          {parsedCurlData.body && (
+                            <div className="mb-2">
+                              <label className="text-xs font-medium block mb-1">Body</label>
+                              <div className="text-sm p-2 border rounded-md bg-white font-mono whitespace-pre-wrap overflow-auto max-h-40">
+                                {typeof parsedCurlData.body === 'object'
+                                  ? JSON.stringify(parsedCurlData.body, null, 2)
+                                  : parsedCurlData.body}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Authentication Section */}
                           {parsedCurlData.auth && parsedCurlData.auth.type !== 'none' && (
                             <div>
                               <label className="text-xs font-medium block mb-1">Authentication</label>
