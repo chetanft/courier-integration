@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 
@@ -17,8 +17,9 @@ import CourierDetailSimple from './pages/CourierDetailSimple';
 import Settings from './pages/Settings';
 import UpdateCourierMappings from './pages/UpdateCourierMappings';
 
-// Import API integration test component
+// Import API integration test components
 import ApiIntegrationTest from './components/api/ApiIntegrationTest';
+const ApiIntegrationTestSimple = React.lazy(() => import('./components/api/ApiIntegrationTestSimple'));
 
 // This file now uses the Dashboard component instead of inline HomeContent
 
@@ -64,6 +65,11 @@ function App() {
 
             {/* Test routes */}
             <Route path="/api-integration-test" element={<ApiIntegrationTest />} />
+            <Route path="/api-integration-test-simple" element={
+              <Suspense fallback={<div className="p-4">Loading...</div>}>
+                <ApiIntegrationTestSimple />
+              </Suspense>
+            } />
           </Routes>
         </main>
 
