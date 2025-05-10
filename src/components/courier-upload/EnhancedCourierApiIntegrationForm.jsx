@@ -1,19 +1,23 @@
 /**
  * Enhanced Courier API Integration Form
- * 
+ *
  * This component provides an enhanced version of the CourierApiIntegrationForm
  * that uses the centralized API integration system.
  */
 
 import React, { useState } from 'react';
-import { Card, CardHeader, CardContent, CardTitle } from '../ui/card';
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
-import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Loader2, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { parseCurl } from '../../lib/enhanced-curl-parser';
 import { makeApiRequest } from '../../lib/api-client';
 import ApiResponseDisplay from '../api/ApiResponseDisplay';
 import SimplifiedKeyValueDisplay from '../ui/simplified-key-value-display';
+import AuthenticationForm from '../api/AuthenticationForm';
 
 /**
  * Enhanced version of CourierApiIntegrationForm that uses the centralized API integration system
@@ -27,6 +31,8 @@ import SimplifiedKeyValueDisplay from '../ui/simplified-key-value-display';
  */
 const EnhancedCourierApiIntegrationForm = ({
   clientId,
+  // clientName is used for display purposes in some implementations
+  // eslint-disable-next-line no-unused-vars
   clientName,
   onSuccess,
   onError,
@@ -43,6 +49,16 @@ const EnhancedCourierApiIntegrationForm = ({
   const [method, setMethod] = useState('GET');
   const [headers, setHeaders] = useState([]);
   const [showParsedData, setShowParsedData] = useState(false);
+  // State for input mode (manual or curl)
+  const [_, setInputMode] = useState('manual'); // 'manual' or 'curl'
+  const [authType, setAuthType] = useState('none');
+  const [authConfig, setAuthConfig] = useState({
+    username: '',
+    password: '',
+    token: '',
+    apiKey: '',
+    apiKeyName: 'X-API-Key'
+  });
 
   // Handle parsed data callback
   const handleParsedData = (couriers) => {
@@ -87,6 +103,29 @@ const EnhancedCourierApiIntegrationForm = ({
       setParsedData(parsed);
       setShowParsedData(true);
       setError(null);
+
+      // Set input mode to curl
+      setInputMode('curl');
+
+      // Update authentication state based on parsed data
+      if (parsed.auth) {
+        setAuthType(parsed.auth.type || 'none');
+
+        // Update auth config based on auth type
+        const newAuthConfig = { ...authConfig };
+
+        if (parsed.auth.type === 'basic') {
+          newAuthConfig.username = parsed.auth.username || '';
+          newAuthConfig.password = parsed.auth.password || '';
+        } else if (parsed.auth.type === 'bearer' || parsed.auth.type === 'jwt') {
+          newAuthConfig.token = parsed.auth.token || '';
+        } else if (parsed.auth.type === 'apikey') {
+          newAuthConfig.apiKey = parsed.auth.apiKey || '';
+          newAuthConfig.apiKeyName = parsed.auth.apiKeyName || 'X-API-Key';
+        }
+
+        setAuthConfig(newAuthConfig);
+      }
     } catch (e) {
       console.error('Error parsing cURL command:', e);
       setError({
@@ -95,10 +134,45 @@ const EnhancedCourierApiIntegrationForm = ({
     }
   };
 
+  // Handle manual input changes
+  const handleApiUrlChange = (e) => {
+    setApiUrl(e.target.value);
+  };
+
+  const handleMethodChange = (e) => {
+    setMethod(e.target.value);
+  };
+
+  const handleAuthTypeChange = (newAuthType) => {
+    setAuthType(newAuthType);
+  };
+
+  const handleAuthConfigChange = (newAuthConfig) => {
+    setAuthConfig(newAuthConfig);
+  };
+
+  // Build request config from current state
+  const buildRequestConfig = () => {
+    // Start with basic config
+    const config = {
+      url: apiUrl.trim(),
+      method: method || 'GET',
+      apiIntent: 'fetch_courier_data',
+      headers: [...headers], // Clone to avoid modifying the original
+      body: parsedData?.body || null,
+      auth: {
+        type: authType,
+        ...authConfig
+      }
+    };
+
+    return config;
+  };
+
   // Handle fetching couriers
   const handleFetchCouriers = async () => {
-    if (!parsedData && !apiUrl) {
-      setError({ message: 'Please parse a cURL command first or enter API details manually' });
+    if (!apiUrl) {
+      setError({ message: 'Please enter an API URL' });
       return;
     }
 
@@ -108,18 +182,13 @@ const EnhancedCourierApiIntegrationForm = ({
     setApiResponse(null);
 
     try {
-      // Create request config from parsed data
-      const requestConfig = {
-        url: apiUrl.trim(),
-        method: method || 'GET',
-        apiIntent: 'fetch_courier_data',
-        headers: headers || [],
-        body: parsedData?.body || {}
-      };
+      // Create request config from current state
+      const requestConfig = buildRequestConfig();
+      console.log('Request config:', requestConfig);
 
       // Make the API request using the centralized API client
       const response = await makeApiRequest(requestConfig);
-      
+
       // Store the API response
       setApiResponse(response);
 
@@ -234,75 +303,154 @@ const EnhancedCourierApiIntegrationForm = ({
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>cURL Command</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Paste cURL Command</label>
-              <Textarea
-                placeholder="curl -X GET 'https://api.example.com/couriers' -H 'Authorization: Bearer token'"
-                className="curl-input"
-                value={curlCommand}
-                onChange={(e) => setCurlCommand(e.target.value)}
-              />
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  onClick={handleParseCurl}
-                  variant="outline"
-                >
-                  Parse cURL
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="manual" onValueChange={setInputMode} className="w-full">
+        <TabsList className="grid grid-cols-2 mb-4">
+          <TabsTrigger value="manual">Manual Input</TabsTrigger>
+          <TabsTrigger value="curl">cURL Command</TabsTrigger>
+        </TabsList>
 
-      {showParsedData && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Parsed Request Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="col-span-1">
-                  <label className="text-sm font-medium block mb-1">Method</label>
-                  <div className="text-sm p-2 border rounded-md bg-gray-50">
-                    {method}
+        {/* Manual Input Tab */}
+        <TabsContent value="manual" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>API Configuration</CardTitle>
+              <CardDescription>
+                Configure the API endpoint to fetch couriers
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="col-span-1">
+                    <Label htmlFor="method">Method</Label>
+                    <select
+                      id="method"
+                      className="w-full p-2 border rounded-md mt-1"
+                      value={method}
+                      onChange={handleMethodChange}
+                    >
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="PUT">PUT</option>
+                      <option value="DELETE">DELETE</option>
+                    </select>
                   </div>
-                </div>
-                <div className="col-span-3">
-                  <label className="text-sm font-medium block mb-1">URL</label>
-                  <div className="text-sm p-2 border rounded-md bg-gray-50 break-all">
-                    {apiUrl}
+                  <div className="col-span-3">
+                    <Label htmlFor="api-url">API URL</Label>
+                    <Input
+                      id="api-url"
+                      placeholder="https://api.example.com/couriers"
+                      value={apiUrl}
+                      onChange={handleApiUrlChange}
+                      className="mt-1"
+                    />
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              {headers && headers.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium block mb-1">Headers</label>
-                  <SimplifiedKeyValueDisplay pairs={headers} />
-                </div>
-              )}
+          <AuthenticationForm
+            authType={authType}
+            onAuthTypeChange={handleAuthTypeChange}
+            authConfig={authConfig}
+            onAuthConfigChange={handleAuthConfigChange}
+            showAllOptions={true}
+          />
+        </TabsContent>
 
-              {parsedData?.body && (
-                <div>
-                  <label className="text-sm font-medium block mb-1">Body</label>
-                  <div className="json-display">
-                    {JSON.stringify(parsedData.body, null, 2)}
+        {/* cURL Command Tab */}
+        <TabsContent value="curl" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>cURL Command</CardTitle>
+              <CardDescription>
+                Paste a cURL command to configure the API request
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="curl-command">Paste cURL Command</Label>
+                  <Textarea
+                    id="curl-command"
+                    placeholder="curl -X GET 'https://api.example.com/couriers' -H 'Authorization: Bearer token'"
+                    className="curl-input"
+                    value={curlCommand}
+                    onChange={(e) => setCurlCommand(e.target.value)}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={handleParseCurl}
+                      variant="outline"
+                    >
+                      Parse cURL
+                    </Button>
                   </div>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {showParsedData && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Parsed Request Details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="col-span-1">
+                      <label className="text-sm font-medium block mb-1">Method</label>
+                      <div className="text-sm p-2 border rounded-md bg-gray-50">
+                        {method}
+                      </div>
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-sm font-medium block mb-1">URL</label>
+                      <div className="text-sm p-2 border rounded-md bg-gray-50 break-all">
+                        {apiUrl}
+                      </div>
+                    </div>
+                  </div>
+
+                  {headers && headers.length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium block mb-1">Headers</label>
+                      <SimplifiedKeyValueDisplay pairs={headers} />
+                    </div>
+                  )}
+
+                  {parsedData?.body && (
+                    <div>
+                      <label className="text-sm font-medium block mb-1">Body</label>
+                      <div className="json-display">
+                        {JSON.stringify(parsedData.body, null, 2)}
+                      </div>
+                    </div>
+                  )}
+
+                  {parsedData?.auth && parsedData.auth.type !== 'none' && (
+                    <div>
+                      <label className="text-sm font-medium block mb-1">Authentication</label>
+                      <div className="text-sm p-2 border rounded-md bg-gray-50">
+                        <p><strong>Type:</strong> {parsedData.auth.type}</p>
+                        {parsedData.auth.type === 'basic' && (
+                          <p><strong>Username:</strong> {parsedData.auth.username}</p>
+                        )}
+                        {(parsedData.auth.type === 'bearer' || parsedData.auth.type === 'jwt') && (
+                          <p><strong>Token:</strong> {parsedData.auth.token.substring(0, 10)}...</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {apiResponse && (
         <ApiResponseDisplay
@@ -316,7 +464,7 @@ const EnhancedCourierApiIntegrationForm = ({
         <Button
           type="button"
           onClick={handleFetchCouriers}
-          disabled={loading || (!parsedData && !apiUrl)}
+          disabled={loading || !apiUrl}
         >
           {loading ? (
             <>

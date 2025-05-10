@@ -1,15 +1,18 @@
 /**
  * Enhanced API Integration Form for Bulk Upload
- * 
+ *
  * This component provides an enhanced version of the ApiIntegrationForm
  * that uses the centralized API integration system.
  */
 
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
-import { Loader2, Upload, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Loader2, Upload, AlertCircle, CheckCircle, Info, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import ProgressIndicator from './ProgressIndicator';
 import { addClientsInBulk } from '../../lib/supabase-service';
 import { extractClientName, normalizeClientName, validateClientName } from '../../lib/client-name-utils';
@@ -17,6 +20,7 @@ import { makeApiRequest } from '../../lib/api-client';
 import { parseCurl } from '../../lib/enhanced-curl-parser';
 import ApiResponseDisplay from '../api/ApiResponseDisplay';
 import NetworkError from '../ui/network-error';
+import AuthenticationForm from '../api/AuthenticationForm';
 
 /**
  * Enhanced version of ApiIntegrationForm that uses the centralized API integration system
@@ -37,6 +41,16 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
   const [paginationProgress, setPaginationProgress] = useState(null);
   const [curlCommand, setCurlCommand] = useState('');
   const [parsedCurlData, setParsedCurlData] = useState(null);
+  // State for input mode (manual or curl)
+  const [_, setInputMode] = useState('manual'); // 'manual' or 'curl'
+  const [authType, setAuthType] = useState('none');
+  const [authConfig, setAuthConfig] = useState({
+    username: '',
+    password: '',
+    token: '',
+    apiKey: '',
+    apiKeyName: 'X-API-Key'
+  });
 
   // Initialize form with react-hook-form
   const formMethods = useForm({
@@ -78,27 +92,41 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
       formMethods.setValue('method', parsed.method);
       formMethods.setValue('headers', parsed.headers || []);
       formMethods.setValue('body', parsed.body || {});
-      
+
+      // Set input mode to curl
+      setInputMode('curl');
+
       // If auth is present in the parsed data, update auth fields
       if (parsed.auth && parsed.auth.type !== 'none') {
         formMethods.setValue('auth.type', parsed.auth.type);
-        
+        setAuthType(parsed.auth.type);
+
+        // Update auth config based on auth type
+        const newAuthConfig = { ...authConfig };
+
         switch (parsed.auth.type) {
           case 'basic':
             formMethods.setValue('auth.username', parsed.auth.username || '');
             formMethods.setValue('auth.password', parsed.auth.password || '');
+            newAuthConfig.username = parsed.auth.username || '';
+            newAuthConfig.password = parsed.auth.password || '';
             break;
           case 'bearer':
           case 'jwt':
             formMethods.setValue('auth.token', parsed.auth.token || '');
+            newAuthConfig.token = parsed.auth.token || '';
             break;
           case 'apikey':
             formMethods.setValue('auth.apiKey', parsed.auth.apiKey || '');
             formMethods.setValue('auth.apiKeyName', parsed.auth.apiKeyName || 'X-API-Key');
+            newAuthConfig.apiKey = parsed.auth.apiKey || '';
+            newAuthConfig.apiKeyName = parsed.auth.apiKeyName || 'X-API-Key';
             break;
           default:
             break;
         }
+
+        setAuthConfig(newAuthConfig);
       }
 
       setParsedCurlData(parsed);
@@ -106,6 +134,37 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
     } catch (e) {
       console.error('Error parsing cURL command:', e);
       setValidationErrors([`Error parsing cURL command: ${e.message}`]);
+    }
+  };
+
+  // Handle manual input changes
+  const handleApiUrlChange = (e) => {
+    formMethods.setValue('url', e.target.value);
+  };
+
+  const handleMethodChange = (e) => {
+    formMethods.setValue('method', e.target.value);
+  };
+
+  const handleAuthTypeChange = (newAuthType) => {
+    setAuthType(newAuthType);
+    formMethods.setValue('auth.type', newAuthType);
+  };
+
+  const handleAuthConfigChange = (newAuthConfig) => {
+    setAuthConfig(newAuthConfig);
+
+    // Update form values based on auth type
+    if (newAuthConfig) {
+      if (authType === 'basic') {
+        formMethods.setValue('auth.username', newAuthConfig.username || '');
+        formMethods.setValue('auth.password', newAuthConfig.password || '');
+      } else if (authType === 'bearer' || authType === 'jwt') {
+        formMethods.setValue('auth.token', newAuthConfig.token || '');
+      } else if (authType === 'apikey') {
+        formMethods.setValue('auth.apiKey', newAuthConfig.apiKey || '');
+        formMethods.setValue('auth.apiKeyName', newAuthConfig.apiKeyName || 'X-API-Key');
+      }
     }
   };
 
@@ -556,76 +615,158 @@ const EnhancedApiIntegrationForm = ({ onSubmit, loading }) => {
             </div>
           </div>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">cURL Command</label>
-                  <textarea
-                    className="w-full p-2 border rounded-md font-mono text-sm"
-                    rows={5}
-                    placeholder="curl -X GET 'https://api.example.com/clients' -H 'Authorization: Bearer token'"
-                    value={curlCommand}
-                    onChange={(e) => setCurlCommand(e.target.value)}
-                  />
-                  <div className="flex justify-end mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleParseCurl}
-                    >
-                      Parse cURL
-                    </Button>
-                  </div>
-                </div>
+          <Tabs defaultValue="manual" onValueChange={setInputMode} className="w-full">
+            <TabsList className="grid grid-cols-2 mb-4">
+              <TabsTrigger value="manual">Manual Input</TabsTrigger>
+              <TabsTrigger value="curl">cURL Command</TabsTrigger>
+            </TabsList>
 
-                {parsedCurlData && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium">Parsed Request Details</label>
-                    <div className="bg-gray-50 p-3 rounded-md border">
-                      <div className="grid grid-cols-4 gap-4 mb-2">
-                        <div className="col-span-1">
-                          <label className="text-xs font-medium block mb-1">Method</label>
-                          <div className="text-sm p-2 border rounded-md bg-white">
-                            {parsedCurlData.method}
-                          </div>
-                        </div>
-                        <div className="col-span-3">
-                          <label className="text-xs font-medium block mb-1">URL</label>
-                          <div className="text-sm p-2 border rounded-md bg-white break-all">
-                            {parsedCurlData.url}
-                          </div>
-                        </div>
+            {/* Manual Input Tab */}
+            <TabsContent value="manual" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>API Configuration</CardTitle>
+                  <CardDescription>
+                    Configure the API endpoint to fetch clients
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="col-span-1">
+                        <Label htmlFor="method">Method</Label>
+                        <select
+                          id="method"
+                          className="w-full p-2 border rounded-md mt-1"
+                          value={formMethods.getValues().method}
+                          onChange={handleMethodChange}
+                        >
+                          <option value="GET">GET</option>
+                          <option value="POST">POST</option>
+                          <option value="PUT">PUT</option>
+                          <option value="DELETE">DELETE</option>
+                        </select>
                       </div>
-
-                      {parsedCurlData.headers && parsedCurlData.headers.length > 0 && (
-                        <div className="mb-2">
-                          <label className="text-xs font-medium block mb-1">Headers</label>
-                          <div className="text-sm p-2 border rounded-md bg-white">
-                            {parsedCurlData.headers.map((header, index) => (
-                              <div key={index} className="flex mb-1">
-                                <span className="font-medium mr-2">{header.key}:</span>
-                                <span>{header.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {parsedCurlData.body && (
-                        <div>
-                          <label className="text-xs font-medium block mb-1">Body</label>
-                          <div className="text-sm p-2 border rounded-md bg-white font-mono">
-                            {JSON.stringify(parsedCurlData.body, null, 2)}
-                          </div>
-                        </div>
-                      )}
+                      <div className="col-span-3">
+                        <Label htmlFor="api-url">API URL</Label>
+                        <Input
+                          id="api-url"
+                          placeholder="https://api.example.com/clients"
+                          value={formMethods.getValues().url}
+                          onChange={handleApiUrlChange}
+                          className="mt-1"
+                        />
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+
+              <AuthenticationForm
+                authType={authType}
+                onAuthTypeChange={handleAuthTypeChange}
+                authConfig={authConfig}
+                onAuthConfigChange={handleAuthConfigChange}
+                showAllOptions={true}
+              />
+            </TabsContent>
+
+            {/* cURL Command Tab */}
+            <TabsContent value="curl" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>cURL Command</CardTitle>
+                  <CardDescription>
+                    Paste a cURL command to configure the API request
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="curl-command">Paste cURL Command</Label>
+                      <textarea
+                        id="curl-command"
+                        className="w-full p-2 border rounded-md font-mono text-sm mt-1"
+                        rows={5}
+                        placeholder="curl -X GET 'https://api.example.com/clients' -H 'Authorization: Bearer token'"
+                        value={curlCommand}
+                        onChange={(e) => setCurlCommand(e.target.value)}
+                      />
+                      <div className="flex justify-end mt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleParseCurl}
+                        >
+                          Parse cURL
+                        </Button>
+                      </div>
+                    </div>
+
+                    {parsedCurlData && (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium">Parsed Request Details</label>
+                        <div className="bg-gray-50 p-3 rounded-md border">
+                          <div className="grid grid-cols-4 gap-4 mb-2">
+                            <div className="col-span-1">
+                              <label className="text-xs font-medium block mb-1">Method</label>
+                              <div className="text-sm p-2 border rounded-md bg-white">
+                                {parsedCurlData.method}
+                              </div>
+                            </div>
+                            <div className="col-span-3">
+                              <label className="text-xs font-medium block mb-1">URL</label>
+                              <div className="text-sm p-2 border rounded-md bg-white break-all">
+                                {parsedCurlData.url}
+                              </div>
+                            </div>
+                          </div>
+
+                          {parsedCurlData.headers && parsedCurlData.headers.length > 0 && (
+                            <div className="mb-2">
+                              <label className="text-xs font-medium block mb-1">Headers</label>
+                              <div className="text-sm p-2 border rounded-md bg-white">
+                                {parsedCurlData.headers.map((header, index) => (
+                                  <div key={index} className="flex mb-1">
+                                    <span className="font-medium mr-2">{header.key}:</span>
+                                    <span>{header.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {parsedCurlData.body && (
+                            <div>
+                              <label className="text-xs font-medium block mb-1">Body</label>
+                              <div className="text-sm p-2 border rounded-md bg-white font-mono">
+                                {JSON.stringify(parsedCurlData.body, null, 2)}
+                              </div>
+                            </div>
+                          )}
+
+                          {parsedCurlData.auth && parsedCurlData.auth.type !== 'none' && (
+                            <div>
+                              <label className="text-xs font-medium block mb-1">Authentication</label>
+                              <div className="text-sm p-2 border rounded-md bg-white">
+                                <p><strong>Type:</strong> {parsedCurlData.auth.type}</p>
+                                {parsedCurlData.auth.type === 'basic' && (
+                                  <p><strong>Username:</strong> {parsedCurlData.auth.username}</p>
+                                )}
+                                {(parsedCurlData.auth.type === 'bearer' || parsedCurlData.auth.type === 'jwt') && (
+                                  <p><strong>Token:</strong> {parsedCurlData.auth.token.substring(0, 10)}...</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           {/* API Response */}
           {apiResponse && (

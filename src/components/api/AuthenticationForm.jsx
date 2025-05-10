@@ -1,6 +1,6 @@
 /**
  * Authentication Form Component
- * 
+ *
  * This component provides a UI for configuring different authentication methods.
  */
 
@@ -9,7 +9,7 @@ import { Card, CardHeader, CardContent, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
-import { InfoCircle } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 /**
  * Component for handling different authentication methods
@@ -21,8 +21,8 @@ import { InfoCircle } from 'lucide-react';
  * @param {boolean} props.showAllOptions - Whether to show all auth options
  * @returns {JSX.Element} The component
  */
-const AuthenticationForm = ({ 
-  authType = 'none', 
+const AuthenticationForm = ({
+  authType = 'none',
   onAuthTypeChange,
   authConfig = {},
   onAuthConfigChange,
@@ -31,12 +31,12 @@ const AuthenticationForm = ({
   // Handle auth type change
   const handleAuthTypeChange = (e) => {
     const newType = e.target.value;
-    
+
     if (onAuthTypeChange) {
       onAuthTypeChange(newType);
     }
   };
-  
+
   // Handle auth config change
   const handleAuthConfigChange = (field, value) => {
     if (onAuthConfigChange) {
@@ -46,7 +46,7 @@ const AuthenticationForm = ({
       });
     }
   };
-  
+
   return (
     <Card>
       <CardHeader>
