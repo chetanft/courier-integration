@@ -33,24 +33,49 @@ export const ERROR_TYPES = {
 
 // Environment Detection
 export const IS_DEVELOPMENT =
-  (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') ||
   (typeof window !== 'undefined' &&
     (window.location.hostname === 'localhost' ||
-     window.location.hostname === '127.0.0.1'));
+     window.location.hostname === '127.0.0.1')) ||
+  (import.meta && import.meta.env && import.meta.env.DEV === true);
 
 // Common API Intents
 export const API_INTENTS = {
-  TRACK_SHIPMENT: 'track_shipment',
+  // General API intents
+  GENERIC_REQUEST: 'api_request',
+  TEST_CONNECTION: 'test_connection',
+  
+  // Auth-related intents
   GENERATE_AUTH_TOKEN: 'generate_auth_token',
+  USER_LOGIN: 'user_login',
+  USER_REGISTRATION: 'user_registration',
+  REFRESH_TOKEN: 'refresh_token',
+  UPDATE_PROFILE: 'update_profile',
+  
+  // Courier-related intents
+  TRACK_SHIPMENT: 'track_shipment',
+  GET_SHIPMENTS: 'get_shipments',
+  GET_SHIPMENT_DETAILS: 'get_shipment_details',
+  CREATE_SHIPMENT: 'create_shipment',
+  UPDATE_SHIPMENT: 'update_shipment',
+  CANCEL_SHIPMENT: 'cancel_shipment',
+  GENERATE_LABEL: 'generate_label',
+  GET_TRACKING: 'get_tracking',
+  GET_SERVICES: 'get_services',
+  GET_RATES: 'get_rates',
+  VALIDATE_ADDRESS: 'validate_address',
+  
+  // Data fetching intents
   FETCH_COURIER_DATA: 'fetch_courier_data',
-  FETCH_EPOD: 'epod',
-  GENERIC_REQUEST: 'api_request'
+  FETCH_EPOD: 'fetch_epod'
 };
 
 // Field mapping types
 export const FIELD_MAPPING_TYPES = {
+  RESPONSE: 'response',
+  REQUEST: 'request',
   TRACKING: 'tracking',
   EPOD: 'epod',
+  SHIPMENT: 'shipment',
   CUSTOM: 'custom'
 };
 
@@ -132,6 +157,48 @@ export const AUTH_TYPES = {
   API_KEY: 'api_key'
 };
 
+// Database Endpoints
+export const DB_ENDPOINTS = {
+  COURIERS: 'couriers',
+  CLIENTS: 'clients',
+  FIELD_MAPPINGS: 'field_mappings',
+  COURIER_CLIENTS: 'courier_clients',
+  JS_FILES: 'js_files',
+  USERS: 'users',
+  AUDIT_LOGS: 'audit_logs',
+  SETTINGS: 'settings'
+};
+
+// Authentication Endpoints
+export const AUTH_ENDPOINTS = {
+  LOGIN: '/auth/login',
+  REGISTER: '/auth/register',
+  REFRESH_TOKEN: '/auth/refresh-token',
+  USERS: '/users',
+  CHANGE_PASSWORD: '/auth/change-password',
+  RESET_PASSWORD: '/auth/reset-password',
+  FORGOT_PASSWORD: '/auth/forgot-password'
+};
+
+// User Roles
+export const USER_ROLES = {
+  ADMIN: 'admin',
+  USER: 'user',
+  CLIENT: 'client',
+  GUEST: 'guest'
+};
+
+// User Permissions
+export const USER_PERMISSIONS = {
+  VIEW_COURIERS: 'view:couriers',
+  MANAGE_COURIERS: 'manage:couriers',
+  VIEW_CLIENTS: 'view:clients',
+  MANAGE_CLIENTS: 'manage:clients',
+  MANAGE_USERS: 'manage:users',
+  VIEW_SETTINGS: 'view:settings',
+  MANAGE_SETTINGS: 'manage:settings'
+};
+
 // Export all constants as a default object for convenience
 export default {
   PROXY_ENDPOINTS,
@@ -150,5 +217,9 @@ export default {
   AUTH_TYPES,
   FIELD_MAPPING_TYPES,
   DEFAULT_TRACKING_FIELDS,
-  DEFAULT_EPOD_FIELDS
+  DEFAULT_EPOD_FIELDS,
+  DB_ENDPOINTS,
+  AUTH_ENDPOINTS,
+  USER_ROLES,
+  USER_PERMISSIONS
 };

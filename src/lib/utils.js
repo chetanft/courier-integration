@@ -1,192 +1,468 @@
 /**
- * Utility functions for the courier integration platform
+ * Utility Functions
+ * 
+ * This module provides utility functions used throughout the application.
  */
 
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-/**
- * Combines multiple class names and merges Tailwind classes
- * @param {...string} inputs - Class names to combine
- * @returns {string} - Merged class names
- */
-export function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
+import { SENSITIVE_HEADERS } from './constants';
 
 /**
- * Validate a URL string
- *
- * @param {string} url - The URL to validate
- * @returns {boolean} True if the URL is valid
+ * Format a date to a readable string
+ * 
+ * @param {string|Date} date - The date to format
+ * @param {Object} options - Formatting options
+ * @returns {string} Formatted date string
  */
-export const isValidUrl = (url) => {
+export const formatDate = (date, options = {}) => {
+  if (!date) return '';
+  
   try {
-    // Add protocol if missing
-    const urlWithProtocol = url.startsWith('http') ? url : `https://${url}`;
-    new URL(urlWithProtocol);
-    return true;
-  } catch (_) {
-    return false;
-  }
-};
-
-/**
- * Check if a URL points to a private IP or localhost
- *
- * @param {string} url - The URL to check
- * @returns {boolean} True if the URL points to a private IP or localhost
- */
-export const isPrivateUrl = (url) => {
-  try {
-    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-    const hostname = urlObj.hostname;
-
-    return hostname === 'localhost' ||
-           hostname === '127.0.0.1' ||
-           hostname.startsWith('192.168.') ||
-           hostname.startsWith('10.') ||
-           (hostname.startsWith('172.') &&
-            parseInt(hostname.split('.')[1]) >= 16 &&
-            parseInt(hostname.split('.')[1]) <= 31);
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    const defaultOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      ...options
+    };
+    
+    return new Intl.DateTimeFormat('en-US', defaultOptions).format(dateObj);
   } catch (error) {
-    return false;
+    console.error('Error formatting date:', error);
+    return String(date);
   }
 };
 
 /**
- * Get a nested value from an object using a path string
- * Similar to lodash.get but without the dependency
- *
- * @param {Object} obj - The object to get the value from
- * @param {string} path - The path to the value (e.g., 'data.user.name')
- * @param {*} defaultValue - The default value to return if the path doesn't exist
- * @returns {*} The value at the path or the default value
+ * Format a date to an ISO string
+ * 
+ * @param {string|Date} date - The date to format
+ * @returns {string} ISO date string
  */
-export const getNestedValue = (obj, path, defaultValue = undefined) => {
-  if (!obj || !path) {
-    return defaultValue;
-  }
-
-  const pathParts = path.split('.');
-  let current = obj;
-
-  for (const part of pathParts) {
-    if (current === null || current === undefined || typeof current !== 'object') {
-      return defaultValue;
-    }
-
-    current = current[part];
-  }
-
-  return current !== undefined ? current : defaultValue;
-};
-
-/**
- * Set a nested value in an object using a path string
- * Similar to lodash.set but without the dependency
- *
- * @param {Object} obj - The object to set the value in
- * @param {string} path - The path to set (e.g., 'data.user.name')
- * @param {*} value - The value to set
- * @returns {Object} The modified object
- */
-export const setNestedValue = (obj, path, value) => {
-  if (!obj || !path) {
-    return obj;
-  }
-
-  const pathParts = path.split('.');
-  let current = obj;
-
-  for (let i = 0; i < pathParts.length - 1; i++) {
-    const part = pathParts[i];
-
-    if (!(part in current)) {
-      current[part] = {};
-    }
-
-    current = current[part];
-  }
-
-  current[pathParts[pathParts.length - 1]] = value;
-  return obj;
-};
-
-/**
- * Safely parse JSON with error handling
- *
- * @param {string} jsonString - The JSON string to parse
- * @param {*} defaultValue - The default value to return if parsing fails
- * @returns {*} The parsed JSON or the default value
- */
-export const safeJsonParse = (jsonString, defaultValue = {}) => {
+export const toISOString = (date) => {
+  if (!date) return '';
+  
   try {
-    return JSON.parse(jsonString);
-  } catch (err) {
-    console.error('Error parsing JSON:', err.message);
-    return defaultValue;
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toISOString();
+  } catch (error) {
+    console.error('Error converting to ISO string:', error);
+    return '';
   }
 };
 
 /**
- * Redact sensitive information from an object for logging
- *
- * @param {Object} obj - The object to redact
- * @param {Array<string>} sensitiveKeys - Keys to redact (case-insensitive)
- * @returns {Object} The redacted object
+ * Truncate a string to a maximum length with ellipsis
+ * 
+ * @param {string} str - The string to truncate
+ * @param {number} maxLength - Maximum length
+ * @returns {string} Truncated string
  */
-export const redactSensitiveInfo = (obj, sensitiveKeys = ['password', 'token', 'key', 'secret', 'auth']) => {
+export const truncateString = (str, maxLength = 100) => {
+  if (!str) return '';
+  
+  if (str.length <= maxLength) {
+    return str;
+  }
+  
+  return str.substring(0, maxLength - 3) + '...';
+};
+
+/**
+ * Redact sensitive information in objects for logging
+ * 
+ * @param {Object} obj - The object to redact
+ * @returns {Object} Redacted object
+ */
+export const redactSensitiveInfo = (obj) => {
   if (!obj || typeof obj !== 'object') {
     return obj;
   }
-
-  const result = Array.isArray(obj) ? [...obj] : {...obj};
-
-  for (const key in result) {
-    if (Object.prototype.hasOwnProperty.call(result, key)) {
-      // Check if this key should be redacted
-      const shouldRedact = sensitiveKeys.some(sensitiveKey =>
-        key.toLowerCase().includes(sensitiveKey.toLowerCase())
-      );
-
-      if (shouldRedact && result[key]) {
-        // Redact the value but preserve the type
-        if (typeof result[key] === 'string') {
-          result[key] = '[REDACTED]';
-        } else if (typeof result[key] === 'object') {
-          result[key] = '[REDACTED_OBJECT]';
-        } else {
-          result[key] = '[REDACTED]';
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => redactSensitiveInfo(item));
+  }
+  
+  const redacted = { ...obj };
+  
+  // Redact common sensitive fields
+  ['password', 'token', 'apiKey', 'secret', 'key', 'privateKey', 'private_key'].forEach(field => {
+    if (field in redacted) {
+      redacted[field] = '[REDACTED]';
+    }
+  });
+  
+  // Redact headers
+  if (redacted.headers) {
+    if (Array.isArray(redacted.headers)) {
+      redacted.headers = redacted.headers.map(header => {
+        if (SENSITIVE_HEADERS.includes(header.key.toLowerCase())) {
+          return { ...header, value: '[REDACTED]' };
         }
-      } else if (typeof result[key] === 'object') {
-        // Recursively redact nested objects
-        result[key] = redactSensitiveInfo(result[key], sensitiveKeys);
-      }
+        return header;
+      });
+    } else if (typeof redacted.headers === 'object') {
+      const headers = { ...redacted.headers };
+      Object.keys(headers).forEach(key => {
+        if (SENSITIVE_HEADERS.includes(key.toLowerCase())) {
+          headers[key] = '[REDACTED]';
+        }
+      });
+      redacted.headers = headers;
     }
   }
-
-  return result;
+  
+  // Redact auth
+  if (redacted.auth) {
+    const auth = { ...redacted.auth };
+    ['password', 'token', 'apiKey', 'secret'].forEach(field => {
+      if (field in auth) {
+        auth[field] = '[REDACTED]';
+      }
+    });
+    redacted.auth = auth;
+  }
+  
+  // Recursively redact nested objects
+  Object.keys(redacted).forEach(key => {
+    if (typeof redacted[key] === 'object' && redacted[key] !== null) {
+      redacted[key] = redactSensitiveInfo(redacted[key]);
+    }
+  });
+  
+  return redacted;
 };
 
 /**
- * Calculate the approximate size of an object in bytes
- *
- * @param {*} object - The object to measure
- * @returns {number} Approximate size in bytes
+ * Safely parse JSON
+ * 
+ * @param {string} jsonString - The JSON string to parse
+ * @param {*} defaultValue - Default value if parsing fails
+ * @returns {*} Parsed object or default value
  */
-export const getObjectSize = (object) => {
-  const objectString = JSON.stringify(object);
-  return new Blob([objectString]).size;
+export const safeJsonParse = (jsonString, defaultValue = null) => {
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error('Error parsing JSON:', error);
+    return defaultValue;
+  }
 };
 
 /**
- * Check if an object exceeds a size limit
- *
- * @param {*} object - The object to check
- * @param {number} maxSizeBytes - Maximum size in bytes (default: 5MB)
- * @returns {boolean} True if the object exceeds the size limit
+ * Safely stringify an object to JSON
+ * 
+ * @param {*} value - The value to stringify
+ * @param {*} defaultValue - Default value if stringification fails
+ * @returns {string} JSON string or default value
  */
-export const exceedsMaxSize = (object, maxSizeBytes = 5 * 1024 * 1024) => {
-  return getObjectSize(object) > maxSizeBytes;
+export const safeJsonStringify = (value, defaultValue = '{}') => {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    console.error('Error stringifying JSON:', error);
+    return defaultValue;
+  }
+};
+
+/**
+ * Convert an object to query string parameters
+ * 
+ * @param {Object} params - The parameters to convert
+ * @returns {string} Query string (without leading ?)
+ */
+export const objectToQueryString = (params) => {
+  if (!params || typeof params !== 'object') {
+    return '';
+  }
+  
+  // Filter out undefined and null values first
+  const filteredParams = {};
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      filteredParams[key] = value;
+    }
+  });
+  
+  return Object.entries(filteredParams)
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return value
+          .map(item => `${encodeURIComponent(key)}=${encodeURIComponent(item)}`)
+          .join('&');
+      }
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    })
+    .join('&');
+};
+
+/**
+ * Parse query string parameters to an object
+ * 
+ * @param {string} queryString - The query string to parse
+ * @returns {Object} Parsed parameters
+ */
+export const queryStringToObject = (queryString) => {
+  if (!queryString) {
+    return {};
+  }
+  
+  // Remove leading ? if present
+  const normalizedQuery = queryString.startsWith('?') 
+    ? queryString.substring(1) 
+    : queryString;
+  
+  // Split and parse
+  return normalizedQuery
+    .split('&')
+    .filter(Boolean)
+    .reduce((acc, param) => {
+      const parts = param.split('=');
+      if (parts.length !== 2) return acc;
+      
+      const key = decodeURIComponent(parts[0]);
+      const value = decodeURIComponent(parts[1]);
+      
+      // Handle array parameters (key[]=value format)
+      if (key.endsWith('[]')) {
+        const arrayKey = key.slice(0, -2);
+        acc[arrayKey] = acc[arrayKey] || [];
+        acc[arrayKey].push(value);
+      } else {
+        acc[key] = value;
+      }
+      
+      return acc;
+    }, {});
+};
+
+/**
+ * Deep copy an object
+ * 
+ * @param {*} obj - The object to copy
+ * @returns {*} Deep copy of the object
+ */
+export const deepCopy = (obj) => {
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch (error) {
+    console.error('Error during deep copy:', error);
+    return obj;
+  }
+};
+
+/**
+ * Generate a unique ID
+ * 
+ * @param {string} prefix - Optional prefix for the ID
+ * @returns {string} Unique ID
+ */
+export const generateId = (prefix = '') => {
+  return `${prefix}${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 9)}`;
+};
+
+/**
+ * Extract dot notation path from object
+ * 
+ * @param {Object} obj - The object to extract from
+ * @param {string} path - The dot notation path
+ * @param {*} defaultValue - Default value if path not found
+ * @returns {*} The value at the path or default value
+ */
+export const getValueByPath = (obj, path, defaultValue = null) => {
+  if (!obj || !path) {
+    return defaultValue;
+  }
+  
+  try {
+    const pathArray = path.split('.');
+    
+    let value = obj;
+    
+    for (const key of pathArray) {
+      // Handle array indexing
+      if (key.includes('[') && key.includes(']')) {
+        const propName = key.substring(0, key.indexOf('['));
+        const indexStr = key.substring(key.indexOf('[') + 1, key.indexOf(']'));
+        const index = parseInt(indexStr, 10);
+        
+        if (value[propName] && Array.isArray(value[propName]) && !isNaN(index)) {
+          value = value[propName][index];
+        } else {
+          return defaultValue;
+        }
+      } else {
+        if (value === undefined || value === null || !(key in value)) {
+          return defaultValue;
+        }
+        
+        value = value[key];
+      }
+    }
+    
+    return value === undefined ? defaultValue : value;
+  } catch (error) {
+    console.error('Error extracting path:', error);
+    return defaultValue;
+  }
+};
+
+/**
+ * Set value at dot notation path in object
+ * 
+ * @param {Object} obj - The object to modify
+ * @param {string} path - The dot notation path
+ * @param {*} value - The value to set
+ * @returns {Object} The modified object
+ */
+export const setValueByPath = (obj, path, value) => {
+  if (!obj || !path) {
+    return obj;
+  }
+  
+  try {
+    const pathArray = path.split('.');
+    let target = obj;
+    
+    for (let i = 0; i < pathArray.length - 1; i++) {
+      const key = pathArray[i];
+      
+      // Handle array indexing in path
+      if (key.includes('[') && key.includes(']')) {
+        const propName = key.substring(0, key.indexOf('['));
+        const indexStr = key.substring(key.indexOf('[') + 1, key.indexOf(']'));
+        const index = parseInt(indexStr, 10);
+        
+        // Create property if it doesn't exist
+        if (!(propName in target)) {
+          target[propName] = [];
+        }
+        
+        // Create array elements if they don't exist
+        while (target[propName].length <= index) {
+          target[propName].push({});
+        }
+        
+        target = target[propName][index];
+      } else {
+        // Create nested object if it doesn't exist
+        if (!(key in target) || target[key] === null || typeof target[key] !== 'object') {
+          target[key] = {};
+        }
+        
+        target = target[key];
+      }
+    }
+    
+    // Set the value at the final path segment
+    const lastKey = pathArray[pathArray.length - 1];
+    
+    // Handle array indexing in the last path segment
+    if (lastKey.includes('[') && lastKey.includes(']')) {
+      const propName = lastKey.substring(0, lastKey.indexOf('['));
+      const indexStr = lastKey.substring(lastKey.indexOf('[') + 1, lastKey.indexOf(']'));
+      const index = parseInt(indexStr, 10);
+      
+      // Create property if it doesn't exist
+      if (!(propName in target)) {
+        target[propName] = [];
+      }
+      
+      // Create array elements if they don't exist
+      while (target[propName].length <= index) {
+        target[propName].push(undefined);
+      }
+      
+      target[propName][index] = value;
+    } else {
+      target[lastKey] = value;
+    }
+    
+    return obj;
+  } catch (error) {
+    console.error('Error setting value at path:', error);
+    return obj;
+  }
+};
+
+/**
+ * Check if an object is empty (has no properties)
+ * 
+ * @param {Object} obj - The object to check
+ * @returns {boolean} Whether the object is empty
+ */
+export const isEmptyObject = (obj) => {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    return true;
+  }
+  
+  return Object.keys(obj).length === 0;
+};
+
+/**
+ * Convert a file size in bytes to a human-readable string
+ * 
+ * @param {number} bytes - The file size in bytes
+ * @param {number} decimals - Number of decimal places
+ * @returns {string} Human-readable file size
+ */
+export const formatFileSize = (bytes, decimals = 2) => {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
+/**
+ * Check if a variable is a promise
+ * 
+ * @param {*} value - The value to check
+ * @returns {boolean} Whether the value is a promise
+ */
+export const isPromise = (value) => {
+  return value !== null 
+    && typeof value === 'object' 
+    && typeof value.then === 'function' 
+    && typeof value.catch === 'function';
+};
+
+/**
+ * Join URL paths, handling trailing and leading slashes
+ * 
+ * @param {...string} paths - URL paths to join
+ * @returns {string} Joined URL
+ */
+export const joinUrlPaths = (...paths) => {
+  return paths
+    .map(path => String(path).trim())
+    .filter(Boolean)
+    .map(path => path.replace(/^\/+|\/+$/g, ''))
+    .join('/');
+};
+
+// Export default object with all functions
+export default {
+  formatDate,
+  toISOString,
+  truncateString,
+  redactSensitiveInfo,
+  safeJsonParse,
+  safeJsonStringify,
+  objectToQueryString,
+  queryStringToObject,
+  deepCopy,
+  generateId,
+  getValueByPath,
+  setValueByPath,
+  isEmptyObject,
+  formatFileSize,
+  isPromise,
+  joinUrlPaths
 };

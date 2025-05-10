@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import RequestBuilder from '../request-builder';
 import { parseCurl } from '../../lib/curl-parser';
-import { fetchCourierData } from '../../lib/courier-api-service';
+import apiService from '../../lib/api-service';
 import { updateClientApiUrl, fetchAndStoreCourierData } from '../../lib/supabase-service';
 import ApiFilterOptions from './ApiFilterOptions';
 import { useToast } from '../ui/use-toast';
@@ -19,6 +19,7 @@ import {
   FormDescription,
   FormMessage,
 } from '../ui/form';
+import { API_INTENTS, AUTH_TYPES } from '../../lib/constants';
 
 const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData }) => {
   const [loading, setLoading] = useState(false);
@@ -33,9 +34,9 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
     defaultValues: {
       method: 'GET',
       url: '',
-      apiIntent: 'fetch_courier_data', // Custom intent for fetching couriers
+      apiIntent: API_INTENTS.FETCH_COURIER_DATA, // Custom intent for fetching couriers
       auth: {
-        type: 'none',
+        type: AUTH_TYPES.NONE,
         username: '',
         password: '',
         token: '',
@@ -60,6 +61,76 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
     }
   });
 
+  // Process API response to extract courier data
+  const extractCouriersFromResponse = (response, filterOpts = {}) => {
+    if (!response) return [];
+    
+    // Extract data from common response structures
+    const data = apiService.extractResponseData(response);
+    
+    if (!data) return [];
+    
+    // If data is already an array, process it
+    if (Array.isArray(data)) {
+      return processCourierDataArray(data, filterOpts);
+    }
+    
+    // If data is an object with courier info, return as single courier
+    if (data.name && (data.id || data.courier_id)) {
+      return [normalizeCourierData(data)];
+    }
+    
+    // Look for courier arrays in common object properties
+    for (const prop in data) {
+      if (Array.isArray(data[prop])) {
+        const couriers = processCourierDataArray(data[prop], filterOpts);
+        if (couriers.length > 0) {
+          return couriers;
+        }
+      }
+    }
+    
+    return [];
+  };
+  
+  // Process an array of potential courier data
+  const processCourierDataArray = (array, filterOpts = {}) => {
+    // Apply filters if needed
+    let filtered = array;
+    
+    if (filterOpts.nameFilter && filterOpts.nameFilter.trim()) {
+      const nameFilter = filterOpts.nameFilter.toLowerCase().trim();
+      filtered = filtered.filter(item => {
+        // Check common name fields
+        const name = item.name || item.courier_name || item.courierName || '';
+        return name.toLowerCase().includes(nameFilter);
+      });
+    }
+    
+    // Try to normalize each item
+    return filtered
+      .map(normalizeCourierData)
+      .filter(c => c !== null && c.name); // Filter out invalid items
+  };
+  
+  // Normalize courier data to a standard format
+  const normalizeCourierData = (item) => {
+    if (!item) return null;
+    
+    // Extract basic courier info
+    return {
+      id: item.id || item.courier_id || item.courierId || null,
+      name: item.name || item.courier_name || item.courierName || 'Unknown Courier',
+      code: item.code || item.courier_code || item.courierCode || null,
+      description: item.description || null,
+      website: item.website || item.url || null,
+      logo: item.logo || item.logoUrl || null,
+      active: item.active !== false,
+      tracking_url: item.tracking_url || item.trackingUrl || null,
+      raw_data: item // Store the original data
+    };
+  };
+
   const onSubmit = async (data) => {
     setLoading(true);
     setError(null);
@@ -70,7 +141,7 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
       const requestConfig = {
         url: data.url.trim(),
         method: data.method || 'GET',
-        apiIntent: 'fetch_courier_data',
+        apiIntent: API_INTENTS.FETCH_COURIER_DATA,
         headers: data.headers || [],
         queryParams: data.queryParams || [],
         body: data.body || {}
@@ -84,7 +155,7 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
         const hasAuthHeader = requestConfig.headers.some(h => h.key.toLowerCase() === 'authorization');
 
         // If we have auth data, use it
-        if (data.auth && data.auth.type === 'bearer' && data.auth.token) {
+        if (data.auth && data.auth.type === AUTH_TYPES.BEARER && data.auth.token) {
           // Add Authorization header if not already present
           if (!hasAuthHeader) {
             requestConfig.headers.push({
@@ -111,7 +182,7 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
 
           // For FreightTiger, we'll add a default auth type to help with proxy handling
           if (!requestConfig.auth) {
-            requestConfig.auth = { type: 'bearer', token: '' };
+            requestConfig.auth = { type: AUTH_TYPES.BEARER, token: '' };
           }
 
           // Add a special flag to indicate we're using FreightTiger API
@@ -120,27 +191,27 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
       }
 
       // Add authentication if provided
-      if (data.auth && data.auth.type !== 'none') {
+      if (data.auth && data.auth.type !== AUTH_TYPES.NONE) {
         requestConfig.auth = {
           type: data.auth.type
         };
 
         // Add auth details based on type
         switch (data.auth.type) {
-          case 'basic':
+          case AUTH_TYPES.BASIC:
             requestConfig.auth.username = data.auth.username;
             requestConfig.auth.password = data.auth.password;
             break;
-          case 'bearer':
-          case 'jwt':
+          case AUTH_TYPES.BEARER:
+          case AUTH_TYPES.JWT:
             requestConfig.auth.token = data.auth.token;
             break;
           case 'jwt_auth':
-            requestConfig.auth.jwtAuthEndpoint = data.auth.jwtAuthEndpoint;
-            requestConfig.auth.jwtAuthMethod = data.auth.jwtAuthMethod;
-            requestConfig.auth.jwtAuthHeaders = data.auth.jwtAuthHeaders;
-            requestConfig.auth.jwtAuthBody = data.auth.jwtAuthBody;
-            requestConfig.auth.jwtTokenPath = data.auth.jwtTokenPath;
+            requestConfig.auth.tokenEndpoint = data.auth.jwtAuthEndpoint;
+            requestConfig.auth.tokenMethod = data.auth.jwtAuthMethod;
+            requestConfig.auth.tokenHeaders = data.auth.jwtAuthHeaders;
+            requestConfig.auth.tokenBody = data.auth.jwtAuthBody;
+            requestConfig.auth.tokenPath = data.auth.jwtTokenPath;
             break;
           case 'oauth':
             requestConfig.auth.clientId = data.auth.clientId;
@@ -148,10 +219,9 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
             requestConfig.auth.tokenEndpoint = data.auth.tokenEndpoint;
             requestConfig.auth.scope = data.auth.scope;
             break;
-          case 'apikey':
+          case AUTH_TYPES.API_KEY:
             requestConfig.auth.apiKey = data.auth.apiKey;
             requestConfig.auth.apiKeyName = data.auth.apiKeyName;
-            requestConfig.auth.apiKeyLocation = data.auth.apiKeyLocation;
             break;
         }
       }
@@ -160,8 +230,11 @@ const CourierApiIntegrationForm = ({ clientId, onSuccess, onError, onParsedData 
       setFetchingCouriers(true);
       const url = data.url.trim();
 
+      // Make the API request using our unified API service
+      const response = await apiService.makeApiRequest(requestConfig);
+      
       // Extract couriers from the response
-      const couriers = await fetchCourierData(url, requestConfig, filterOptions);
+      const couriers = extractCouriersFromResponse(response, filterOptions);
 
       if (!couriers || couriers.length === 0) {
         setError({
